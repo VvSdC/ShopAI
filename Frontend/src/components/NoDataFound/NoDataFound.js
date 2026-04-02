@@ -5,14 +5,14 @@ const NoDataFound = () => {
     <div
       style={{
         display: 'flex',
-        justifyContent: 'right',
+        justifyContent: 'center',
         alignItems: 'center',
-        textAlign: 'right',
+        textAlign: 'center',
       }}
     >
       <h1
         className="text-xl"
-        style={{ fontSize: '30px', fontFamily: 'cursive' , marginTop:'40px' ,marginLeft : 'auto' }}
+        style={{ fontSize: '30px', fontFamily: 'cursive', marginTop: '40px' }}
       >
         No Data Found
       </h1>
