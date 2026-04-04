@@ -16,7 +16,7 @@ import {
   UserGroupIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-import logo from '../Navbar/easyshop.jpg'
+// logo removed; replace with new asset when available
 import user from './user.png'
 const ordersLinks = [
   {

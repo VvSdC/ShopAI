@@ -1,7 +1,7 @@
 {
-  "name": "easyshop",
+  "name": "shopai",
   "version": "1.0.0",
-  "description": "easyshop server",
+  "description": "shopai server",
   "main": "server.js",
   "type": "module",
   "scripts": {

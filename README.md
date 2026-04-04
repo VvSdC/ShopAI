@@ -1,76 +1,77 @@
-# EasyShop
+# ShopAI
 
-## EasyShop is a friendly online shopping app that helps you easily find and buy products. It's designed to make your shopping experience smooth and effortless. You can explore different categories and use filters like color, price, size, and brand to quickly find exactly what you want to buy. It's all about making your shopping convenient and enjoyable.
+ShopAI is a full‑stack e‑commerce demo application demonstrating a complete shopping experience (React + Redux frontend, Node/Express backend). It includes product browsing and filtering, a persistent cart with coupons, Stripe checkout, and an admin dashboard for managing products, categories, brands, colors, coupons and orders.
 
-Click <a href="https://docs.google.com/presentation/d/1YLva10v9jhPlpWXKgxbBNKJ_Y08ItV7l/edit?usp=drive_link&ouid=100759929152238592141&rtpof=true&sd=true" target="_blank">here</a> for details about technologies used and their features. 
+## Key features
 
-### Technologies used : 
-<ul>
-  <li>React.JS</li>
-  <li>Redux</li>
-  <li>Express.JS</li>
-  <li>MongoDB</li>
-  <li>Stripe</li>
-  <li>Cloudinary</li>
-  <li>JWT</li>
-  <li>Node.JS</li>
-  <li>CSS</li>
-</ul>
+- Product catalog
+  - Category, brand, color, size and price filters
+  - Search and pagination
+- Product detail pages
+  - Multiple images, descriptions, available sizes/colors, and user reviews
+- Cart and checkout
+  - Cart persisted in localStorage with quantity updates and item removal
+  - Apply coupon codes to get discounts
+  - Checkout flow integrated with Stripe for payments and order creation
+- Admin dashboard
+  - Add / edit / remove products and images (Cloudinary)
+  - Manage stock, categories, brands, colors and coupons
+  - View and update orders
+- Authentication & users
+  - JWT-based auth for protected routes, user profiles and order history
 
-### Steps to set up and run project
-<ul>
-  <li>Create an account in Cloudinary , Stripe</li>
-  <li>Run <strong>npm install</strong> to install all required npm packages</li>
-  <li>Change endpoint secret code in <strong>app/app.js</strong> with your existing code provided by stripe (PS : Even though account is same the code changes each time a new session is created. So keep changing it whenever code is to be executed)</li>
-  <li>Create a .env file in project folder in backend an fill values of JWT_KEY, STRIPE_KEY , CLOUDINARY_CLOUD_NAME , CLOUDINARY_API_KEY , CLOUDINARY_API_SECREAT_KEY , MONGO_URL(Present in local mongoDB) as per values in your created accounts. </li>
-  <li>Open 2 terminals. 1 terminal to run backend part , 1 terminal for frontend. Both can be run using <strong>npm start</strong></li>
-  <li>Download stripe and perform operations as instructed in it. Stripe must be running while opening project</li>
-</ul>
+## Tech stack
 
-### Glimpse of Website
+- Frontend: React, Redux, React Router, Tailwind CSS
+- Backend: Node.js, Express, MongoDB (Mongoose)
+- Payments: Stripe
+- Images: Cloudinary
+- Auth: JWT
 
-#### Admin Home page 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/d14c0316-a7d5-4fd0-a650-6e789e47a871)
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/49e1f5a8-f06f-4e71-9656-f8f17e852866)
+## Quick start
 
-#### Products Page
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/3521d354-a6b7-4cc9-85b1-0900b98f3098)
+1. Clone the repository and open the project root.
+2. Install dependencies for both backend and frontend:
 
-#### Product description page
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/6ad409ef-617f-496b-97d4-28cac8de0943)
+```bash
+cd Backend
+npm install
 
-#### Admin Dashboard
+cd ../Frontend
+npm install
+```
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/34b677ea-1549-44bf-a40e-93617e6de05c)
+3. Create a `.env` file in the `Backend/` folder with the required variables (confirm exact names in `Backend/app/app.js` and `Backend/config`):
 
-##### Add products page (Admin)
+- `PORT` (optional)
+- `MONGO_URL` — MongoDB connection string
+- `JWT_KEY` — secret for signing JWTs
+- `STRIPE_KEY` — Stripe secret key
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/b5f02e68-6774-4209-b8a6-e20404aa8762)
+4. Start the servers in separate terminals:
 
-##### Manage products stock (Admin)
+```bash
+# Backend
+cd Backend
+npm run server
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/c2d9298e-849e-42aa-b2a7-f357158b75d9)
+# Frontend
+cd ../Frontend
+npm start
+```
 
-##### Add coupons page (Admin)
+## Project layout (high level)
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/86fdf8e9-8a13-4f80-a2c9-0e0577398b9e)
+- `Backend/` — Express app, models, controllers, routes, middlewares, config
+- `Frontend/` — React app, components, redux slices, styles
 
-##### All categories page (Admin dashboard)
+## Notes & troubleshooting
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/fee7f8c3-3d2d-4584-a665-88078d2c1a61)
+- The backend and frontend `package.json` files have been renamed to `shopai` for consistency.
+- When testing payments locally you may want to use the Stripe CLI or test keys; ensure webhooks and keys are configured correctly.
+- If image uploads fail, verify Cloudinary credentials and network access.
 
-##### All brands page (Admin dashboard)
+## Contributing
 
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/13e38e39-bf3c-4c49-b84b-c0089e3ce9a8)
-
-
-
-#### Log-in page
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/70008d51-31af-4b16-9275-e3d6f4a01b1d)
-
-#### Register or Sign-up page
-![image](https://github.com/VVSD-Charan/EasyShop/assets/105978561/babc78cb-276f-407d-88ff-95f58a6d8e12)
-
-
-
-
+- Open an issue or submit a pull request. For major changes, please create a branch and include clear testing steps.

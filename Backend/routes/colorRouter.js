@@ -1,4 +1,4 @@
-import exppress from "express";
+import express from "express";
 import {
   createColorCtrl,
   deleteColorCtrl,
@@ -9,7 +9,7 @@ import {
 import isAdmin from "../middlewares/isAdmin.js";
 
 import { isLoggedIn } from "../middlewares/isLoggedIn.js";
-const colorRouter = exppress.Router();
+const colorRouter = express.Router();
 
 isAdmin;
 colorRouter.post("/", isLoggedIn, isAdmin, createColorCtrl);

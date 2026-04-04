@@ -1,4 +1,4 @@
-import exppress from 'express'
+import express from 'express'
 import upload from '../config/fileUpload.js'
 import {
   createProductCtrl,
@@ -10,7 +10,7 @@ import {
 import isAdmin from '../middlewares/isAdmin.js'
 import { isLoggedIn } from '../middlewares/isLoggedIn.js'
 
-const productsRouter = exppress.Router()
+const productsRouter = express.Router()
 
 productsRouter.post(
   '/',

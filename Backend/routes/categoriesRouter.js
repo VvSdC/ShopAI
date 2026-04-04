@@ -1,4 +1,4 @@
-import exppress from 'express'
+import express from 'express'
 import catetgoryFileUpload from '../config/categoryUpload.js'
 import {
   createCategoryCtrl,
@@ -10,7 +10,7 @@ import {
 import { isLoggedIn } from '../middlewares/isLoggedIn.js'
 import isAdmin from '../middlewares/isAdmin.js'
 
-const categoriesRouter = exppress.Router()
+const categoriesRouter = express.Router()
 
 categoriesRouter.post(
   '/',

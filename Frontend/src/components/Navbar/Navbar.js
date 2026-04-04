@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import baseURL from '../../utils/baseURL'
-import logo from './easyshop.jpg'
+import logo from './shopai.png'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
@@ -49,12 +49,10 @@ export default function Navbar() {
   useEffect(() => {
     dispatch(fetchCouponsAction())
   }, [dispatch])
-  //get coupons
+  // get coupons
   const { coupons, loading, error } = useSelector((state) => state?.coupons)
-  //Get current coupon
-  const currentCoupon = coupons
-    ? coupons?.coupons?.[coupons?.coupons?.length - 1]
-    : console.log(currentCoupon)
+  // Get current coupon (most recent) or null
+  const currentCoupon = coupons ? coupons.coupons?.[coupons.coupons.length - 1] : null
 
   return (
     <div className="bg-white">
@@ -219,17 +217,8 @@ export default function Navbar() {
                   {/* Logo (lg+) */}
                   <div className="hidden lg:flex lg:items-center">
                     <Link to="/">
-                      <span className="sr-only">Your Company</span>
-                      <img
-                        className=" pt-2 w-auto"
-                        style={{
-                          height: '60px',
-                          width: '170px',
-                          
-                        }}
-                        src={logo}
-                        alt="easyShop logo"
-                      />
+                      <span className="sr-only">ShopAI</span>
+                      <img src={logo} alt="ShopAI logo" className="h-12 w-auto" style={{ mixBlendMode: 'multiply' }} />
                     </Link>
                   </div>
 
@@ -297,19 +286,7 @@ export default function Navbar() {
                   </div>
                   {/* logo */}
                   <Link to="/" className="lg:hidden">
-                    <img
-                      className="h-32"
-                      src={logo}
-                      alt="easyShop logo"
-                      style={{
-                        height: '60px',
-                        width: '110px',
-                        marginTop: '4px',
-                        position: 'absolute',
-                        top: 0,
-                        left: '100px',
-                      }}
-                    />
+                    <img src={logo} alt="ShopAI logo" className="h-10 w-auto" style={{ mixBlendMode: 'multiply' }} />
                   </Link>
 
                   {/* login profile icon mobile */}

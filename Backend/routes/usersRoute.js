@@ -1,4 +1,4 @@
-import exppress from "express";
+import express from "express";
 import {
   registerUserCtrl,
   loginUserCtrl,
@@ -7,7 +7,7 @@ import {
 } from "../controllers/usersCtrl.js";
 import { isLoggedIn } from "../middlewares/isLoggedIn.js";
 
-const userRoutes = exppress.Router();
+const userRoutes = express.Router();
 
 userRoutes.post("/register", registerUserCtrl);
 userRoutes.post("/login", loginUserCtrl);

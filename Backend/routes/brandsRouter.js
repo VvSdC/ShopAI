@@ -1,4 +1,4 @@
-import exppress from "express";
+import express from "express";
 import {
   createBrandCtrl,
   deleteBrandCtrl,
@@ -10,7 +10,7 @@ import isAdmin from "../middlewares/isAdmin.js";
 
 import { isLoggedIn } from "../middlewares/isLoggedIn.js";
 
-const brandsRouter = exppress.Router();
+const brandsRouter = express.Router();
 
 brandsRouter.post("/", isLoggedIn, isAdmin, createBrandCtrl);
 brandsRouter.get("/", getAllBrandsCtrl);
