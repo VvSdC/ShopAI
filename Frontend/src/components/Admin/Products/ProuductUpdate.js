@@ -82,15 +82,46 @@ export default function ProductUpdate() {
 
   //---form data---
   const [formData, setFormData] = useState({
-    name: product?.product?.name,
-    description: product?.product?.description,
+    name: "",
+    description: "",
     category: "",
-    sizes: "",
+    sizes: [],
     brand: "",
-    colors: "",
-    price: product?.product?.price,
-    totalQty: product?.product?.totalQty,
+    colors: [],
+    price: "",
+    totalQty: "",
   });
+
+  // When product is loaded, populate form and select values
+  useEffect(() => {
+    if (product) {
+      // `product` in slice is the product object (not nested)
+      setFormData({
+        name: product?.name || "",
+        description: product?.description || "",
+        category: product?.category || "",
+        sizes: product?.sizes || [],
+        brand: product?.brand || "",
+        colors: product?.colors || [],
+        price: product?.price || "",
+        totalQty: product?.totalQty || "",
+      })
+
+      // initialize size select values
+      const initialSizes = (product?.sizes || []).map((s) => ({
+        value: s,
+        label: s,
+      }))
+      setSizeOption(initialSizes)
+
+      // initialize color select values
+      const initialColors = (product?.colors || []).map((c) => ({
+        value: c,
+        label: c,
+      }))
+      setColorsOption(initialColors)
+    }
+  }, [product])
 
   //onChange
   const handleOnChange = (e) => {
@@ -172,7 +203,8 @@ export default function ProductUpdate() {
                   isLoading={false}
                   isSearchable={true}
                   closeMenuOnSelect={false}
-                  onChange={(item) => handleSizeChange(item)}
+                    onChange={(item) => handleSizeChange(item)}
+                    value={sizeOption}
                 />
               </div>
               {/* Select category */}
@@ -231,6 +263,7 @@ export default function ProductUpdate() {
                   isSearchable={true}
                   closeMenuOnSelect={false}
                   onChange={(e) => handleColorChange(e)}
+                  value={colorsOption}
                 />
               </div>
 
