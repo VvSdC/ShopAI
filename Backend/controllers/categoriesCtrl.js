@@ -13,10 +13,17 @@ export const createCategoryCtrl = async (req, res) => {
     throw new Error('Category already exists')
   }
   //create
+  // Ensure an image file was uploaded
+  if (!req?.file?.path && !req?.body?.image) {
+    const err = new Error('Category image is required')
+    err.statusCode = 400
+    throw err
+  }
+
   const category = await Category.create({
     name: name?.toLowerCase(),
     user: req.userAuthId,
-    image: req?.file?.path,
+    image: req?.file?.path || req.body.image,
   })
   res.json({
     status: 'success',
