@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import axios from 'axios'
+import axiosInstance from '../../../utils/axiosInstance'
 
 import baseURL from '../../../utils/baseURL'
 import {
@@ -16,9 +16,8 @@ const initialState = {
   userAuth: {
     loading: false,
     error: null,
-    userInfo: localStorage.getItem('userInfo')
-      ? JSON.parse(localStorage.getItem('userInfo'))
-      : null,
+    isLoggedIn: false,
+    userInfo: null,
   },
 }
 
@@ -31,7 +30,7 @@ export const registerUserAction = createAsyncThunk(
   ) => {
     try {
       //make the http request
-      const { data } = await axios.post(`${baseURL}/users/register`, {
+      const { data } = await axiosInstance.post(`/users/register`, {
         email,
         password,
         fullname,
@@ -71,15 +70,8 @@ export const updateUserShippingAddressAction = createAsyncThunk(
       country
     )
     try {
-      //get token
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-      const { data } = await axios.put(
-        `${baseURL}/users/update/shipping`,
+      const { data } = await axiosInstance.put(
+        `/users/update/shipping`,
         {
           firstName,
           lastName,
@@ -89,8 +81,7 @@ export const updateUserShippingAddressAction = createAsyncThunk(
           province,
           phone,
           country,
-        },
-        config
+        }
       )
       return data
     } catch (error) {
@@ -105,14 +96,7 @@ export const getUserProfileAction = createAsyncThunk(
   'users/profile-fetched',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      //get token
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-      const { data } = await axios.get(`${baseURL}/users/profile`, config)
+      const { data } = await axiosInstance.get(`/users/profile`)
       return data
     } catch (error) {
       console.log(error)
@@ -126,16 +110,27 @@ export const loginUserAction = createAsyncThunk(
   'users/login',
   async ({ email, password }, { rejectWithValue, getState, dispatch }) => {
     try {
-      //make the http request
-      const { data } = await axios.post(`${baseURL}/users/login`, {
+      //make the http request (cookies set automatically by backend)
+      const { data } = await axiosInstance.post(`/users/login`, {
         email,
         password,
       })
-      //save the user into localstorage
-      localStorage.setItem('userInfo', JSON.stringify(data))
       return data
     } catch (error) {
       console.log(error)
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//get current user from JWT cookie
+export const getCurrentUserAction = createAsyncThunk(
+  'users/get-current-user',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(`/users/me`)
+      return data
+    } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
   }
@@ -145,8 +140,12 @@ export const loginUserAction = createAsyncThunk(
 export const logoutAction = createAsyncThunk(
   'users/logout',
   async (payload, { rejectWithValue, getState, dispatch }) => {
-    //get token
-    localStorage.removeItem('userInfo')
+    try {
+      // Call backend to clear httpOnly cookies
+      await axiosInstance.post(`/users/logout`)
+    } catch (error) {
+      // Continue with local cleanup even if backend call fails
+    }
     localStorage.removeItem('cartItems')
     return true
   }
@@ -164,11 +163,25 @@ const usersSlice = createSlice({
       state.userAuth.loading = true
     })
     builder.addCase(loginUserAction.fulfilled, (state, action) => {
-      state.userAuth.userInfo = action.payload
+      state.userAuth.isLoggedIn = true
       state.userAuth.loading = false
     })
     builder.addCase(loginUserAction.rejected, (state, action) => {
       state.userAuth.error = action.payload
+      state.userAuth.loading = false
+    })
+    //get current user
+    builder.addCase(getCurrentUserAction.pending, (state, action) => {
+      state.userAuth.loading = true
+    })
+    builder.addCase(getCurrentUserAction.fulfilled, (state, action) => {
+      state.userAuth.userInfo = action.payload?.user
+      state.userAuth.isLoggedIn = true
+      state.userAuth.loading = false
+    })
+    builder.addCase(getCurrentUserAction.rejected, (state, action) => {
+      state.userAuth.userInfo = null
+      state.userAuth.isLoggedIn = false
       state.userAuth.loading = false
     })
     //register
@@ -186,6 +199,7 @@ const usersSlice = createSlice({
     //logout
     builder.addCase(logoutAction.fulfilled, (state, action) => {
       state.userAuth.userInfo = null
+      state.userAuth.isLoggedIn = false
     })
     //profile
     builder.addCase(getUserProfileAction.pending, (state, action) => {

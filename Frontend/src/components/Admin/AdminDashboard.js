@@ -166,14 +166,14 @@ const brandsLinks = [
 
 export default function AddminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // get logged in user from redux (set at login)
+  // get logged in user from redux (set from JWT claims via /me)
   const { userAuth } = useSelector((state) => state?.users)
-  const userFound = userAuth?.userInfo?.userFound
-  const fullname = userFound?.fullname || 'Admin'
-  const email = userFound?.email || 'admin@gmail.com'
-  const createdAt = userFound?.createdAt
-  const dateJoined = createdAt ? new Date(createdAt).toLocaleDateString() : 'N/A'
-  const role = userFound?.isAdmin ? 'Admin' : 'User'
+  const currentUser = userAuth?.userInfo
+  const fullname = currentUser?.fullname || 'Admin'
+  const email = ''
+  const createdAt = null
+  const dateJoined = 'N/A'
+  const role = currentUser?.isAdmin ? 'Admin' : 'User'
 
   return (
     <>

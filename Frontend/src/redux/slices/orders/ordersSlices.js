@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axiosInstance from '../../../utils/axiosInstance'
 import { act } from 'react-dom/test-utils'
 import baseURL from '../../../utils/baseURL'
 import {
@@ -24,22 +24,14 @@ export const placeOrderAction = createAsyncThunk(
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
       const { orderItems, shippingAddress, totalPrice } = payload
-      //token
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
       //request
-      const { data } = await axios.post(
-        `${baseURL}/orders`,
+      const { data } = await axiosInstance.post(
+        `/orders`,
         {
           orderItems,
           shippingAddress,
           totalPrice,
-        },
-        config
+        }
       )
       return window.open(data?.url)
     } catch (error) {
@@ -53,14 +45,7 @@ export const fetchOrdersAction = createAsyncThunk(
   'orders/list',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-
-      const { data } = await axios.get(`${baseURL}/orders`, config)
+      const { data } = await axiosInstance.get(`/orders`)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -73,14 +58,7 @@ export const OrdersStatsAction = createAsyncThunk(
   'orders/statistics',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-
-      const { data } = await axios.get(`${baseURL}/orders/sales/stats`, config)
+      const { data } = await axiosInstance.get(`/orders/sales/stats`)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -93,14 +71,7 @@ export const fetchOderAction = createAsyncThunk(
   'orders/details',
   async (productId, { rejectWithValue, getState, dispatch }) => {
     try {
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-
-      const { data } = await axios.get(`${baseURL}/orders/${productId}`, config)
+      const { data } = await axiosInstance.get(`/orders/${productId}`)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -114,20 +85,12 @@ export const updateOrderAction = createAsyncThunk(
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
       const { status, id } = payload
-      //token
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
       //request
-      const { data } = await axios.put(
-        `${baseURL}/orders/update/${id}`,
+      const { data } = await axiosInstance.put(
+        `/orders/update/${id}`,
         {
           status,
-        },
-        config
+        }
       )
       return data
     } catch (error) {

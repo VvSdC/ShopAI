@@ -1,9 +1,28 @@
 import User from "../model/User.js";
 import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
-import generateToken from "../utils/generateToken.js";
+import jwt from "jsonwebtoken";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../utils/generateToken.js";
 import { getTokenFromHeader } from "../utils/getTokenFromHeader.js";
 import { verifyToken } from "../utils/verifyToken.js";
+
+// Cookie options
+const accessCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  maxAge: 15 * 60 * 1000, // 15 minutes
+};
+
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
 
 // @desc    Register user
 // @route   POST /api/v1/users/register
@@ -43,15 +62,89 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
     email,
   });
   if (userFound && (await bcrypt.compare(password, userFound?.password))) {
+    const accessToken = generateAccessToken(userFound);
+    const refreshToken = generateRefreshToken(userFound?._id);
+    // Store refresh token in DB
+    userFound.refreshToken = refreshToken;
+    await userFound.save();
+    // Set httpOnly cookies
+    res.cookie("shopai_token", accessToken, accessCookieOptions);
+    res.cookie("shopai_refresh_token", refreshToken, refreshCookieOptions);
     res.json({
       status: "success",
       message: "User logged in successfully",
-      userFound,
-      token: generateToken(userFound?._id),
     });
   } else {
     throw new Error("Invalid login credentials");
   }
+});
+
+// @desc    Refresh access token
+// @route   POST /api/v1/users/refresh
+// @access  Public
+export const refreshTokenCtrl = asyncHandler(async (req, res) => {
+  const refreshToken = req?.cookies?.shopai_refresh_token;
+  if (!refreshToken) {
+    throw new Error("No refresh token, please login again");
+  }
+  // Verify refresh token
+  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY);
+  if (!decoded) {
+    throw new Error("Invalid refresh token, please login again");
+  }
+  // Check if user exists and refresh token matches
+  const user = await User.findById(decoded.id);
+  if (!user || user.refreshToken !== refreshToken) {
+    throw new Error("Invalid refresh token, please login again");
+  }
+  // Generate new access token
+  const newAccessToken = generateAccessToken(user);
+  res.cookie("shopai_token", newAccessToken, accessCookieOptions);
+  res.json({
+    status: "success",
+    message: "Token refreshed successfully",
+  });
+});
+
+// @desc    Logout user
+// @route   POST /api/v1/users/logout
+// @access  Private
+export const logoutUserCtrl = asyncHandler(async (req, res) => {
+  const refreshToken = req?.cookies?.shopai_refresh_token;
+  if (refreshToken) {
+    // Verify and clear refresh token from DB
+    try {
+      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY);
+      await User.findByIdAndUpdate(decoded.id, { refreshToken: "" });
+    } catch (err) {
+      // Token invalid, just clear cookies
+    }
+  }
+  res.clearCookie("shopai_token");
+  res.clearCookie("shopai_refresh_token");
+  res.json({
+    status: "success",
+    message: "User logged out successfully",
+  });
+});
+
+// @desc    Get current user from token
+// @route   GET /api/v1/users/me
+// @access  Private
+export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
+  // Token is already verified by isLoggedIn middleware
+  // Decode claims from the access token cookie
+  const token = req?.cookies?.shopai_token;
+  const decoded = jwt.verify(token, process.env.JWT_KEY);
+  res.json({
+    status: "success",
+    user: {
+      _id: decoded.id,
+      fullname: decoded.fullname,
+      isAdmin: decoded.isAdmin,
+      hasShippingAddress: decoded.hasShippingAddress,
+    },
+  });
 });
 
 // @desc    Get user profile

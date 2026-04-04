@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axiosInstance from '../../../utils/axiosInstance'
 import { act } from 'react-dom/test-utils'
 import baseURL from '../../../utils/baseURL'
 import {
@@ -29,18 +29,10 @@ export const createCategoryAction = createAsyncThunk(
       const formData = new FormData()
       formData.append('name', name)
       formData.append('file', file)
-      //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
       //Images
-      const { data } = await axios.post(
-        `${baseURL}/categories`,
-        formData,
-        config
+      const { data } = await axiosInstance.post(
+        `/categories`,
+        formData
       )
       return data
     } catch (error) {
@@ -54,7 +46,7 @@ export const fetchCategoriesAction = createAsyncThunk(
   'category/fetch All',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const { data } = await axios.get(`${baseURL}/categories`)
+      const { data } = await axiosInstance.get(`/categories`)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)

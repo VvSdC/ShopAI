@@ -1,6 +1,7 @@
 import dotenv from 'dotenv'
 import cors from 'cors'
 import Stripe from 'stripe'
+import cookieParser from 'cookie-parser'
 dotenv.config()
 import express from 'express'
 import path from 'path'
@@ -19,8 +20,13 @@ import couponsRouter from '../routes/couponsRouter.js'
 //db connect
 dbConnect()
 const app = express()
-//cors
-app.use(cors())
+//cors - allow credentials for cookies
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}))
+//cookie parser
+app.use(cookieParser())
 //Stripe webhook
 //stripe instance
 const stripe = new Stripe(process.env.STRIPE_KEY)

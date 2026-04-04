@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axiosInstance from '../../../utils/axiosInstance'
 import { act } from 'react-dom/test-utils'
 import baseURL from '../../../utils/baseURL'
 import {
@@ -35,10 +35,8 @@ export const createProductAction = createAsyncThunk(
         totalQty,
         files,
       } = payload
-      const token = getState()?.users?.userAuth?.userInfo?.token
       const config = {
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
       }
@@ -63,7 +61,7 @@ export const createProductAction = createAsyncThunk(
         formData.append('files', file)
       })
 
-      const { data } = await axios.post(`${baseURL}/products`, formData, config)
+      const { data } = await axiosInstance.post(`/products`, formData, config)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -88,15 +86,9 @@ export const updateProductAction = createAsyncThunk(
         totalQty,
         id,
       } = payload
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
 
-      const { data } = await axios.put(
-        `${baseURL}/products/${id}`,
+      const { data } = await axiosInstance.put(
+        `/products/${id}`,
         {
           name,
           description,
@@ -106,8 +98,7 @@ export const updateProductAction = createAsyncThunk(
           colors,
           price,
           totalQty,
-        },
-        config
+        }
       )
       return data
     } catch (error) {
@@ -122,14 +113,9 @@ export const fetchProductsAction = createAsyncThunk(
   async ({ url }, { rejectWithValue, getState, dispatch }) => {
     console.log(url)
     try {
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-
-      const { data } = await axios.get(`${url}`, config)
+      const { data } = await axiosInstance.get(`${url}`, {
+        baseURL: '', // Override baseURL since url is already full
+      })
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -142,16 +128,8 @@ export const fetchProductAction = createAsyncThunk(
   'product/details',
   async (productId, { rejectWithValue, getState, dispatch }) => {
     try {
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-
-      const { data } = await axios.get(
-        `${baseURL}/products/${productId}`,
-        config
+      const { data } = await axiosInstance.get(
+        `/products/${productId}`
       )
       return data
     } catch (error) {

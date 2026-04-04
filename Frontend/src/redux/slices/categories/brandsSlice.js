@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axiosInstance from '../../../utils/axiosInstance'
 import baseURL from '../../../utils/baseURL'
 import {
   resetErrAction,
@@ -23,19 +23,12 @@ export const createBrandAction = createAsyncThunk(
   async (name, { rejectWithValue, getState, dispatch }) => {
     try {
       //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
       //Images
-      const { data } = await axios.post(
-        `${baseURL}/brands`,
+      const { data } = await axiosInstance.post(
+        `/brands`,
         {
           name,
-        },
-        config
+        }
       )
       return data
     } catch (error) {
@@ -49,7 +42,7 @@ export const fetchBrandsAction = createAsyncThunk(
   'brands/fetch All',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const { data } = await axios.get(`${baseURL}/brands`)
+      const { data } = await axiosInstance.get(`/brands`)
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)

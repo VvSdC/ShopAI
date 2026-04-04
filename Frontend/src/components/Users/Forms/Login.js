@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { loginUserAction } from '../../../redux/slices/users/usersSlice'
+import { getCurrentUserAction, loginUserAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 
@@ -25,16 +25,18 @@ const Login = () => {
   }
 
   //get data from store
-  const { error, loading, userInfo } = useSelector(
+  const { error, loading, isLoggedIn } = useSelector(
     (state) => state?.users?.userAuth
   )
 
-  //redirect
+  //redirect after login - fetch user from JWT then redirect
   useEffect(() => {
-    if (userInfo?.userFound) {
-      window.location.href = '/'
+    if (isLoggedIn) {
+      dispatch(getCurrentUserAction()).then(() => {
+        window.location.href = '/'
+      })
     }
-  }, [userInfo])
+  }, [isLoggedIn])
   return (
     <>
       <section className="py-20 bg-gray-100 overflow-x-hidden">

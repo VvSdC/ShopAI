@@ -1,4 +1,4 @@
-import axios from "axios";
+import axiosInstance from "../../../utils/axiosInstance";
 import baseURL from "../../../utils/baseURL";
 import {
   resetErrAction,
@@ -26,22 +26,15 @@ export const createCouponAction = createAsyncThunk(
   ) => {
     try {
       //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
       //Images
-      const { data } = await axios.post(
-        `${baseURL}/coupons`,
+      const { data } = await axiosInstance.post(
+        `/coupons`,
         {
           code,
           discount,
           startDate,
           endDate,
-        },
-        config
+        }
       );
       return data;
     } catch (error) {
@@ -60,22 +53,15 @@ export const updateCouponAction = createAsyncThunk(
     console.log({ code, discount, startDate, endDate, id });
     try {
       //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
       //Images
-      const { data } = await axios.put(
-        `${baseURL}/coupons/update/${id}`,
+      const { data } = await axiosInstance.put(
+        `/coupons/update/${id}`,
         {
           code,
           discount,
           startDate,
           endDate,
-        },
-        config
+        }
       );
       return data;
     } catch (error) {
@@ -88,7 +74,7 @@ export const fetchCouponsAction = createAsyncThunk(
   "coupons/fetch-All",
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const { data } = await axios.get(`${baseURL}/coupons`);
+      const { data } = await axiosInstance.get(`/coupons`);
       return data;
     } catch (error) {
       return rejectWithValue(error?.response?.data);
@@ -100,8 +86,8 @@ export const fetchCouponAction = createAsyncThunk(
   "coupons/single",
   async (code, { rejectWithValue, getState, dispatch }) => {
     try {
-      const { data } = await axios.get(
-        `${baseURL}/coupons/single?code=${code}`,
+      const { data } = await axiosInstance.get(
+        `/coupons/single?code=${code}`,
         { code }
       );
       return data;
@@ -116,15 +102,8 @@ export const deleteCouponAction = createAsyncThunk(
   async (id, { rejectWithValue, getState, dispatch }) => {
     try {
       //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-      const { data } = await axios.delete(
-        `${baseURL}/coupons/delete/${id}`,
-        config
+      const { data } = await axiosInstance.delete(
+        `/coupons/delete/${id}`
       );
       return data;
     } catch (error) {

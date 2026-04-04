@@ -31,6 +31,10 @@ const UserShema = new Schema(
       type: Boolean,
       default: false,
     },
+    refreshToken: {
+      type: String,
+      default: "",
+    },
     hasShippingAddress: {
       type: Boolean,
       default: false,

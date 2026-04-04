@@ -12,7 +12,7 @@ import logo from './shopai.png'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
-import { logoutAction } from '../../redux/slices/users/usersSlice'
+import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import { fetchCouponsAction } from '../../redux/slices/coupons/couponsSlice'
 
 export default function Navbar() {
@@ -20,6 +20,7 @@ export default function Navbar() {
   const dispatch = useDispatch()
   useEffect(() => {
     dispatch(fetchCategoriesAction())
+    dispatch(getCurrentUserAction())
   }, [dispatch])
   //get data from store
   const { categories } = useSelector((state) => state?.categories)
@@ -34,11 +35,11 @@ export default function Navbar() {
   const { cartItems } = useSelector((state) => state?.carts)
   //get cart items from local storage
   let cartItemsFromLocalStorage
-  //get login user from localstorage
+  //get login user from redux store
+  const { userAuth } = useSelector((state) => state?.users)
+  const user = userAuth?.userInfo
 
-  const user = JSON.parse(localStorage.getItem('userInfo'))
-
-  const isLoggedIn = user?.token ? true : false
+  const isLoggedIn = userAuth?.isLoggedIn
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction())
@@ -294,7 +295,7 @@ export default function Navbar() {
                     className="flex flex-1 items-center justify-end"
                     style={{ marginTop: '20px' }}
                   >
-                    {user?.userFound?.isAdmin && (
+                    {user?.isAdmin && (
                       <Link
                         to="/admin"
                         className="inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"

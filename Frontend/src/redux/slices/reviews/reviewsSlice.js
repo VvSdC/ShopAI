@@ -1,4 +1,4 @@
-import axios from "axios";
+import axiosInstance from "../../../utils/axiosInstance";
 import baseURL from "../../../utils/baseURL";
 import {
   resetErrAction,
@@ -23,20 +23,13 @@ export const createReviewAction = createAsyncThunk(
   async ({ rating, message, id }, { rejectWithValue, getState, dispatch }) => {
     try {
       //Token - Authenticated
-      const token = getState()?.users?.userAuth?.userInfo?.token;
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
       //request
-      const { data } = await axios.post(
-        `${baseURL}/reviews/${id}`,
+      const { data } = await axiosInstance.post(
+        `/reviews/${id}`,
         {
           rating,
           message,
-        },
-        config
+        }
       );
       return data;
     } catch (error) {
