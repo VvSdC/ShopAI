@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  CheckIcon,
-  ClockIcon,
-  QuestionMarkCircleIcon,
-  XMarkIcon,
-} from '@heroicons/react/20/solid'
+import { XMarkIcon } from '@heroicons/react/20/solid'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -42,7 +37,7 @@ export default function ShoppingCart() {
     dispatch(changeOrderItemQty({ productId, qty }))
     dispatch(getCartItemsFromLocalStorageAction())
   }
-  console.log(cartItems)
+  
   //calculate total price
   let sumTotalPrice = 0
   sumTotalPrice = cartItems?.reduce((acc, current) => {

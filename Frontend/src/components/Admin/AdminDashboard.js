@@ -4,16 +4,9 @@ import { Dialog, Menu, Transition } from '@headlessui/react'
 import { Link, Outlet } from 'react-router-dom'
 import {
   Bars3CenterLeftIcon,
-  BellIcon,
-  ClockIcon,
-  CogIcon,
-  CreditCardIcon,
-  DocumentChartBarIcon,
-  HomeIcon,
-  QuestionMarkCircleIcon,
   ScaleIcon,
-  ShieldCheckIcon,
-  UserGroupIcon,
+  CogIcon,
+  QuestionMarkCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 // logo removed; replace with new asset when available
@@ -171,7 +164,6 @@ export default function AddminDashboard() {
   const currentUser = userAuth?.userInfo
   const fullname = currentUser?.fullname || 'Admin'
   const email = ''
-  const createdAt = null
   const dateJoined = 'N/A'
   const role = currentUser?.isAdmin ? 'Admin' : 'User'
 

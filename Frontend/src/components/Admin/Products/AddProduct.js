@@ -99,9 +99,7 @@ export default function AddProduct() {
   };
 
   //get product from store
-  const { product, isAdded, loading, error } = useSelector(
-    (state) => state?.products
-  );
+  const { isAdded, loading, error } = useSelector((state) => state?.products);
 
   //onSubmit
   const handleOnSubmit = (e) => {

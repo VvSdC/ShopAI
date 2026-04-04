@@ -15,15 +15,14 @@ const HomeProductTrending = () => {
         url: productUrl,
       })
     )
-  }, [dispatch])
+  }, [dispatch, productUrl])
   //get data from store
   const {
     products: { products },
     error,
     loading,
   } = useSelector((state) => state?.products)
-  console.log(products)
-  const trendingProducts = []
+  
   return (
     <>
       <section aria-labelledby="trending-heading">

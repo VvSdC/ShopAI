@@ -5,15 +5,6 @@ import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice"
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
-const people = [
-  {
-    name: "Lindsay Walton",
-    title: "Front-end Developer",
-    email: "lindsay.walton@example.com",
-    role: "Member",
-  },
-  // More people...
-];
 export default function BrandsList() {
   //dispatch
   const dispatch = useDispatch();
@@ -26,8 +17,7 @@ export default function BrandsList() {
     error,
   } = useSelector((state) => state?.brands);
 
-  //delete category handler
-  const deleteCategoryHandler = (id) => {};
+  //delete category handler (not implemented)
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">

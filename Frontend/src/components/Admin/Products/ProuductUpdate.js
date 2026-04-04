@@ -6,11 +6,7 @@ import makeAnimated from "react-select/animated";
 import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice";
 import { fetchCategoriesAction } from "../../../redux/slices/categories/categoriesSlice";
 import { fetchColorsAction } from "../../../redux/slices/categories/colorsSlice";
-import {
-  createProductAction,
-  fetchProductAction,
-  updateProductAction,
-} from "../../../redux/slices/products/productSlices";
+import { fetchProductAction, updateProductAction } from "../../../redux/slices/products/productSlices";
 
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";

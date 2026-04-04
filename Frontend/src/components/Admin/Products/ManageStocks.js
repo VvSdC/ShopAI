@@ -19,7 +19,7 @@ export default function ManageStocks() {
         url: productUrl,
       })
     );
-  }, [dispatch]);
+  }, [dispatch, productUrl]);
   //get data from store
   const {
     products: { products },

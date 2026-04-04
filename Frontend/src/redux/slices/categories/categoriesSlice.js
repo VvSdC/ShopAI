@@ -1,6 +1,4 @@
 import axiosInstance from '../../../utils/axiosInstance'
-import { act } from 'react-dom/test-utils'
-import baseURL from '../../../utils/baseURL'
 import {
   resetErrAction,
   resetSuccessAction,

@@ -3,76 +3,18 @@ import { RadioGroup } from '@headlessui/react'
 import Swal from 'sweetalert2'
 import { Carousel } from 'react-responsive-carousel'
 import 'react-responsive-carousel/lib/styles/carousel.min.css'
-import {
-  CurrencyDollarIcon,
-  GlobeAmericasIcon,
-} from '@heroicons/react/24/outline'
+import { CurrencyDollarIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/20/solid'
 import { Link, useParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
+import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
 import {
   addOrderToCartaction,
   getCartItemsFromLocalStorageAction,
 } from '../../../redux/slices/cart/cartSlices'
-const product = {
-  name: 'Basic Tee',
-  price: '₹35',
-  href: '#',
-  breadcrumbs: [
-    { id: 1, name: 'Women', href: '#' },
-    { id: 2, name: 'Clothing', href: '#' },
-  ],
-  images: [
-    {
-      id: 1,
-      imageSrc:
-        'https://tailwindui.com/img/ecommerce-images/product-page-01-featured-product-shot.jpg',
-      imageAlt: "Back of women's Basic Tee in black.",
-      primary: true,
-    },
-    {
-      id: 2,
-      imageSrc:
-        'https://tailwindui.com/img/ecommerce-images/product-page-01-product-shot-01.jpg',
-      imageAlt: "Side profile of women's Basic Tee in black.",
-      primary: false,
-    },
-    {
-      id: 3,
-      imageSrc:
-        'https://tailwindui.com/img/ecommerce-images/product-page-01-product-shot-02.jpg',
-      imageAlt: "Front of women's Basic Tee in black.",
-      primary: false,
-    },
-  ],
-  colors: [
-    { name: 'Black', bgColor: 'bg-gray-900', selectedColor: 'ring-gray-900' },
-    {
-      name: 'Heather Grey',
-      bgColor: 'bg-gray-400',
-      selectedColor: 'ring-gray-400',
-    },
-  ],
-  sizes: [
-    { name: 'XXS', inStock: true },
-    { name: 'XS', inStock: true },
-    { name: 'S', inStock: true },
-    { name: 'M', inStock: true },
-    { name: 'L', inStock: true },
-    { name: 'XL', inStock: false },
-  ],
-  description: `
-    <p>The Basic tee is an honest new take on a classic. The tee uses super soft, pre-shrunk cotton for true comfort and a dependable fit. They are hand cut and sewn locally, with a special dye technique that gives each tee it's own look.</p>
-    <p>Looking to stock your closet? The Basic tee also comes in a 3-pack or 5-pack at a bundle discount.</p>
-  `,
-  details: [
-    'Only the best materials',
-    'Ethically and locally made',
-    'Pre-washed and pre-shrunk',
-    'Machine wash cold with similar colors',
-  ],
-}
+// sample product removed; real product comes from redux state
 
 const policies = [
   {
@@ -104,50 +46,51 @@ export default function Product() {
   //get id from params
   const { id } = useParams()
   useEffect(() => {
-    dispatch(fetchProductAction(id))
-  }, [id])
-  //get data from store
-  const {
-    loading,
-    error,
-    product: { product },
-  } = useSelector((state) => state?.products)
+    if (id) dispatch(fetchProductAction(id))
+  }, [id, dispatch])
 
-  //Get cart items
+  //get data from store
+  const { loading, error, product } = useSelector((state) => state?.products)
+  const { cartItems = [] } = useSelector((state) => state?.cart || {})
+
+  //Get cart items from localStorage
   useEffect(() => {
     dispatch(getCartItemsFromLocalStorageAction())
-  }, [])
-  //get data from store
-  const { cartItems } = useSelector((state) => state?.carts)
+  }, [dispatch])
+
   const productExists = cartItems?.find(
-    (item) => item?._id?.toString() === product?._id.toString()
+    (item) => item?._id?.toString() === product?._id?.toString()
   )
 
   //Add to cart handler
   const addToCartHandler = () => {
-    //check if product is in cart
     if (productExists) {
-      return Swal.fire({
+      Swal.fire({
         icon: 'error',
-        title: 'Oops...',
+        title: 'Oops...!',
         text: 'This product is already in cart',
       })
+      return
     }
-    //check if color/size selected
+
     if (selectedColor === '') {
-      return Swal.fire({
+      Swal.fire({
         icon: 'error',
         title: 'Oops...!',
         text: 'Please select product color',
       })
+      return
     }
+
     if (selectedSize === '') {
-      return Swal.fire({
+      Swal.fire({
         icon: 'error',
-        title: 'Oops...',
-        text: 'Please select  p roduct size',
+        title: 'Oops...!',
+        text: 'Please select product size',
       })
+      return
     }
+
     dispatch(
       addOrderToCartaction({
         _id: product?._id,
@@ -157,17 +100,19 @@ export default function Product() {
         description: product?.description,
         color: selectedColor,
         size: selectedSize,
-        image: product?.images[0],
+        image: product?.images?.[0],
         totalPrice: product?.price,
         qtyLeft: product?.qtyLeft,
       })
     )
+
     Swal.fire({
       icon: 'success',
       title: 'Good Job',
       text: 'Product added to cart successfully',
     })
-    return dispatch(getCartItemsFromLocalStorageAction())
+
+    dispatch(getCartItemsFromLocalStorageAction())
   }
 
   return (

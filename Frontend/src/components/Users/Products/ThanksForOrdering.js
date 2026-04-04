@@ -1,26 +1,10 @@
 import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 
-const products = [
-  {
-    id: 1,
-    name: 'Basic Tee',
-    href: '#',
-    price: '$36.00',
-    color: 'Charcoal',
-    size: 'L',
-    imageSrc:
-      'https://tailwindui.com/img/ecommerce-images/confirmation-page-06-product-01.jpg',
-    imageAlt: "Model wearing men's charcoal basic tee in large.",
-  },
-  // More products...
-]
 
 export default function ThanksForOrdering() {
-  //get cart items from store
-  const { cartItems } = useSelector((state) => state?.carts)
-  const newItems = []
-  localStorage.setItem('cartItems', JSON.stringify(newItems))
+  // clear cart items in localStorage
+  localStorage.setItem('cartItems', JSON.stringify([]))
   return (
     <>
       <main className="relative lg:min-h-full">

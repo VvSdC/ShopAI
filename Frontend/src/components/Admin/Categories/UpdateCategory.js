@@ -7,14 +7,17 @@ import LoadingComponent from "../../LoadingComp/LoadingComponent";
 export default function UpdateCategory() {
   //---form data---
   const [formData, setFormData] = useState({
-    name: categoryName,
+    name: "",
   });
   //---onChange---
   const handleOnChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  let loading, error, isUpdated, categoryName;
+  const loading = false
+  const error = null
+  const isUpdated = false
+  const categoryName = ''
 
   //onSubmit
   const handleOnSubmit = (e) => {

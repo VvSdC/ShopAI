@@ -36,7 +36,7 @@ const Login = () => {
         window.location.href = '/'
       })
     }
-  }, [isLoggedIn])
+  }, [isLoggedIn, dispatch])
   return (
     <>
       <section className="py-20 bg-gray-100 overflow-x-hidden">

@@ -11,7 +11,6 @@ export default function OrderPayment() {
   //get data from location
   const location = useLocation()
   const { sumTotalPrice } = location.state
-  const calculateTotalDiscountedPrice = () => {}
   //dispatch
   const dispatch = useDispatch()
   useEffect(() => {
@@ -24,7 +23,7 @@ export default function OrderPayment() {
   useEffect(() => {
     dispatch(getUserProfileAction())
   }, [dispatch])
-  const { loading, error, profile } = useSelector((state) => state?.users)
+  const { error, profile } = useSelector((state) => state?.users)
   const user = profile?.user
 
   //place order action

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 export default function CategoryToAdd() {
-  let handleCategory;
+  // placeholder for category handler (not implemented)
 
   return (
     <>

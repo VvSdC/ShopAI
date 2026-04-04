@@ -8,12 +8,7 @@ import {
 } from '@headlessui/react'
 import { useDispatch, useSelector } from 'react-redux'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import {
-  ChevronDownIcon,
-  FunnelIcon,
-  MinusIcon,
-  PlusIcon,
-} from '@heroicons/react/20/solid'
+import { FunnelIcon, MinusIcon, PlusIcon } from '@heroicons/react/20/solid'
 import Products from './Products'
 import { useSearchParams } from 'react-router-dom'
 import baseURL from '../../../utils/baseURL'
@@ -68,14 +63,14 @@ export default function ProductsFilters() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   //get query string
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const category = params.get('category')
   //filters
   const [color, setColor] = useState('')
   const [price, setPrice] = useState('')
   const [brand, setBrand] = useState('')
   const [size, setSize] = useState('')
-  console.log(color)
+  
   //build up url
   let productUrl = `${baseURL}/products`
   let tempUrl = `${baseURL}/products`
@@ -126,7 +121,7 @@ export default function ProductsFilters() {
     }
   }
 
-  console.log(category)
+  
   //fetch all products
   useEffect(() => {
     dispatch(
@@ -149,7 +144,7 @@ export default function ProductsFilters() {
         url: productUrl,
       })
     )
-  }, [dispatch])
+  }, [dispatch, productUrl])
   //get store data
   const {
     brands: { brands },
@@ -162,7 +157,7 @@ export default function ProductsFilters() {
         url: productUrl,
       })
     )
-  }, [dispatch])
+  }, [dispatch, productUrl])
 
   //get store data
   const {

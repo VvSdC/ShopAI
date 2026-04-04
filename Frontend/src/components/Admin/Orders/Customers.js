@@ -30,6 +30,8 @@ export default function Customers() {
       <div className="-mx-4 mt-3  overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
         {loading ? (
           <LoadingComponent />
+        ) : error ? (
+          <ErrorMsg message={error?.message} />
         ) : uniqueCustomers?.length <= 0 ? (
           <NoDataFound />
         ) : (

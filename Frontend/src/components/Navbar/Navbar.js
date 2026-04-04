@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Dialog, Popover, Tab, Transition } from '@headlessui/react'
+import { Dialog, Popover, Transition } from '@headlessui/react'
 import {
   Bars3Icon,
   ShoppingCartIcon,
@@ -7,7 +7,6 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
-import baseURL from '../../utils/baseURL'
 import logo from './shopai.png'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
@@ -34,7 +33,6 @@ export default function Navbar() {
   }, [dispatch])
   const { cartItems } = useSelector((state) => state?.carts)
   //get cart items from local storage
-  let cartItemsFromLocalStorage
   //get login user from redux store
   const { userAuth } = useSelector((state) => state?.users)
   const user = userAuth?.userInfo
@@ -51,7 +49,7 @@ export default function Navbar() {
     dispatch(fetchCouponsAction())
   }, [dispatch])
   // get coupons
-  const { coupons, loading, error } = useSelector((state) => state?.coupons)
+  const { coupons } = useSelector((state) => state?.coupons)
   // Get current coupon (most recent) or null
   const currentCoupon = coupons ? coupons.coupons?.[coupons.coupons.length - 1] : null
 

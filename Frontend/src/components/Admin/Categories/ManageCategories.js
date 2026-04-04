@@ -20,7 +20,7 @@ export default function ManageCategories() {
   } = useSelector((state) => state?.categories);
 
   //delete category handler
-  const deleteCategoryHandler = (id) => {};
+  // deleteCategoryHandler not implemented
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">

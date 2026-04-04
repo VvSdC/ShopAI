@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import ManageCoupons from "./components/Admin/Coupons/ManageCoupons";
@@ -8,10 +8,8 @@ import AddProduct from "./components/Admin/Products/AddProduct";
 import RegisterForm from "./components/Users/Forms/RegisterForm";
 import HomePage from "./components/HomePage/HomePage";
 import Navbar from "./components/Navbar/Navbar";
-import OrderHistory from "./components/Admin/Orders/ManageOrders";
 import OrderPayment from "./components/Users/Products/OrderPayment";
 import ManageCategories from "./components/Admin/Categories/ManageCategories";
-import UpdateProduct from "./components/Admin/Products/UpdateProduct";
 import ManageStocks from "./components/Admin/Products/ManageStocks";
 import CategoryToAdd from "./components/Admin/Categories/CategoryToAdd";
 import AddCategory from "./components/Admin/Categories/AddCategory";
@@ -35,7 +33,7 @@ import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
 import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ColorsList from "./components/Admin/Categories/ColorsList";
-import { useDispatch, useSelector } from "react-redux";
+
 
 const App = () => {
   return (

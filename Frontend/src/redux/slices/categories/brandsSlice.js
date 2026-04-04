@@ -1,5 +1,4 @@
 import axiosInstance from '../../../utils/axiosInstance'
-import baseURL from '../../../utils/baseURL'
 import {
   resetErrAction,
   resetSuccessAction,

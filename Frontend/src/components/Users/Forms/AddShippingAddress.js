@@ -6,7 +6,6 @@ import {
 } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
-import SuccessMsg from '../../SuccessMsg/SuccessMsg'
 
 const AddShippingAddress = () => {
   //dispatch
@@ -17,7 +16,7 @@ const AddShippingAddress = () => {
   }, [dispatch])
   const { loading, error, profile } = useSelector((state) => state?.users)
   const user = profile?.user
-  console.log(user?.hasShippingAddress)
+  // user shipping address flag
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',

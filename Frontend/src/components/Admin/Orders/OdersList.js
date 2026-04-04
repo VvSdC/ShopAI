@@ -5,18 +5,8 @@ import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
-import SuccessMsg from "../../SuccessMsg/SuccessMsg";
 import OrdersStats from "./OrdersStatistics";
 
-const people = [
-  {
-    name: "Lindsay Walton",
-    title: "Front-end Developer",
-    email: "lindsay.walton@example.com",
-    role: "Member",
-  },
-  // More people...
-];
 
 export default function OrdersList() {
   //dispatch

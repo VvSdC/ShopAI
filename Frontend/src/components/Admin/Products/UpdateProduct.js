@@ -11,19 +11,19 @@ import SuccessMsg from "../../SuccessMsg/SuccessMsg";
 const animatedComponents = makeAnimated();
 
 export default function UpdateProduct() {
-  //form data
+  //form data (initialized with defaults)
   const [formData, setFormData] = useState({
-    name: product?.name,
-    size: product?.size,
-    category: product?.category,
-    brand: product?.brand,
-    color: product?.color,
-    canBeShipped: product?.canBeShipped,
+    name: "",
+    size: "",
+    category: "",
+    brand: "",
+    color: "",
+    canBeShipped: false,
     images: [],
-    price: product?.price,
-    shippingPrice: product?.shippingPrice,
-    totalQty: product?.totalQty,
-    description: product?.description,
+    price: 0,
+    shippingPrice: 0,
+    totalQty: 0,
+    description: "",
   });
   //onChange
   const handleOnChange = (e) => {
@@ -32,16 +32,16 @@ export default function UpdateProduct() {
 
   //----fetch brands---
 
-  let brands,
-    categories,
-    product,
-    error,
-    isUpdated,
-    sizeOptionsCoverted,
-    handleSizeChange,
-    colorOptionsCoverted,
-    handleColorChangeOption,
-    loading;
+  const brands = []
+  const categories = []
+  const product = {}
+  const error = null
+  const isUpdated = false
+  const sizeOptionsCoverted = []
+  const handleSizeChange = () => {}
+  const colorOptionsCoverted = []
+  const handleColorChangeOption = () => {}
+  const loading = false
 
   //---onSubmit---
   const handleOnSubmit = (e) => {

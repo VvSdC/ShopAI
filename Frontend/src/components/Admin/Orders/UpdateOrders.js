@@ -8,7 +8,7 @@ const UpdateOrders = () => {
   const { id } = useParams();
   //dispatch
   const dispatch = useDispatch();
-  const [order, setOrder] = React.useState({
+  const [order] = React.useState({
     status: "pending",
   });
 

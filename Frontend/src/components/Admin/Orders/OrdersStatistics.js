@@ -7,12 +7,15 @@ export default function OrdersStats() {
   const dispatch = useDispatch()
   useEffect(() => {
     dispatch(OrdersStatsAction())
-  }, [])
+  }, [dispatch])
 
   // get data from store
   const { stats, loading, error } = useSelector((state) => state?.orders)
   const obj = stats?.orders
   const statistics = obj && obj.length > 0 ? Object.values(obj[0]) : []
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>{error?.message || 'Error'}</div>
 
   return (
     <div>
