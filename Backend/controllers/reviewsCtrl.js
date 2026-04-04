@@ -7,7 +7,7 @@ import Review from "../model/Review.js";
 // @access  Private/Admin
 
 export const createReviewCtrl = asyncHandler(async (req, res) => {
-  const { product, message, rating } = req.body;
+  const { message, rating } = req.body;
   //1. Find the product
   const { productID } = req.params;
   const productFound = await Product.findById(productID).populate("reviews");

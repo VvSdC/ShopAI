@@ -1,5 +1,4 @@
 import asyncHandler from "express-async-handler";
-import Brand from "../model/Brand.js";
 import Color from "../model/Color.js";
 
 // @desc    Create new Color

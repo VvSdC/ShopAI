@@ -6,7 +6,7 @@ import {
   updateOrderCtrl,
   getOrderStatsCtrl,
 } from '../controllers/orderCtrl.js'
-import { isLoggedIn } from '../middlewares/isLoggedIn.js'
+import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import isAdmin from '../middlewares/isAdmin.js'
 
 const orderRouter = express.Router()

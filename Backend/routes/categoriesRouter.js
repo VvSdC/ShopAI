@@ -7,7 +7,7 @@ import {
   updateCategoryCtrl,
   deleteCategoryCtrl,
 } from '../controllers/categoriesCtrl.js'
-import { isLoggedIn } from '../middlewares/isLoggedIn.js'
+import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import isAdmin from '../middlewares/isAdmin.js'
 
 const categoriesRouter = express.Router()

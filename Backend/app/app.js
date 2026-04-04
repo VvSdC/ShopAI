@@ -58,18 +58,12 @@ app.post(
       const totalAmount = session.amount_total
       const currency = session.currency
       //find the order
-      const order = await Order.findByIdAndUpdate(
-        JSON.parse(orderId),
-        {
-          totalPrice: totalAmount / 100,
-          currency,
-          paymentMethod,
-          paymentStatus,
-        },
-        {
-          new: true,
-        }
-      )
+      await Order.findByIdAndUpdate(JSON.parse(orderId), {
+        totalPrice: totalAmount / 100,
+        currency,
+        paymentMethod,
+        paymentStatus,
+      })
     } else {
       return
     }

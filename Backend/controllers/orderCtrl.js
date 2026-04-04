@@ -15,10 +15,10 @@ const stripe = new Stripe(process.env.STRIPE_KEY)
 
 export const createOrderCtrl = asyncHandler(async (req, res) => {
   //get the coupon
-  const { coupon } = req?.query
+  const coupon = req?.query?.coupon
 
   const couponFound = await Coupon.findOne({
-    code: coupon?.toUpperCase(),
+    code: coupon ? coupon.toUpperCase() : undefined,
   })
   if (couponFound?.isExpired) {
     throw new Error('Coupon has expired')

@@ -7,7 +7,7 @@ import {
   deleteCouponCtrl,
 } from '../controllers/couponsCtrl.js'
 import isAdmin from '../middlewares/isAdmin.js'
-import { isLoggedIn } from '../middlewares/isLoggedIn.js'
+import { isLoggedIn } from '../middlewares/isLoggedin.js'
 
 const couponsRouter = express.Router()
 

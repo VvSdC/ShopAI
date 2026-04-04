@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "server": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "lint": "eslint . --ext .js --config .eslintrc.cjs",
+    "lint:fix": "eslint . --ext .js --fix --config .eslintrc.cjs",
+    "depcheck": "depcheck"
   },
   "keywords": [
     "API",
@@ -29,6 +32,10 @@
     "stripe": "^11.5.0"
   },
   "devDependencies": {
+    "depcheck": "^1.4.7",
+    "eslint": "^8.45.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-security": "^4.0.0",
     "nodemon": "^2.0.22"
   }
 }

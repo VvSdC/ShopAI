@@ -6,8 +6,6 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/generateToken.js";
-import { getTokenFromHeader } from "../utils/getTokenFromHeader.js";
-import { verifyToken } from "../utils/verifyToken.js";
 
 // Cookie options
 const accessCookieOptions = {

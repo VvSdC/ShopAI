@@ -1,4 +1,4 @@
-export const globalErrhandler = (err, req, res, next) => {
+export const globalErrhandler = (err, req, res, _next) => {
   //stack
   //message
   const stack = err?.stack;

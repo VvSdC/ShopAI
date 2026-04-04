@@ -8,7 +8,7 @@ import {
 } from "../controllers/brandsCtrl.js";
 import isAdmin from "../middlewares/isAdmin.js";
 
-import { isLoggedIn } from "../middlewares/isLoggedIn.js";
+import { isLoggedIn } from "../middlewares/isLoggedin.js";
 
 const brandsRouter = express.Router();
 
