@@ -6,9 +6,7 @@ const Products = ({ products }) => {
     <>
       <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:col-span-3 lg:gap-x-8">
         {products?.map((product) => (
-          <>
-            {/* new */}
-            <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-100 group-hover:opacity-75">
+          <div key={product?.id} className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-100 group-hover:opacity-75">
               <div className="relative bg-gray-50">
                 <Link
                   className="block"
@@ -22,7 +20,7 @@ const Products = ({ products }) => {
                   <img
                     className="w-full h-64 object-cover"
                     src={product?.images[0]}
-                    alt
+                    alt={product?.name || ''}
                     style={{maxHeight:'60%',maxWidth:'60%',marginLeft:'20%'}}
                   />
                 </Link>
@@ -71,8 +69,7 @@ const Products = ({ products }) => {
                   </a>
                 </div>
               </div>
-            </div>
-          </>
+          </div>
         ))}
       </div>
     </>

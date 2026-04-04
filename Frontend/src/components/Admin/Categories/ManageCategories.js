@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { fetchCategoriesAction } from "../../../redux/slices/categories/categoriesSlice";
-
+import {
+  fetchCategoriesAction,
+  deleteCategoryAction,
+} from "../../../redux/slices/categories/categoriesSlice";
+import Swal from "sweetalert2";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
@@ -20,7 +23,25 @@ export default function ManageCategories() {
   } = useSelector((state) => state?.categories);
 
   //delete category handler
-  // deleteCategoryHandler not implemented
+  const deleteCategoryHandler = (id) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This category and its image will be permanently deleted!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        dispatch(deleteCategoryAction(id)).then(() => {
+          Swal.fire("Deleted!", "Category has been deleted.", "success");
+          dispatch(fetchCategoriesAction());
+        });
+      }
+    });
+  };
+
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">
@@ -71,6 +92,16 @@ export default function ManageCategories() {
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Created At
                       </th>
+                      <th
+                        scope="col"
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Edit
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Delete
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -102,11 +133,12 @@ export default function ManageCategories() {
                           {new Date(category?.createdAt).toLocaleDateString()}
                         </td>
                         {/* edit icon */}
-                        {/* <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
                           <Link
                             to={`/admin/edit-category/${category?._id}`}
                             state={{
                               categoryName: category?.name,
+                              categoryImage: category?.image,
                             }}
                             className="text-indigo-600 hover:text-indigo-900">
                             <svg
@@ -125,12 +157,12 @@ export default function ManageCategories() {
 
                             <span className="sr-only">, {category?.name}</span>
                           </Link>
-                        </td> */}
+                        </td>
                         {/* delete icon */}
-                        {/* <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
                           <button
                             onClick={() => deleteCategoryHandler(category?._id)}
-                            className="text-indigo-600 hover:text-indigo-900">
+                            className="text-red-600 hover:text-red-900">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"
@@ -145,7 +177,7 @@ export default function ManageCategories() {
                               />
                             </svg>
                           </button>
-                        </td> */}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

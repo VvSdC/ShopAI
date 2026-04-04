@@ -132,7 +132,6 @@ export default function Navbar() {
                   ) : (
                     categoriesToDisplay?.slice(0, 4).map((category) => {
                       return (
-                        <>
                           <Link
                             key={category?._id}
                             to={`/products-filters?category=${category?.name}`}
@@ -140,7 +139,6 @@ export default function Navbar() {
                           >
                             {category?.name}
                           </Link>
-                        </>
                       )
                     })
                   )}
@@ -251,7 +249,6 @@ export default function Navbar() {
                         ) : (
                           categoriesToDisplay?.map((category) => {
                             return (
-                              <>
                                 <Link
                                   key={category?._id}
                                   to={`/products-filters?category=${category?.name}`}
@@ -264,7 +261,6 @@ export default function Navbar() {
                                 >
                                   {category?.name}
                                 </Link>
-                              </>
                             )
                           })
                         )}

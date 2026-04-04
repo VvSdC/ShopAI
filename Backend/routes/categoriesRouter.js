@@ -22,5 +22,11 @@ categoriesRouter.post(
 categoriesRouter.get('/', getAllCategoriesCtrl)
 categoriesRouter.get('/:id', getSingleCategoryCtrl)
 categoriesRouter.delete('/:id', isLoggedIn, isAdmin, deleteCategoryCtrl)
-categoriesRouter.put('/:id', isLoggedIn, isAdmin, updateCategoryCtrl)
+categoriesRouter.put(
+  '/:id',
+  isLoggedIn,
+  isAdmin,
+  catetgoryFileUpload.single('file'),
+  updateCategoryCtrl
+)
 export default categoriesRouter

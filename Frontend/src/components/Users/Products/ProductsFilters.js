@@ -267,7 +267,7 @@ export default function ProductsFilters() {
                     {/*  */}
                     <Disclosure
                       as="div"
-                      key="disclosure"
+                      key="mobile-color"
                       className="border-t border-gray-200 px-4 py-6"
                     >
                       {({ open }) => (
@@ -338,7 +338,7 @@ export default function ProductsFilters() {
                     {/* price categories section */}
                     <Disclosure
                       as="div"
-                      key="disclosure"
+                      key="mobile-price"
                       className="border-t border-gray-200 px-4 py-6"
                     >
                       {({ open }) => (
@@ -391,7 +391,7 @@ export default function ProductsFilters() {
                     {/* product brand categories section categories section */}
                     <Disclosure
                       as="div"
-                      key="disclosure"
+                      key="mobile-brand"
                       className="border-t border-gray-200 px-4 py-6"
                     >
                       {({ open }) => (
@@ -444,7 +444,7 @@ export default function ProductsFilters() {
                     {/* product size categories   */}
                     <Disclosure
                       as="div"
-                      key="disclosure"
+                      key="mobile-size"
                       className="border-t border-gray-200 px-4 py-6"
                     >
                       {({ open }) => (
@@ -575,7 +575,7 @@ export default function ProductsFilters() {
                 {/* colors categories Desktop section */}
                 <Disclosure
                   as="div"
-                  key="disclosure"
+                  key="desktop-color"
                   className="border-t border-gray-200 px-4 py-6"
                 >
                   {({ open }) => (
@@ -645,7 +645,7 @@ export default function ProductsFilters() {
                 {/* price categories section Desktop*/}
                 <Disclosure
                   as="div"
-                  key="disclosure"
+                  key="desktop-price"
                   className="border-t border-gray-200 px-4 py-6"
                 >
                   {({ open }) => (
@@ -673,7 +673,7 @@ export default function ProductsFilters() {
                       <Disclosure.Panel className="pt-6">
                         <div className="space-y-6 mt-2">
                           {allPrice?.map((price) => (
-                            <div className="flex items-center">
+                            <div key={price.amount} className="flex items-center">
                               <input
                                 onClick={() => setPrice(price?.amount)}
                                 name="price"
@@ -695,7 +695,7 @@ export default function ProductsFilters() {
                 {/* product brand categories section categories section */}
                 <Disclosure
                   as="div"
-                  key="disclosure"
+                  key="desktop-brand"
                   className="border-t border-gray-200 px-4 py-6"
                 >
                   {({ open }) => (
@@ -745,7 +745,7 @@ export default function ProductsFilters() {
                 {/* product size categories  desktop */}
                 <Disclosure
                   as="div"
-                  key="disclosure"
+                  key="desktop-size"
                   className="border-t border-gray-200 px-4 py-6"
                 >
                   {({ open }) => (

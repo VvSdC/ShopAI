@@ -1,31 +1,52 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import ErrorComponent from "../../ErrorMsg/ErrorMsg";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams, useLocation, Link } from "react-router-dom";
+import { updateCategoryAction } from "../../../redux/slices/categories/categoriesSlice";
+import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import SuccessMsg from "../../SuccessMsg/SuccessMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 
 export default function UpdateCategory() {
-  //---form data---
+  const { id } = useParams();
+  const { state } = useLocation();
+  const dispatch = useDispatch();
+
   const [formData, setFormData] = useState({
-    name: "",
+    name: state?.categoryName || "",
   });
-  //---onChange---
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(state?.categoryImage || "");
+
+  const { loading, error, isUpdated } = useSelector(
+    (state) => state?.categories
+  );
+
   const handleOnChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const loading = false
-  const error = null
-  const isUpdated = false
-  const categoryName = ''
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    if (selected) {
+      setFile(selected);
+      setPreview(URL.createObjectURL(selected));
+    }
+  };
 
-  //onSubmit
   const handleOnSubmit = (e) => {
     e.preventDefault();
+    dispatch(
+      updateCategoryAction({
+        name: formData.name,
+        file,
+        id,
+      })
+    );
   };
+
   return (
     <>
-      {error && <ErrorComponent message={error?.message} />}
+      {error && <ErrorMsg message={error?.message} />}
       {isUpdated && <SuccessMsg message="Category updated successfully" />}
       <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -52,7 +73,7 @@ export default function UpdateCategory() {
             <form className="space-y-6" onSubmit={handleOnSubmit}>
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="name"
                   className="block text-sm font-medium text-gray-700">
                   Name
                 </label>
@@ -65,6 +86,34 @@ export default function UpdateCategory() {
                   />
                 </div>
               </div>
+
+              {/* Current / new image preview */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Category Image
+                </label>
+                {preview && (
+                  <div className="mt-2">
+                    <img
+                      src={preview}
+                      alt="Category preview"
+                      className="h-32 w-32 rounded-lg object-cover border"
+                    />
+                  </div>
+                )}
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Upload a new image to replace the current one (max 5 MB).
+                  </p>
+                </div>
+              </div>
+
               <div>
                 {loading ? (
                   <LoadingComponent />
@@ -98,23 +147,19 @@ export default function UpdateCategory() {
                 </div>
 
                 <div>
-                  <div>
-                    <Link
-                      to="/admin/add-color"
-                      className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
-                      Add Color
-                    </Link>
-                  </div>
+                  <Link
+                    to="/admin/add-color"
+                    className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
+                    Add Color
+                  </Link>
                 </div>
 
                 <div>
-                  <div>
-                    <Link
-                      to="/admin/add-category"
-                      className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
-                      Add Category
-                    </Link>
-                  </div>
+                  <Link
+                    to="/admin/add-category"
+                    className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
+                    Add Category
+                  </Link>
                 </div>
               </div>
             </div>

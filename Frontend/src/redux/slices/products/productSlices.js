@@ -189,13 +189,13 @@ const productSlice = createSlice({
       state.isAdded = false
       state.error = action.payload
     })
-    //fetch all
+    //fetch single product
     builder.addCase(fetchProductAction.pending, (state) => {
       state.loading = true
     })
     builder.addCase(fetchProductAction.fulfilled, (state, action) => {
       state.loading = false
-      state.product = action.payload
+      state.product = action.payload.product
     })
     builder.addCase(fetchProductAction.rejected, (state, action) => {
       state.loading = false

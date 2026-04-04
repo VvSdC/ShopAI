@@ -51,6 +51,41 @@ export const fetchCategoriesAction = createAsyncThunk(
     }
   }
 )
+
+//update Category action
+export const updateCategoryAction = createAsyncThunk(
+  'category/update',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { name, file, id } = payload
+      const formData = new FormData()
+      formData.append('name', name)
+      if (file) {
+        formData.append('file', file)
+      }
+      const { data } = await axiosInstance.put(
+        `/categories/${id}`,
+        formData
+      )
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+//delete Category action
+export const deleteCategoryAction = createAsyncThunk(
+  'category/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(`/categories/${id}`)
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //slice
 const categorySlice = createSlice({
   name: 'categories',
@@ -88,6 +123,35 @@ const categorySlice = createSlice({
       state.categories = null
       state.error = action.payload
     })
+
+    //update
+    builder.addCase(updateCategoryAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(updateCategoryAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.category = action.payload
+      state.isUpdated = true
+    })
+    builder.addCase(updateCategoryAction.rejected, (state, action) => {
+      state.loading = false
+      state.category = null
+      state.isUpdated = false
+      state.error = action.payload
+    })
+    //delete
+    builder.addCase(deleteCategoryAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteCategoryAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.isDelete = true
+    })
+    builder.addCase(deleteCategoryAction.rejected, (state, action) => {
+      state.loading = false
+      state.error = action.payload
+    })
+
     //Reset err
     builder.addCase(resetErrAction.pending, (state, action) => {
       state.error = null

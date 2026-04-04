@@ -254,6 +254,7 @@ export default function Product() {
                           </RadioGroup.Label>
                           <span
                             style={{ backgroundColor: color }}
+                            title={color}
                             aria-hidden="true"
                             className={classNames(
                               'h-8 w-8 border border-black border-opacity-10 rounded-full'
@@ -389,7 +390,7 @@ export default function Product() {
           </h2>
 
           <div className="mt-6 space-y-10 divide-y divide-gray-200 border-t border-b border-gray-200 pb-10">
-            {product?.reviews.map((review) => (
+            {product?.reviews?.map((review) => (
               <div
                 key={review._id}
                 className="pt-10 lg:grid lg:grid-cols-12 lg:gap-x-8"
