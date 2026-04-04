@@ -80,9 +80,21 @@ export default function OrdersList() {
               </tr>
             </thead>
             {loading ? (
-              <LoadingComponent />
+              <tbody>
+                <tr>
+                  <td colSpan={6} className="py-6">
+                    <LoadingComponent />
+                  </td>
+                </tr>
+              </tbody>
             ) : orders?.length <= 0 ? (
-              <NoDataFound />
+              <tbody>
+                <tr>
+                  <td colSpan={6} className="py-6">
+                    <NoDataFound />
+                  </td>
+                </tr>
+              </tbody>
             ) : (
               <tbody className="divide-y divide-gray-200 bg-white">
                 {orders?.map((order) => (
