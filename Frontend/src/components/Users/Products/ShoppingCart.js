@@ -60,6 +60,27 @@ export default function ShoppingCart() {
     dispatch(removeOrderItemQty(productId))
     dispatch(getCartItemsFromLocalStorageAction())
   }
+  // If cart is empty, show empty cart page with Start Shopping button
+  if (!cartItems || cartItems?.length === 0) {
+    return (
+      <div className="bg-white">
+        <div className="mx-auto max-w-2xl px-4 pt-16 pb-24 sm:px-6 lg:max-w-7xl lg:px-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">Your cart is empty</h1>
+          <p className="mt-4 text-gray-600" style={{ fontSize: '18px' }}>
+            Looks like you haven't added any items yet. Start shopping to add products to your cart.
+          </p>
+          <div className="mt-8">
+            <Link
+              to="/products-filters"
+              className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
+            >
+              Start Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-2xl px-4 pt-16 pb-24 sm:px-6 lg:max-w-7xl lg:px-8">
