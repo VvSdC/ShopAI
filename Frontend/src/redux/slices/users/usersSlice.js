@@ -129,7 +129,9 @@ export const getCurrentUserAction = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.get(`/users/me`)
-      return data
+      // Normalize backend response shapes: some endpoints return { user },
+      // others return { data: user } or the user directly.
+      return data?.user || data?.data || data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -175,7 +177,8 @@ const usersSlice = createSlice({
       state.userAuth.loading = true
     })
     builder.addCase(getCurrentUserAction.fulfilled, (state, action) => {
-      state.userAuth.userInfo = action.payload?.user
+      // action.payload may be the user object or an object containing { user }
+      state.userAuth.userInfo = action.payload?.user || action.payload
       state.userAuth.isLoggedIn = true
       state.userAuth.loading = false
     })

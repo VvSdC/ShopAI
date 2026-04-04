@@ -134,14 +134,16 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
   // Decode claims from the access token cookie
   const token = req?.cookies?.shopai_token;
   const decoded = jwt.verify(token, process.env.JWT_KEY);
+  // Fetch latest user fields from DB to include email and createdAt
+  const user = await User.findById(decoded.id).select(
+    'fullname email isAdmin hasShippingAddress createdAt'
+  );
+  if (!user) {
+    throw new Error('User not found');
+  }
   res.json({
-    status: "success",
-    user: {
-      _id: decoded.id,
-      fullname: decoded.fullname,
-      isAdmin: decoded.isAdmin,
-      hasShippingAddress: decoded.hasShippingAddress,
-    },
+    status: 'success',
+    user,
   });
 });
 

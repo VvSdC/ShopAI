@@ -163,8 +163,10 @@ export default function AddminDashboard() {
   const { userAuth } = useSelector((state) => state?.users)
   const currentUser = userAuth?.userInfo
   const fullname = currentUser?.fullname || 'Admin'
-  const email = ''
-  const dateJoined = 'N/A'
+  const email = currentUser?.email || ''
+  const dateJoined = currentUser?.createdAt
+    ? new Date(currentUser.createdAt).toLocaleDateString()
+    : 'N/A'
   const role = currentUser?.isAdmin ? 'Admin' : 'User'
 
   return (
