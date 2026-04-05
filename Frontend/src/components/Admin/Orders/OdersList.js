@@ -20,6 +20,14 @@ export default function OrdersList() {
     loading,
     orders: { orders },
   } = useSelector((state) => state?.orders);
+  // Show only recent successful (paid) orders on dashboard
+  const recentSuccessful = (orders || [])
+    .filter((o) => {
+      const status = (o?.paymentStatus || '').toString().toLowerCase();
+      return status && status !== 'not paid' && status !== 'pending';
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 10);
 
   return (
     <>
@@ -77,7 +85,7 @@ export default function OrdersList() {
                   </td>
                 </tr>
               </tbody>
-            ) : orders?.length <= 0 ? (
+            ) : (orders?.length <= 0 || recentSuccessful?.length <= 0) ? (
               <tbody>
                 <tr>
                   <td colSpan={6} className="py-6">
@@ -87,43 +95,17 @@ export default function OrdersList() {
               </tbody>
             ) : (
               <tbody className="divide-y divide-gray-200 bg-white">
-                {orders?.map((order) => (
+                {recentSuccessful?.map((order) => (
                   <tr key={order._id}>
                     <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-6">
                       {order._id}
                     </td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
-                      {order.paymentStatus === "Not paid" ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-600 text-gray-300">
-                          {order.paymentStatus}
-                        </span>
-                      ) : (
-                        order.paymentStatus
-                      )}
-                    </td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
-                      {new Date(order?.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">
-                      {order?.status}
-                    </td>
-                    <td className="px-3 py-4 text-sm text-gray-500">
-                      {order?.totalPrice}
-                    </td>
+                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">{order.paymentStatus}</td>
+                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">{new Date(order?.createdAt).toLocaleDateString()}</td>
+                    <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">{order?.status}</td>
+                    <td className="px-3 py-4 text-sm text-gray-500">{order?.totalPrice}</td>
                     <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {order?.paymentStatus === "Not paid" ? (
-                        <Link
-                          style={{ cursor: "not-allowed" }}
-                          className="text-gray-300">
-                          Edit
-                        </Link>
-                      ) : (
-                        <Link
-                          to={`/admin/orders/${order?._id}`}
-                          className="text-indigo-600 hover:text-indigo-900">
-                          Edit
-                        </Link>
-                      )}
+                      <Link to={`/admin/orders/${order?._id}`} className="text-indigo-600 hover:text-indigo-900">Edit</Link>
                     </td>
                   </tr>
                 ))}
