@@ -42,6 +42,40 @@ https://stripe.com/en-in
 https://stripe.com/docs/checkout/quickstart
 https://dashboard.stripe.com/test/webhooks/create?endpoint_location=local
 
+#### Stripe CLI Setup (Local Development)
+
+1. **Install the Stripe CLI**
+   - Download from https://docs.stripe.com/stripe-cli#install
+   - Or via package managers:
+     ```bash
+     # Windows (scoop)
+     scoop install stripe
+
+     # macOS (Homebrew)
+     brew install stripe/stripe-cli/stripe
+     ```
+
+2. **Login to Stripe**
+   ```bash
+   stripe login
+   ```
+   This opens a browser window to authenticate. Once done, the CLI is linked to your Stripe account.
+
+3. **Get the Webhook Signing Secret**
+   ```bash
+   stripe listen --forward-to localhost:2030/webhook
+   ```
+   On startup, the CLI prints a line like:
+   ```
+   > Ready! Your webhook signing secret is whsec_xxxxx (^C to quit)
+   ```
+   Copy the `whsec_...` value and add it to your environment configuration.
+
+4. **Run the backend** (starts both the server and Stripe listener together):
+   ```bash
+   npm start
+   ```
+
 ### uploading images
 
 https://cloudinary.com/

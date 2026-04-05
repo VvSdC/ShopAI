@@ -83,16 +83,71 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
       quantity: item?.qty,
     }
   })
+
+  // Build address object from user's shipping address (Indian export compliance)
+  const addr = user?.shippingAddress || {}
+  const stripeAddress = {
+    line1: addr.address || 'N/A',
+    city: addr.city || '',
+    state: addr.province || '',
+    postal_code: addr.postalCode || '',
+    country: addr.country || 'IN',
+  }
+
+  // Create a Stripe Customer with name, email, billing & shipping address
+  // This satisfies Indian export regulations and pre-fills + locks email
+  const stripeCustomer = await stripe.customers.create({
+    name: user.fullname,
+    email: user.email,
+    address: stripeAddress,
+    shipping: {
+      name: `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
+      phone: addr.phone || '',
+      address: stripeAddress,
+    },
+  })
+
   const session = await stripe.checkout.sessions.create({
     line_items: convertedOrders,
+    customer: stripeCustomer.id,
     metadata: {
-      orderId: JSON.stringify(order?._id),
+      orderId: order?._id.toString(),
     },
     mode: 'payment',
-    success_url: 'http://localhost:3000/success',
+    success_url: 'http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}',
     cancel_url: 'http://localhost:3000/cancel',
   })
   res.send({ url: session.url })
+})
+
+//@desc verify payment by Stripe session ID and update order
+//@route GET /api/v1/orders/verify-payment/:session_id
+//@access private
+
+export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
+  const session = await stripe.checkout.sessions.retrieve(req.params.session_id)
+  if (!session) {
+    throw new Error('Session not found')
+  }
+  const { orderId } = session.metadata
+  if (!orderId) {
+    throw new Error('No order associated with this session')
+  }
+  const updatedOrder = await Order.findByIdAndUpdate(
+    orderId,
+    {
+      totalPrice: session.amount_total / 100,
+      currency: session.currency,
+      paymentMethod: session.payment_method_types?.[0] || 'card',
+      paymentStatus: session.payment_status,
+    },
+    { new: true }
+  )
+  res.json({
+    success: true,
+    message: 'Payment verified',
+    order: updatedOrder,
+  })
 })
 
 //@desc get all orders

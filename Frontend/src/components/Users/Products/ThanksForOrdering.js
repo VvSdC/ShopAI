@@ -1,10 +1,23 @@
-import { useSelector } from 'react-redux'
-import { Link } from 'react-router-dom'
-
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import axiosInstance from '../../../utils/axiosInstance'
 
 export default function ThanksForOrdering() {
   // clear cart items in localStorage
   localStorage.setItem('cartItems', JSON.stringify([]))
+  const [searchParams] = useSearchParams()
+  const sessionId = searchParams.get('session_id')
+  const [verified, setVerified] = useState(false)
+
+  // Verify payment with backend using the Stripe session ID
+  useEffect(() => {
+    if (sessionId) {
+      axiosInstance
+        .get(`/orders/verify-payment/${sessionId}`)
+        .then(() => setVerified(true))
+        .catch((err) => console.error('Payment verification failed:', err))
+    }
+  }, [sessionId])
   return (
     <>
       <main className="relative lg:min-h-full">

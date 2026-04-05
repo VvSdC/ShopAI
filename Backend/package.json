@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "server": "nodemon server.js",
-    "start": "node server.js",
+    "start": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
+    "start:server": "node server.js",
+    "dev": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
     "lint": "eslint . --ext .js --config .eslintrc.cjs",
     "lint:fix": "eslint . --ext .js --fix --config .eslintrc.cjs",
     "depcheck": "depcheck"
@@ -32,6 +34,7 @@
     "stripe": "^11.5.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "depcheck": "^1.4.7",
     "eslint": "^8.45.0",
     "eslint-plugin-node": "^11.1.0",

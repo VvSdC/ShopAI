@@ -23,7 +23,7 @@ const AddShippingAddress = () => {
     address: '',
     city: '',
     country: '',
-    region: '',
+    province: '',
     postalCode: '',
     phone: '',
   })
@@ -194,12 +194,15 @@ const AddShippingAddress = () => {
                 onChange={onChange}
                 className="block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
-                <option value="IND">india</option>
-                <option value="CAN">Canada</option>
-                <option value="MEX">Mexico</option>
-                <option value="Ghana">Ghana</option>
-                <option value="Nigeria">Nigeria</option>
-                <option value="South Africa">South Africa</option>
+                <option value="">-- Select Country --</option>
+                <option value="IN">India</option>
+                <option value="CA">Canada</option>
+                <option value="MX">Mexico</option>
+                <option value="GH">Ghana</option>
+                <option value="NG">Nigeria</option>
+                <option value="ZA">South Africa</option>
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
               </select>
             </div>
           </div>
@@ -214,9 +217,9 @@ const AddShippingAddress = () => {
             <div className="mt-1">
               <input
                 type="text"
-                name="region"
+                name="province"
                 onChange={onChange}
-                value={formData.region}
+                value={formData.province}
                 autoComplete="address-level1"
                 className="block w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
