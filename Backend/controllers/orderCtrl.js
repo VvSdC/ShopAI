@@ -150,6 +150,34 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
   })
 })
 
+//@desc get current user's orders (paginated)
+//@route GET /api/v1/orders/my-orders
+//@access private
+
+export const getUserOrdersCtrl = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1
+  const limit = parseInt(req.query.limit) || 5
+  const skip = (page - 1) * limit
+
+  const total = await Order.countDocuments({ user: req.userAuthId })
+  const orders = await Order.find({ user: req.userAuthId })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+
+  res.json({
+    success: true,
+    message: 'User orders',
+    orders,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  })
+})
+
 //@desc get all orders
 //@route GET /api/v1/orders
 //@access private

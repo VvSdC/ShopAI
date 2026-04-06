@@ -14,6 +14,8 @@ const initialState = {
   isAdded: false,
   isUpdated: false,
   stats: null,
+  userOrders: [],
+  pagination: null,
 }
 
 //create product action
@@ -32,6 +34,21 @@ export const placeOrderAction = createAsyncThunk(
         }
       )
       return window.open(data?.url)
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//fetch current user's orders (paginated)
+export const fetchUserOrdersAction = createAsyncThunk(
+  'orders/user-orders',
+  async ({ page = 1, limit = 5 } = {}, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(
+        `/orders/my-orders?page=${page}&limit=${limit}`
+      )
+      return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -130,6 +147,21 @@ const ordersSlice = createSlice({
     builder.addCase(fetchOrdersAction.rejected, (state, action) => {
       state.loading = false
       state.orders = null
+      state.error = action.payload
+    })
+    //fetch user orders (paginated)
+    builder.addCase(fetchUserOrdersAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(fetchUserOrdersAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.userOrders = action.payload.orders
+      state.pagination = action.payload.pagination
+    })
+    builder.addCase(fetchUserOrdersAction.rejected, (state, action) => {
+      state.loading = false
+      state.userOrders = []
+      state.pagination = null
       state.error = action.payload
     })
     //stats
