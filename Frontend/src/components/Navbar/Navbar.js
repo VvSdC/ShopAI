@@ -6,6 +6,7 @@ import {
   UserIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
+import { ChevronDownIcon } from '@heroicons/react/24/solid'
 import { Link } from 'react-router-dom'
 import logo from './shopai.png'
 import { useDispatch, useSelector } from 'react-redux'
@@ -24,7 +25,11 @@ export default function Navbar() {
   //get data from store
   const { categories } = useSelector((state) => state?.categories)
 
-  const categoriesToDisplay = categories?.categories?.slice(0, 3)
+  // compute top categories by number of products
+  const sortedCategories = (categories?.categories || []).slice().sort((a, b) => {
+    return (b?.products?.length || 0) - (a?.products?.length || 0)
+  })
+  const categoriesToDisplay = sortedCategories.slice(0, 4)
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   //get data from store
@@ -112,35 +117,42 @@ export default function Navbar() {
                         to="/products?category=clothing"
                         className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
                       >
-                        Clothing
+                        CLOTHING
                       </Link>
 
                       <Link
                         to="/"
                         className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
                       >
-                        Men
+                        MEN
                       </Link>
 
                       <Link
                         to="/"
                         className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
                       >
-                        Women
+                        WOMEN
                       </Link>
                     </>
                   ) : (
-                    categoriesToDisplay?.slice(0, 4).map((category) => {
-                      return (
-                          <Link
-                            key={category?._id}
-                            to={`/products-filters?category=${category?.name}`}
-                            className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
-                          >
-                            {category?.name}
-                          </Link>
-                      )
-                    })
+                    <>
+                      {categoriesToDisplay?.map((category) => (
+                        <Link
+                          key={category?._id}
+                          to={`/products-filters?category=${category?.name}`}
+                          className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
+                        >
+                          {category?.image ? (
+                            <img src={category.image} alt={category?.name} className="h-5 w-5 rounded-full object-cover mr-2" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full bg-gray-200 mr-2" />
+                          )}
+                          <span className="uppercase">{category?.name}</span>
+                          <span className="ml-2 text-xs text-gray-500">({category?.products?.length || 0})</span>
+                        </Link>
+                      ))}
+                      <Link to="/all-categories" className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800">ALL CATEGORIES</Link>
+                    </>
                   )}
                 </div>
 
@@ -215,55 +227,66 @@ export default function Navbar() {
                   <div className="hidden lg:flex lg:items-center">
                     <Link to="/">
                       <span className="sr-only">ShopAI</span>
-                      <img src={logo} alt="ShopAI logo" className="h-12 w-auto" style={{ mixBlendMode: 'multiply' }} />
+                      <img src={logo} alt="ShopAI logo" className="h-12 w-auto" style={{ mixBlendMode: 'multiply', transform: 'translateY(10px)' }} />
                     </Link>
                   </div>
 
                   <div className="hidden h-full lg:flex">
                     {/*  menus links*/}
                     <Popover.Group className="ml-8">
-                      <div className="flex h-full justify-center space-x-8">
-                        {categoriesToDisplay?.length <= 0 ? (
-                          <>
-                            <Link
-                              to="/products?category=clothing"
-                              className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
-                            >
-                              Clothing
-                            </Link>
+                      <div className="flex h-full justify-center">
+                        <Popover className="relative">
+                          {({ open }) => (
+                            <>
+                              <Popover.Button
+                                className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 rounded"
+                                style={{ fontSize: '18px', margin: '37px 10px', transform: 'translateY(-1.5px)' }}
+                                aria-expanded={open}
+                              >
+                                <span>CATEGORIES</span>
+                                <ChevronDownIcon className={`ml-2 h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+                              </Popover.Button>
 
-                            <Link
-                              to="/"
-                              className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
-                            >
-                              Men
-                            </Link>
-
-                            <Link
-                              to="/"
-                              className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
-                            >
-                              Women
-                            </Link>
-                          </>
-                        ) : (
-                          categoriesToDisplay?.map((category) => {
-                            return (
-                                <Link
-                                  key={category?._id}
-                                  to={`/products-filters?category=${category?.name}`}
-                                  className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
-                                  style={{
-                                    fontSize: '18px',
-                                    textTransform: 'capitalize',
-                                    margin: '37px 10px',
-                                  }}
-                                >
-                                  {category?.name}
-                                </Link>
-                            )
-                          })
-                        )}
+                              <Transition
+                                as={Fragment}
+                                enter="transition ease-out duration-200"
+                                enterFrom="opacity-0 translate-y-1"
+                                enterTo="opacity-100 translate-y-0"
+                                leave="transition ease-in duration-150"
+                                leaveFrom="opacity-100 translate-y-0"
+                                leaveTo="opacity-0 translate-y-1"
+                              >
+                                <Popover.Panel className="absolute z-10 mt-3 w-56 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                                  <div className="py-1">
+                                    {categoriesToDisplay?.length <= 0 ? (
+                                      <div className="px-4 py-2 text-sm text-gray-700">NO CATEGORIES</div>
+                                    ) : (
+                                      categoriesToDisplay.map((category) => (
+                                        <Link
+                                          key={category?._id}
+                                          to={`/products-filters?category=${category?.name}`}
+                                          className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
+                                        >
+                                          <div className="flex items-center gap-3">
+                                            {category?.image ? (
+                                              <img src={category.image} alt={category?.name} className="h-6 w-6 rounded-full object-cover" />
+                                            ) : (
+                                              <div className="h-6 w-6 rounded-full bg-gray-200" />
+                                            )}
+                                            <span className="uppercase">{category?.name}</span>
+                                          </div>
+                                          <span className="text-xs text-gray-500">{(category?.products?.length || 0)}</span>
+                                        </Link>
+                                      ))
+                                    )}
+                                    <div className="border-t my-1" />
+                                    <Link to="/all-categories" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100">ALL CATEGORIES</Link>
+                                  </div>
+                                </Popover.Panel>
+                              </Transition>
+                            </>
+                          )}
+                        </Popover>
                       </div>
                     </Popover.Group>
                   </div>
