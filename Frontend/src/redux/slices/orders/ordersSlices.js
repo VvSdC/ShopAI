@@ -113,6 +113,19 @@ export const updateOrderAction = createAsyncThunk(
     }
   }
 )
+
+//Cancel order action
+export const cancelOrderAction = createAsyncThunk(
+  'orders/cancel',
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put(`/orders/cancel/${orderId}`)
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
 //slice
 const ordersSlice = createSlice({
   name: 'orders',
@@ -198,6 +211,24 @@ const ordersSlice = createSlice({
     builder.addCase(fetchOderAction.rejected, (state, action) => {
       state.loading = false
       state.order = null
+      state.error = action.payload
+    })
+    //cancel order
+    builder.addCase(cancelOrderAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(cancelOrderAction.fulfilled, (state, action) => {
+      state.loading = false
+      // Update the order in userOrders list
+      const cancelled = action.payload?.order
+      if (cancelled) {
+        state.userOrders = state.userOrders.map((o) =>
+          o._id === cancelled._id ? cancelled : o
+        )
+      }
+    })
+    builder.addCase(cancelOrderAction.rejected, (state, action) => {
+      state.loading = false
       state.error = action.payload
     })
     //reset error

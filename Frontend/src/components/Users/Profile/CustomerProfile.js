@@ -1,15 +1,15 @@
 import { useEffect, useState, Fragment } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { getUserProfileAction } from '../../../redux/slices/users/usersSlice'
-import { fetchUserOrdersAction } from '../../../redux/slices/orders/ordersSlices'
+import { fetchUserOrdersAction, cancelOrderAction } from '../../../redux/slices/orders/ordersSlices'
 import CustomerDetails from './CustomerDetails'
-import ShippingAddressDetails from './ShippingAddressDetails'
 
 const statusColor = {
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   shipped: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
+  cancelled: 'bg-red-100 text-red-800',
 }
 
 const paymentStatusColor = {
@@ -17,8 +17,9 @@ const paymentStatusColor = {
   'Not paid': 'bg-red-100 text-red-800',
 }
 
-function OrderDetailsModal({ order, onClose }) {
+function OrderDetailsModal({ order, onClose, onCancel }) {
   if (!order) return null
+  const addr = order.shippingAddress
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -52,8 +53,25 @@ function OrderDetailsModal({ order, onClose }) {
             </button>
           </div>
 
-          {/* Items */}
+          {/* Content */}
           <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
+            {/* Delivery Address */}
+            {addr && (
+              <div className="mb-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Delivery Address</h4>
+                <p className="text-sm text-gray-900 font-medium">
+                  {addr.firstName} {addr.lastName}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {addr.address}, {addr.city}, {addr.province} {addr.postalCode}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {addr.country} &middot; {addr.phone}
+                </p>
+              </div>
+            )}
+
+            {/* Items */}
             <div className="space-y-4">
               {order.orderItems?.map((product, idx) => (
                 <div
@@ -90,6 +108,20 @@ function OrderDetailsModal({ order, onClose }) {
               <span className="text-sm font-medium text-gray-600">Total</span>
               <span className="text-lg font-bold text-gray-900">₹{order.totalPrice}</span>
             </div>
+            {/* Cancel button — only for pending/processing orders */}
+            {['pending', 'processing'].includes(order.status) && (
+              <button
+                onClick={() => onCancel(order._id)}
+                className="mt-4 w-full rounded-md bg-red-600 py-2 px-4 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+              >
+                Cancel Order
+              </button>
+            )}
+            {order.status === 'cancelled' && (
+              <p className="mt-4 text-center text-sm font-medium text-red-600">
+                This order has been cancelled
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -120,6 +152,12 @@ export default function CustomerProfile() {
 
   const loading = profileLoading || ordersLoading
   const error = profileError || ordersError
+
+  const handleCancelOrder = (orderId) => {
+    if (window.confirm('Are you sure you want to cancel this order?')) {
+      dispatch(cancelOrderAction(orderId))
+    }
+  }
 
   const totalPages = pagination?.totalPages || 1
 
@@ -232,16 +270,26 @@ export default function CustomerProfile() {
                         ₹{order.totalPrice}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          View Details
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Details
+                          </button>
+                          {['pending', 'processing'].includes(order.status) && (
+                            <button
+                              onClick={() => handleCancelOrder(order._id)}
+                              className="inline-flex items-center gap-1 rounded-md bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -292,17 +340,11 @@ export default function CustomerProfile() {
         )}
       </div>
 
-      {/* Shipping address */}
-      <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-        <ShippingAddressDetails
-          shippingAddress={profile?.user?.shippingAddress}
-        />
-      </div>
-
       {/* Order details modal */}
       <OrderDetailsModal
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
+        onCancel={handleCancelOrder}
       />
     </div>
   )

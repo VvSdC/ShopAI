@@ -285,3 +285,37 @@ export const getOrderStatsCtrl = asyncHandler(async (req, res) => {
     saleToday,
   })
 })
+
+//@desc cancel order (user)
+//@route PUT /api/v1/orders/cancel/:id
+//@access private
+
+export const cancelOrderCtrl = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id)
+  if (!order) {
+    throw new Error('Order not found')
+  }
+  // Only the order owner can cancel
+  if (order.user.toString() !== req.userAuthId.toString()) {
+    throw new Error('Not authorised to cancel this order')
+  }
+  // Can only cancel pending or processing orders
+  if (!['pending', 'processing'].includes(order.status)) {
+    throw new Error('Only pending or processing orders can be cancelled')
+  }
+  order.status = 'cancelled'
+  await order.save()
+  // Restore product stock
+  for (const item of order.orderItems) {
+    const product = await Product.findById(item._id)
+    if (product) {
+      product.totalSold = Math.max(0, product.totalSold - (item.qty || 1))
+      await product.save()
+    }
+  }
+  res.json({
+    success: true,
+    message: 'Order cancelled successfully',
+    order,
+  })
+})
