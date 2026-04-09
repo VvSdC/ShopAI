@@ -39,32 +39,18 @@ const UserShema = new Schema(
       type: Boolean,
       default: false,
     },
-    shippingAddress: {
-      firstName: {
-        type: String,
+    shippingAddresses: [
+      {
+        firstName: { type: String },
+        lastName: { type: String },
+        address: { type: String },
+        city: { type: String },
+        postalCode: { type: String },
+        province: { type: String },
+        country: { type: String },
+        phone: { type: String },
       },
-      lastName: {
-        type: String,
-      },
-      address: {
-        type: String,
-      },
-      city: {
-        type: String,
-      },
-      postalCode: {
-        type: String,
-      },
-      province: {
-        type: String,
-      },
-      country: {
-        type: String,
-      },
-      phone: {
-        type: String,
-      },
-    },
+    ],
   },
   {
     timestamps: true,

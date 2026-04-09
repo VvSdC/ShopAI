@@ -175,29 +175,78 @@ export const updateShippingAddresctrl = asyncHandler(async (req, res) => {
     phone,
     country,
   } = req.body;
-  const user = await User.findByIdAndUpdate(
-    req.userAuthId,
-    {
-      shippingAddress: {
-        firstName,
-        lastName,
-        address,
-        city,
-        postalCode,
-        province,
-        phone,
-        country,
-      },
-      hasShippingAddress: true,
-    },
-    {
-      new: true,
-    }
-  );
-  //send response
+  const user = await User.findById(req.userAuthId);
+  user.shippingAddresses.push({
+    firstName,
+    lastName,
+    address,
+    city,
+    postalCode,
+    province,
+    phone,
+    country,
+  });
+  user.hasShippingAddress = true;
+  await user.save();
   res.json({
     status: "success",
-    message: "User shipping address updated successfully",
+    message: "Shipping address added successfully",
+    user,
+  });
+});
+
+// @desc    Edit a shipping address
+// @route   PUT /api/v1/users/update/shipping/:addressId
+// @access  Private
+
+export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
+  const { addressId } = req.params;
+  const {
+    firstName,
+    lastName,
+    address,
+    city,
+    postalCode,
+    province,
+    phone,
+    country,
+  } = req.body;
+  const user = await User.findById(req.userAuthId);
+  const addr = user.shippingAddresses.id(addressId);
+  if (!addr) {
+    throw new Error("Address not found");
+  }
+  addr.firstName = firstName;
+  addr.lastName = lastName;
+  addr.address = address;
+  addr.city = city;
+  addr.postalCode = postalCode;
+  addr.province = province;
+  addr.phone = phone;
+  addr.country = country;
+  await user.save();
+  res.json({
+    status: "success",
+    message: "Shipping address updated successfully",
+    user,
+  });
+});
+
+// @desc    Delete a shipping address
+// @route   DELETE /api/v1/users/update/shipping/:addressId
+// @access  Private
+
+export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
+  const { addressId } = req.params;
+  const user = await User.findById(req.userAuthId);
+  user.shippingAddresses.pull(addressId);
+  if (user.shippingAddresses.length === 0) {
+    user.hasShippingAddress = false;
+  }
+  await user.save();
+  res.json({
+    status: "success",
+    message: "Shipping address deleted successfully",
     user,
   });
 });

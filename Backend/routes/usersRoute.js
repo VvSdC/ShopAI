@@ -4,6 +4,8 @@ import {
   loginUserCtrl,
   getUserProfileCtrl,
   updateShippingAddresctrl,
+  editShippingAddressCtrl,
+  deleteShippingAddressCtrl,
   refreshTokenCtrl,
   logoutUserCtrl,
   getCurrentUserCtrl,
@@ -19,4 +21,6 @@ userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);
 userRoutes.put("/update/shipping", isLoggedIn, updateShippingAddresctrl);
+userRoutes.put("/update/shipping/:addressId", isLoggedIn, editShippingAddressCtrl);
+userRoutes.delete("/update/shipping/:addressId", isLoggedIn, deleteShippingAddressCtrl);
 export default userRoutes;

@@ -57,18 +57,8 @@ export const updateUserShippingAddressAction = createAsyncThunk(
       phone,
       country,
     },
-    { rejectWithValue, getState, dispatch }
+    { rejectWithValue }
   ) => {
-    console.log(
-      firstName,
-      lastName,
-      address,
-      city,
-      postalCode,
-      province,
-      phone,
-      country
-    )
     try {
       const { data } = await axiosInstance.put(
         `/users/update/shipping`,
@@ -85,7 +75,40 @@ export const updateUserShippingAddressAction = createAsyncThunk(
       )
       return data
     } catch (error) {
-      console.log(error)
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//edit shipping address action
+export const editShippingAddressAction = createAsyncThunk(
+  'users/edit-shipping-address',
+  async (
+    { addressId, firstName, lastName, address, city, postalCode, province, phone, country },
+    { rejectWithValue }
+  ) => {
+    try {
+      const { data } = await axiosInstance.put(
+        `/users/update/shipping/${addressId}`,
+        { firstName, lastName, address, city, postalCode, province, phone, country }
+      )
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//delete shipping address action
+export const deleteShippingAddressAction = createAsyncThunk(
+  'users/delete-shipping-address',
+  async (addressId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(
+        `/users/update/shipping/${addressId}`
+      )
+      return data
+    } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
   }
@@ -226,7 +249,7 @@ const usersSlice = createSlice({
     builder.addCase(
       updateUserShippingAddressAction.fulfilled,
       (state, action) => {
-        state.user = action.payload
+        state.profile = { ...state.profile, user: action.payload?.user }
         state.loading = false
       }
     )
@@ -237,6 +260,30 @@ const usersSlice = createSlice({
         state.loading = false
       }
     )
+    //edit shipping address
+    builder.addCase(editShippingAddressAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(editShippingAddressAction.fulfilled, (state, action) => {
+      state.profile = { ...state.profile, user: action.payload?.user }
+      state.loading = false
+    })
+    builder.addCase(editShippingAddressAction.rejected, (state, action) => {
+      state.error = action.payload
+      state.loading = false
+    })
+    //delete shipping address
+    builder.addCase(deleteShippingAddressAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteShippingAddressAction.fulfilled, (state, action) => {
+      state.profile = { ...state.profile, user: action.payload?.user }
+      state.loading = false
+    })
+    builder.addCase(deleteShippingAddressAction.rejected, (state, action) => {
+      state.error = action.payload
+      state.loading = false
+    })
     //reset error action
     builder.addCase(resetErrAction.pending, (state) => {
       state.error = null

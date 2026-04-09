@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useLocation } from 'react-router-dom'
 import { getCartItemsFromLocalStorageAction } from '../../../redux/slices/cart/cartSlices'
@@ -23,26 +23,29 @@ export default function OrderPayment() {
   useEffect(() => {
     dispatch(getUserProfileAction())
   }, [dispatch])
-  const { error, profile } = useSelector((state) => state?.users)
-  const user = profile?.user
+  const { error } = useSelector((state) => state?.users)
+
+  //selected shipping address from child
+  const [selectedAddress, setSelectedAddress] = useState(null)
+  const handleAddressSelect = useCallback((addr) => {
+    setSelectedAddress(addr)
+  }, [])
 
   //place order action
-  //get shipping address
-  const shippingAddress = user?.shippingAddress
   const placeOrderHandler = () => {
-    if (!shippingAddress) {
+    if (!selectedAddress) {
       return (
-        error && <ErrorMsg message="provide the shippingaddress to proceed" />
+        error && <ErrorMsg message="Please select a shipping address to proceed" />
       )
     }
 
     if (cartItems.length === 0) {
-      return error && <ErrorMsg message="cartitems cannot be empty" />
+      return error && <ErrorMsg message="Cart items cannot be empty" />
     }
 
     dispatch(
       placeOrderAction({
-        shippingAddress,
+        shippingAddress: selectedAddress,
         orderItems: cartItems,
         totalPrice: sumTotalPrice,
       })
@@ -65,7 +68,7 @@ export default function OrderPayment() {
               <div>
                 <div className="mt-10 border-t border-gray-200 pt-10">
                   {/* shipping Address */}
-                  <AddShippingAddress />
+                  <AddShippingAddress onAddressSelect={handleAddressSelect} />
                 </div>
               </div>
 
