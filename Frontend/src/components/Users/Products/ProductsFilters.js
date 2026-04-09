@@ -319,7 +319,7 @@ export default function ProductsFilters() {
                                       >
                                         <span
                                           style={{
-                                            backgroundColor: color?.name,
+                                            backgroundColor: color?.hex || color?.name,
                                           }}
                                           aria-hidden="true"
                                           className="h-8 w-8 border border-black border-opacity-10 rounded-full"
@@ -626,7 +626,7 @@ export default function ProductsFilters() {
                                     }
                                   >
                                     <span
-                                      style={{ backgroundColor: color?.name }}
+                                      style={{ backgroundColor: color?.hex || color?.name }}
                                       aria-hidden="true"
                                       className="h-8 w-8 border border-black border-opacity-10 rounded-full"
                                     />

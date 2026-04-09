@@ -19,7 +19,7 @@ const initialState = {
 //create color action
 export const createColorAction = createAsyncThunk(
   'color/create',
-  async (name, { rejectWithValue, getState, dispatch }) => {
+  async ({ name, hex }, { rejectWithValue, getState, dispatch }) => {
     try {
       //Token - Authenticated
       //Images
@@ -27,6 +27,7 @@ export const createColorAction = createAsyncThunk(
         `/colors`,
         {
           name,
+          hex,
         }
       )
       return data

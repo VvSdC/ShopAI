@@ -10,6 +10,7 @@ export default function AddColor() {
   //form data
   const [formData, setFormData] = useState({
     name: "",
+    hex: "#000000",
   });
   //onChange
   const handleOnChange = (e) => {
@@ -19,10 +20,11 @@ export default function AddColor() {
   //onSubmit
   const handleOnSubmit = (e) => {
     e.preventDefault();
-    dispatch(createColorAction(formData?.name));
+    dispatch(createColorAction({ name: formData?.name, hex: formData?.hex }));
     //reset form
     setFormData({
       name: "",
+      hex: "#000000",
     });
   };
   //get data from store
@@ -67,6 +69,31 @@ export default function AddColor() {
                     value={formData.name}
                     name="name"
                     className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Hex Color
+                </label>
+                <div className="mt-1 flex items-center space-x-3">
+                  <input
+                    type="color"
+                    onChange={handleOnChange}
+                    value={formData.hex}
+                    name="hex"
+                    className="h-10 w-14 cursor-pointer rounded border border-gray-300 p-0"
+                  />
+                  <input
+                    onChange={handleOnChange}
+                    value={formData.hex}
+                    name="hex"
+                    placeholder="#000000"
+                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                  />
+                  <span
+                    className="inline-block h-8 w-8 rounded-full border border-gray-300"
+                    style={{ backgroundColor: formData.hex }}
                   />
                 </div>
               </div>

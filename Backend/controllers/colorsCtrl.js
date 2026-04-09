@@ -6,7 +6,7 @@ import Color from "../model/Color.js";
 // @access  Private/Admin
 
 export const createColorCtrl = asyncHandler(async (req, res) => {
-  const { name } = req.body;
+  const { name, hex } = req.body;
   //color exists
   const colorFound = await Color.findOne({ name });
   if (colorFound) {
@@ -15,6 +15,7 @@ export const createColorCtrl = asyncHandler(async (req, res) => {
   //create
   const color = await Color.create({
     name: name.toLowerCase(),
+    hex,
     user: req.userAuthId,
   });
 
@@ -54,13 +55,14 @@ export const getSingleColorCtrl = asyncHandler(async (req, res) => {
 // @route   PUT /api/colors/:id
 // @access  Private/Admin
 export const updateColorCtrl = asyncHandler(async (req, res) => {
-  const { name } = req.body;
+  const { name, hex } = req.body;
 
   //update
   const color = await Color.findByIdAndUpdate(
     req.params.id,
     {
       name,
+      hex,
     },
     {
       new: true,

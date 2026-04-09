@@ -14,6 +14,7 @@ import {
   addOrderToCartaction,
   getCartItemsFromLocalStorageAction,
 } from '../../../redux/slices/cart/cartSlices'
+import { fetchColorsAction } from '../../../redux/slices/categories/colorsSlice'
 // sample product removed; real product comes from redux state
 
 const policies = [
@@ -47,7 +48,15 @@ export default function Product() {
   const { id } = useParams()
   useEffect(() => {
     if (id) dispatch(fetchProductAction(id))
+    dispatch(fetchColorsAction())
   }, [id, dispatch])
+
+  //get all colors from store for hex lookup
+  const allColors = useSelector((state) => state?.colors?.colors?.colors) || []
+  const colorHexMap = {}
+  allColors.forEach((c) => {
+    colorHexMap[c.name] = c.hex
+  })
 
   //get data from store
   const { loading, error, product } = useSelector((state) => state?.products)
@@ -253,7 +262,7 @@ export default function Product() {
                             {color}
                           </RadioGroup.Label>
                           <span
-                            style={{ backgroundColor: color }}
+                            style={{ backgroundColor: colorHexMap[color] || color }}
                             title={color}
                             aria-hidden="true"
                             className={classNames(
