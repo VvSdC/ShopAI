@@ -16,47 +16,74 @@ const AllCategories = () => {
   } = useSelector((state) => state?.categories);
 
   return (
-    <>
-      <div className="bg-white">
+    <div className="bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white shadow-sm">
         <div className="mx-auto max-w-7xl py-12 px-4 text-center sm:px-6 lg:py-16 lg:px-8">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-            <span className="block">
-            {categories?.length} Total Categories Available
-            </span>
+            All Categories
           </h2>
-          <p style={{marginTop:'18px', fontSize:'17px'}}>Browse our categories and find the best products for you.</p>
+          <p className="mt-4 text-lg text-gray-500">
+            Browse our {categories?.length} categories and find the best
+            products for you.
+          </p>
         </div>
       </div>
-      <div className="mt-4 flow-root">
-        <div className="-my-2">
-          <div className="relative box-content h-80 overflow-x-auto py-2 xl:overflow-visible">
-            <div className="min-w-screen-xl absolute flex space-x-8 px-4 sm:px-6 lg:px-8 xl:relative xl:grid m-2  xl:grid-cols-5 xl:gap-x-8 xl:space-x-0 xl:px-0">
-              {categories?.map((category) => (
-                <Link
-                  key={category?.name}
-                  to={`/products-filters?category=${category?.name}`}
-                  className="relative flex h-80 w-56 flex-col mt-4 overflow-hidden rounded-lg p-6 hover:opacity-75 xl:w-auto">
-                  <span aria-hidden="true" className="absolute inset-0">
-                    <img
-                      src={category.image}
-                      alt={category?.name}
-                      className="h-full w-full object-cover object-center"
+
+      {/* Cards Grid */}
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {categories?.map((category) => (
+            <Link
+              key={category?._id}
+              to={`/products-filters?category=${category?.name}`}
+              className="group relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+            >
+              {/* Image */}
+              <div className="relative h-56 w-full overflow-hidden">
+                <img
+                  src={category.image}
+                  alt={category?.name}
+                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+
+                {/* Product count badge */}
+                <span className="absolute top-3 right-3 inline-flex items-center rounded-full bg-white/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-gray-800 shadow-sm">
+                  {category.products?.length}{" "}
+                  {category.products?.length === 1 ? "Product" : "Products"}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div className="flex flex-1 flex-col justify-between p-5">
+                <h3
+                  className="text-lg font-semibold text-gray-900 capitalize group-hover:text-indigo-600 transition-colors duration-200"
+                >
+                  {category.name}
+                </h3>
+                <p className="mt-2 flex items-center text-sm font-medium text-indigo-600 group-hover:text-indigo-700">
+                  Shop now
+                  <svg
+                    className="ml-1 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
                     />
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-gray-800 opacity-50"
-                  />
-                  <span className="relative mt-auto text-center text-xl font-bold text-white" style={{textTransform:'capitalize',fontSize:'23px'}}>
-                    {category.name} ({category.products.length})
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+                  </svg>
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

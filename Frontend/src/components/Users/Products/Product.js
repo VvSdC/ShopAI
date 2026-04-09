@@ -5,7 +5,7 @@ import { Carousel } from 'react-responsive-carousel'
 import 'react-responsive-carousel/lib/styles/carousel.min.css'
 import { CurrencyDollarIcon, GlobeAmericasIcon } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/20/solid'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
@@ -39,8 +39,10 @@ function classNames(...classes) {
 export default function Product() {
   //dispatch
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
+  const [qty, setQty] = useState(1)
 
   let productDetails = {}
 
@@ -67,21 +69,8 @@ export default function Product() {
     dispatch(getCartItemsFromLocalStorageAction())
   }, [dispatch])
 
-  const productExists = cartItems?.find(
-    (item) => item?._id?.toString() === product?._id?.toString()
-  )
-
   //Add to cart handler
   const addToCartHandler = () => {
-    if (productExists) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Oops...!',
-        text: 'This product is already in cart',
-      })
-      return
-    }
-
     if (selectedColor === '') {
       Swal.fire({
         icon: 'error',
@@ -104,24 +93,18 @@ export default function Product() {
       addOrderToCartaction({
         _id: product?._id,
         name: product?.name,
-        qty: 1,
+        qty: qty,
         price: product?.price,
         description: product?.description,
         color: selectedColor,
         size: selectedSize,
         image: product?.images?.[0],
-        totalPrice: product?.price,
+        totalPrice: product?.price * qty,
         qtyLeft: product?.qtyLeft,
       })
-    )
-
-    Swal.fire({
-      icon: 'success',
-      title: 'Good Job',
-      text: 'Product added to cart successfully',
+    ).then(() => {
+      navigate('/shopping-cart')
     })
-
-    dispatch(getCartItemsFromLocalStorageAction())
   }
 
   return (
@@ -306,6 +289,27 @@ export default function Product() {
                     ))}
                   </div>
                 </RadioGroup>
+              </div>
+              {/* Quantity picker */}
+              <div className="mt-8">
+                <h2 className="text-sm font-medium text-gray-900">Quantity</h2>
+                <div className="mt-2 flex items-center space-x-3">
+                  <button
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-lg font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    -
+                  </button>
+                  <span className="text-lg font-medium text-gray-900 w-8 text-center">
+                    {qty}
+                  </span>
+                  <button
+                    onClick={() => setQty(Math.min(product?.qtyLeft || 1, qty + 1))}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-lg font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               {/* add to cart */}
               {product?.qtyLeft <= 0 ? (

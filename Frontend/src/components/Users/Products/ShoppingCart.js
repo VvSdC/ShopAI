@@ -33,8 +33,8 @@ export default function ShoppingCart() {
   //get cart items from store
   const { cartItems } = useSelector((state) => state?.carts)
   //add to cart handler
-  const changeOrderItemQtyHandler = (productId, qty) => {
-    dispatch(changeOrderItemQty({ productId, qty }))
+  const changeOrderItemQtyHandler = (productId, color, size, qty) => {
+    dispatch(changeOrderItemQty({ productId, color, size, qty }))
     dispatch(getCartItemsFromLocalStorageAction())
   }
   
@@ -51,8 +51,8 @@ export default function ShoppingCart() {
   }
   //price of the product - (price of product x discount/100)
   //remove cart  Item handler
-  const removeOrderItemQtyHandler = (productId) => {
-    dispatch(removeOrderItemQty(productId))
+  const removeOrderItemQtyHandler = (productId, color, size) => {
+    dispatch(removeOrderItemQty({ productId, color, size }))
     dispatch(getCartItemsFromLocalStorageAction())
   }
   // If cart is empty, show empty cart page with Start Shopping button
@@ -151,9 +151,12 @@ export default function ShoppingCart() {
                           Quantity, {product.name}
                         </label>
                         <select
+                          value={product?.qty}
                           onChange={(e) =>
                             changeOrderItemQtyHandler(
                               product?._id,
+                              product?.color,
+                              product?.size,
                               e.target.value
                             )
                           }
@@ -173,7 +176,7 @@ export default function ShoppingCart() {
                         <div className="absolute top-0 right-0">
                           <button
                             onClick={() =>
-                              removeOrderItemQtyHandler(product?._id)
+                              removeOrderItemQtyHandler(product?._id, product?.color, product?.size)
                             }
                             className="-m-2 inline-flex p-2 text-gray-400 hover:text-gray-500"
                           >

@@ -17,9 +17,23 @@ export const addOrderToCartaction = createAsyncThunk(
     const cartItems = localStorage.getItem('cartItems')
       ? JSON.parse(localStorage.getItem('cartItems'))
       : []
-    //push to storage
-    cartItems.push(cartItem)
+    //check if same product with same color and size already exists
+    const existingIndex = cartItems.findIndex(
+      (item) =>
+        item?._id?.toString() === cartItem?._id?.toString() &&
+        item?.color === cartItem?.color &&
+        item?.size === cartItem?.size
+    )
+    if (existingIndex >= 0) {
+      //merge quantities
+      cartItems[existingIndex].qty += cartItem.qty
+      cartItems[existingIndex].totalPrice =
+        cartItems[existingIndex].qty * cartItems[existingIndex].price
+    } else {
+      cartItems.push(cartItem)
+    }
     localStorage.setItem('cartItems', JSON.stringify(cartItems))
+    return cartItems
   }
 )
 //add product to cart
@@ -34,17 +48,19 @@ export const getCartItemsFromLocalStorageAction = createAsyncThunk(
   }
 )
 
-//add product to cart
+//change cart item qty
 export const changeOrderItemQty = createAsyncThunk(
   'cart/change-item-qty',
-  async ({ productId, qty }) => {
-    console.log(productId, qty)
+  async ({ productId, color, size, qty }) => {
     const cartItems = localStorage.getItem('cartItems')
       ? JSON.parse(localStorage.getItem('cartItems'))
       : []
     const newCartItems = cartItems?.map((item) => {
-      if (item?._id?.toString() === productId?.toString()) {
-        //get new price
+      if (
+        item?._id?.toString() === productId?.toString() &&
+        item?.color === color &&
+        item?.size === size
+      ) {
         const newPrice = item?.price * qty
         item.qty = +qty
         item.totalPrice = newPrice
@@ -52,18 +68,27 @@ export const changeOrderItemQty = createAsyncThunk(
       return item
     })
     localStorage.setItem('cartItems', JSON.stringify(newCartItems))
+    return newCartItems
   }
 )
 
 //remove from cart
 export const removeOrderItemQty = createAsyncThunk(
   'cart/removeOrderItem',
-  async (productId) => {
+  async ({ productId, color, size }) => {
     const cartItems = localStorage.getItem('cartItems')
       ? JSON.parse(localStorage.getItem('cartItems'))
       : []
-    const newItems = cartItems?.filter((item) => item?._id !== productId)
+    const newItems = cartItems?.filter(
+      (item) =>
+        !(
+          item?._id === productId &&
+          item?.color === color &&
+          item?.size === size
+        )
+    )
     localStorage.setItem('cartItems', JSON.stringify(newItems))
+    return newItems
   }
 )
 //slice
