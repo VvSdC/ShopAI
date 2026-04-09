@@ -240,6 +240,7 @@ const usersSlice = createSlice({
     //reset error action
     builder.addCase(resetErrAction.pending, (state) => {
       state.error = null
+      state.userAuth.error = null
     })
   },
 })

@@ -16,7 +16,8 @@ axiosInstance.interceptors.response.use(
       error.response?.status === 401 &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/users/refresh') &&
-      !originalRequest.url?.includes('/users/login')
+      !originalRequest.url?.includes('/users/login') &&
+      !originalRequest.url?.includes('/users/me')
     ) {
       originalRequest._retry = true
       try {
@@ -24,8 +25,10 @@ axiosInstance.interceptors.response.use(
         // Retry original request with new cookie
         return axiosInstance(originalRequest)
       } catch (refreshError) {
-        // Refresh failed — redirect to login
-        window.location.href = '/login'
+        // Refresh failed — redirect to login only if not already there
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
       }
     }
