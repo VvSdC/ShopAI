@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { createReviewAction } from "../../../redux/slices/reviews/reviewsSlice";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
@@ -9,6 +9,7 @@ import SuccessMsg from "../../SuccessMsg/SuccessMsg";
 export default function AddReview() {
   //Dispatch
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   //get params
   const { id } = useParams();
   //---form data---
@@ -31,10 +32,9 @@ export default function AddReview() {
         message: formData.message,
         rating: formData.rating,
       })
-    );
-    setTimeout(function(){
-      window.location.reload();
-   }, 3000);
+    ).then(() => {
+      navigate(`/products/${id}`)
+    });
   };
 
   //get data from store
@@ -70,19 +70,13 @@ export default function AddReview() {
                   value={formData.rating}
                   onChange={handleOnChange}
                   name="rating"
-                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 border-2 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                  defaultValue="Canada">
-                  {/* review rating */}
-
+                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 border-2 focus:outline-none focus:ring-indigo-500 sm:text-sm">
+                  <option value="" disabled>Select a rating</option>
                   <option value="1">1</option>
-
                   <option value="2">2</option>
-
                   <option value="3">3</option>
-
                   <option value="4">4</option>
-
-                  <option value="5">5 </option>
+                  <option value="5">5</option>
                 </select>
               </div>
 

@@ -3,8 +3,8 @@ import Product from "../model/Product.js";
 import Review from "../model/Review.js";
 
 // @desc    Create new review
-// @route   POST /api/v1/reviews
-// @access  Private/Admin
+// @route   POST /api/v1/reviews/:productID
+// @access  Private
 
 export const createReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
@@ -35,5 +35,53 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: "Review created successfully",
+  });
+});
+
+// @desc    Update review
+// @route   PUT /api/v1/reviews/:id
+// @access  Private
+export const updateReviewCtrl = asyncHandler(async (req, res) => {
+  const { message, rating } = req.body;
+  const review = await Review.findById(req.params.id);
+  if (!review) {
+    throw new Error("Review not found");
+  }
+  //check ownership
+  if (review.user.toString() !== req.userAuthId.toString()) {
+    throw new Error("You can only update your own review");
+  }
+  review.message = message !== undefined ? message : review.message;
+  review.rating = rating !== undefined ? rating : review.rating;
+  await review.save();
+
+  res.json({
+    success: true,
+    message: "Review updated successfully",
+    review,
+  });
+});
+
+// @desc    Delete review
+// @route   DELETE /api/v1/reviews/:id/product/:productID
+// @access  Private
+export const deleteReviewCtrl = asyncHandler(async (req, res) => {
+  const review = await Review.findById(req.params.id);
+  if (!review) {
+    throw new Error("Review not found");
+  }
+  //check ownership
+  if (review.user.toString() !== req.userAuthId.toString()) {
+    throw new Error("You can only delete your own review");
+  }
+  //remove review reference from product
+  await Product.findByIdAndUpdate(req.params.productID, {
+    $pull: { reviews: review._id },
+  });
+  await Review.findByIdAndDelete(req.params.id);
+
+  res.json({
+    success: true,
+    message: "Review deleted successfully",
   });
 });
