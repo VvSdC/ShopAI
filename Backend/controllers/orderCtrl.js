@@ -52,18 +52,6 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
     totalPrice,
   })
 
-  //Update the product qty
-  const products = await Product.find({ _id: { $in: orderItems } })
-
-  orderItems?.map(async (order) => {
-    const product = products?.find((product) => {
-      return product?._id?.toString() === order?._id?.toString()
-    })
-    if (product) {
-      product.totalSold += order.qty
-    }
-    await product.save()
-  })
   //push order into user
   user.orders.push(order?._id)
   await user.save()
@@ -143,6 +131,22 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     },
     { new: true }
   )
+
+  //Update product stock only if payment succeeded
+  if (session.payment_status === 'paid' && updatedOrder) {
+    const orderItems = updatedOrder.orderItems || []
+    const products = await Product.find({ _id: { $in: orderItems.map((i) => i._id) } })
+    for (const item of orderItems) {
+      const product = products.find(
+        (p) => p._id.toString() === item._id?.toString()
+      )
+      if (product) {
+        product.totalSold += item.qty || 1
+        await product.save()
+      }
+    }
+  }
+
   res.json({
     success: true,
     message: 'Payment verified',

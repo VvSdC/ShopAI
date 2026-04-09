@@ -1,38 +1,63 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { createColorAction } from "../../../redux/slices/categories/colorsSlice";
+import {
+  createColorAction,
+  fetchColorsAction,
+  updateColorAction,
+  deleteColorAction,
+} from "../../../redux/slices/categories/colorsSlice";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import SuccessMsg from "../../SuccessMsg/SuccessMsg";
+
 export default function AddColor() {
   const dispatch = useDispatch();
-  //form data
-  const [formData, setFormData] = useState({
-    name: "",
-    hex: "#000000",
-  });
-  //onChange
+  const [formData, setFormData] = useState({ name: "", hex: "#000000" });
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({ name: "", hex: "#000000" });
+
+  useEffect(() => {
+    dispatch(fetchColorsAction());
+  }, [dispatch]);
+
   const handleOnChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  //onSubmit
   const handleOnSubmit = (e) => {
     e.preventDefault();
-    dispatch(createColorAction({ name: formData?.name, hex: formData?.hex }));
-    //reset form
-    setFormData({
-      name: "",
-      hex: "#000000",
+    dispatch(createColorAction({ name: formData?.name, hex: formData?.hex })).then(() => {
+      dispatch(fetchColorsAction());
+    });
+    setFormData({ name: "", hex: "#000000" });
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm("Are you sure you want to delete this color?")) {
+      dispatch(deleteColorAction(id)).then(() => {
+        dispatch(fetchColorsAction());
+      });
+    }
+  };
+
+  const handleEditSave = (id) => {
+    dispatch(updateColorAction({ id, name: editData.name, hex: editData.hex })).then(() => {
+      setEditingId(null);
+      dispatch(fetchColorsAction());
     });
   };
-  //get data from store
-  const { error, loading, isAdded } = useSelector((state) => state?.colors);
+
+  const { error, loading, isAdded, isUpdated, isDelete, colors: colorsData } = useSelector(
+    (state) => state?.colors
+  );
+  const allColors = colorsData?.colors || [];
 
   return (
     <>
       {isAdded && <SuccessMsg message="Color Created Successfully" />}
+      {isUpdated && <SuccessMsg message="Color Updated Successfully" />}
+      {isDelete && <SuccessMsg message="Color Deleted Successfully" />}
       {error && <ErrorMsg message={error?.message} />}
       <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -58,9 +83,7 @@ export default function AddColor() {
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             <form className="space-y-6" onSubmit={handleOnSubmit}>
               <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700">
                   Name
                 </label>
                 <div className="mt-1">
@@ -109,48 +132,91 @@ export default function AddColor() {
                 )}
               </div>
             </form>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="bg-white px-2 text-gray-500">Or</span>
-                </div>
-              </div>
-
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <div>
-                  <Link
-                    to="/admin/add-brand"
-                    className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
-                    Add Brand
-                  </Link>
-                </div>
-
-                <div>
-                  <div>
-                    <Link
-                      to="/admin/add-brand"
-                      className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
-                      Add Color
-                    </Link>
-                  </div>
-                </div>
-
-                <div>
-                  <div>
-                    <Link
-                      to="/admin/add-category"
-                      className="inline-flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50">
-                      Add Category
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
+
+        {/* Existing Colors List */}
+        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Existing Colors ({allColors.length})
+          </h3>
+          {allColors.length === 0 ? (
+            <p className="text-sm text-gray-500">No colors added yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {allColors.map((color) => (
+                <div
+                  key={color._id}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                >
+                  {editingId === color._id ? (
+                    /* Inline edit row */
+                    <div className="flex flex-1 items-center gap-3">
+                      <input
+                        type="color"
+                        value={editData.hex}
+                        onChange={(e) => setEditData({ ...editData, hex: e.target.value })}
+                        className="h-8 w-10 cursor-pointer rounded border border-gray-300 p-0"
+                      />
+                      <input
+                        value={editData.name}
+                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                        className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                      <input
+                        value={editData.hex}
+                        onChange={(e) => setEditData({ ...editData, hex: e.target.value })}
+                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                      <button
+                        onClick={() => handleEditSave(color._id)}
+                        className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    /* Display row */
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="inline-block h-7 w-7 rounded-full border border-gray-300"
+                          style={{ backgroundColor: color.hex || color.name }}
+                        />
+                        <span className="text-sm font-medium text-gray-900 capitalize">
+                          {color.name}
+                        </span>
+                        <span className="text-xs text-gray-400">{color.hex}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingId(color._id);
+                            setEditData({ name: color.name, hex: color.hex || "#000000" });
+                          }}
+                          className="rounded-md bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(color._id)}
+                          className="rounded-md bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>

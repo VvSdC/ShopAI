@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
-import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
+import { fetchOrdersAction, updateOrderAction } from "../../../redux/slices/orders/ordersSlices";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
@@ -13,6 +12,7 @@ export default function AllOrders() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [sortOrder, setSortOrder] = useState('none');
   const [searchId, setSearchId] = useState('');
+  const [editingOrderId, setEditingOrderId] = useState(null);
 
   useEffect(() => {
     dispatch(fetchOrdersAction());
@@ -126,9 +126,32 @@ export default function AllOrders() {
                     <td className="px-3 py-4 text-sm text-gray-500">{order?.totalPrice}</td>
                     <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                       {order?.paymentStatus === "Not paid" ? (
-                        <Link style={{ cursor: "not-allowed" }} className="text-gray-300">Edit</Link>
+                        <span className="text-gray-300 cursor-not-allowed">Edit</span>
+                      ) : editingOrderId === order?._id ? (
+                        <select
+                          autoFocus
+                          defaultValue={order?.status}
+                          onChange={(e) => {
+                            dispatch(updateOrderAction({ status: e.target.value, id: order?._id })).then(() => {
+                              setEditingOrderId(null);
+                              dispatch(fetchOrdersAction());
+                            });
+                          }}
+                          onBlur={() => setEditingOrderId(null)}
+                          className="rounded-md border border-gray-300 py-1 pl-2 pr-7 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                        </select>
                       ) : (
-                        <Link to={`/admin/orders/${order?._id}`} className="text-indigo-600 hover:text-indigo-900">Edit</Link>
+                        <button
+                          onClick={() => setEditingOrderId(order?._id)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Edit
+                        </button>
                       )}
                     </td>
                   </tr>

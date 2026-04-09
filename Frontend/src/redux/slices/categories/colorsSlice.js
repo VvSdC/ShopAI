@@ -19,17 +19,9 @@ const initialState = {
 //create color action
 export const createColorAction = createAsyncThunk(
   'color/create',
-  async ({ name, hex }, { rejectWithValue, getState, dispatch }) => {
+  async ({ name, hex }, { rejectWithValue }) => {
     try {
-      //Token - Authenticated
-      //Images
-      const { data } = await axiosInstance.post(
-        `/colors`,
-        {
-          name,
-          hex,
-        }
-      )
+      const { data } = await axiosInstance.post(`/colors`, { name, hex })
       return data
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -40,7 +32,7 @@ export const createColorAction = createAsyncThunk(
 //fetch colors action
 export const fetchColorsAction = createAsyncThunk(
   'colors/fetch-all',
-  async (payload, { rejectWithValue, getState, dispatch }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.get(`/colors`)
       return data
@@ -49,9 +41,36 @@ export const fetchColorsAction = createAsyncThunk(
     }
   }
 )
+
+//update color action
+export const updateColorAction = createAsyncThunk(
+  'color/update',
+  async ({ id, name, hex }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put(`/colors/${id}`, { name, hex })
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//delete color action
+export const deleteColorAction = createAsyncThunk(
+  'color/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(`/colors/${id}`)
+      return { ...data, _id: id }
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //slice
 const colorsSlice = createSlice({
-  name: 'brands',
+  name: 'colors',
   initialState,
   extraReducers: (builder) => {
     //create
@@ -81,17 +100,50 @@ const colorsSlice = createSlice({
     builder.addCase(fetchColorsAction.rejected, (state, action) => {
       state.loading = false
       state.colors = null
-      state.isAdded = false
       state.error = action.payload
     })
+
+    //update
+    builder.addCase(updateColorAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(updateColorAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.color = action.payload
+      state.isUpdated = true
+    })
+    builder.addCase(updateColorAction.rejected, (state, action) => {
+      state.loading = false
+      state.isUpdated = false
+      state.error = action.payload
+    })
+
+    //delete
+    builder.addCase(deleteColorAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteColorAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.isDelete = true
+    })
+    builder.addCase(deleteColorAction.rejected, (state, action) => {
+      state.loading = false
+      state.isDelete = false
+      state.error = action.payload
+    })
+
     //reset error action
-    builder.addCase(resetErrAction.pending, (state, action) => {
+    builder.addCase(resetErrAction.pending, (state) => {
       state.isAdded = false
+      state.isUpdated = false
+      state.isDelete = false
       state.error = null
     })
     //reset success action
-    builder.addCase(resetSuccessAction.pending, (state, action) => {
+    builder.addCase(resetSuccessAction.pending, (state) => {
       state.isAdded = false
+      state.isUpdated = false
+      state.isDelete = false
       state.error = null
     })
   },
