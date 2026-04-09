@@ -1,23 +1,48 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice";
+import {
+  fetchBrandsAction,
+  updateBrandAction,
+  deleteBrandAction,
+} from "../../../redux/slices/categories/brandsSlice";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
+
 export default function BrandsList() {
-  //dispatch
   const dispatch = useDispatch();
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+
   useEffect(() => {
     dispatch(fetchBrandsAction());
   }, [dispatch]);
+
   const {
     brands: { brands },
     loading,
     error,
   } = useSelector((state) => state?.brands);
 
-  //delete category handler (not implemented)
+  const handleEdit = (brand) => {
+    setEditingId(brand._id);
+    setEditName(brand.name);
+  };
+
+  const handleSave = async () => {
+    await dispatch(
+      updateBrandAction({ id: editingId, name: editName })
+    ).unwrap();
+    setEditingId(null);
+    dispatch(fetchBrandsAction());
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this brand?")) return;
+    await dispatch(deleteBrandAction(id)).unwrap();
+    dispatch(fetchBrandsAction());
+  };
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center">
@@ -57,11 +82,15 @@ export default function BrandsList() {
                         className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
                         Name
                       </th>
-
                       <th
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Created At
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -69,62 +98,81 @@ export default function BrandsList() {
                     {brands?.map((brand) => (
                       <tr key={brand?._id}>
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
-                          <div className="flex items-center">
-                            <div className="ml-4">
-                              <div className="font-medium text-gray-900">
-                                {brand?.name}
+                          {editingId === brand._id ? (
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              <div className="ml-4">
+                                <div className="font-medium text-gray-900">
+                                  {brand?.name}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {new Date(brand?.createdAt).toLocaleDateString()}
                         </td>
-                        {/* edit icon */}
-                        {/* <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
-                          <Link
-                            to={`/admin/edit-category/${category?._id}`}
-                            state={{
-                              categoryName: category?.name,
-                            }}
-                            className="text-indigo-600 hover:text-indigo-900">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="1.5"
-                              stroke="currentColor"
-                              className="w-6 h-6">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                              />
-                            </svg>
-
-                            <span className="sr-only">, {category?.name}</span>
-                          </Link>
-                        </td> */}
-                        {/* delete icon */}
-                        {/* <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-left text-sm font-medium sm:pr-6">
-                          <button
-                            onClick={() => deleteCategoryHandler(category?._id)}
-                            className="text-indigo-600 hover:text-indigo-900">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="1.5"
-                              stroke="currentColor"
-                              className="w-6 h-6">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                              />
-                            </svg>
-                          </button>
-                        </td> */}
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          {editingId === brand._id ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={handleSave}
+                                className="inline-flex items-center rounded bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="inline-flex items-center rounded bg-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300">
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => handleEdit(brand)}
+                                className="text-indigo-600 hover:text-indigo-900"
+                                title="Edit">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="1.5"
+                                  stroke="currentColor"
+                                  className="w-5 h-5">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                                  />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(brand._id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Delete">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="1.5"
+                                  stroke="currentColor"
+                                  className="w-5 h-5">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

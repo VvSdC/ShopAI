@@ -48,6 +48,33 @@ export const fetchBrandsAction = createAsyncThunk(
     }
   }
 )
+
+//update brand action
+export const updateBrandAction = createAsyncThunk(
+  'brand/update',
+  async ({ id, name }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put(`/brands/${id}`, { name })
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//delete brand action
+export const deleteBrandAction = createAsyncThunk(
+  'brand/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(`/brands/${id}`)
+      return { ...data, _id: id }
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //slice
 const brandsSlice = createSlice({
   name: 'brands',
@@ -83,14 +110,47 @@ const brandsSlice = createSlice({
       state.isAdded = false
       state.error = action.payload
     })
+    //update
+    builder.addCase(updateBrandAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(updateBrandAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.brand = action.payload
+      state.isUpdated = true
+    })
+    builder.addCase(updateBrandAction.rejected, (state, action) => {
+      state.loading = false
+      state.isUpdated = false
+      state.error = action.payload
+    })
+
+    //delete
+    builder.addCase(deleteBrandAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteBrandAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.isDelete = true
+    })
+    builder.addCase(deleteBrandAction.rejected, (state, action) => {
+      state.loading = false
+      state.isDelete = false
+      state.error = action.payload
+    })
+
     //reset error action
     builder.addCase(resetErrAction.pending, (state, action) => {
       state.isAdded = false
+      state.isUpdated = false
+      state.isDelete = false
       state.error = null
     })
     //reset success action
     builder.addCase(resetSuccessAction.pending, (state, action) => {
       state.isAdded = false
+      state.isUpdated = false
+      state.isDelete = false
       state.error = null
     })
   },
