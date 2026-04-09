@@ -79,9 +79,6 @@ const cartSlice = createSlice({
       state.loading = false
       state.cartItems = action.payload
       state.isAdded = true
-      setTimeout(function () {
-        window.location.reload()
-      }, 3000)
     })
     builder.addCase(addOrderToCartaction.rejected, (state, action) => {
       state.loading = false

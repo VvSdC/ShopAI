@@ -61,9 +61,6 @@ const brandsSlice = createSlice({
       state.loading = false
       state.brand = action.payload
       state.isAdded = true
-      setTimeout(function () {
-        window.location.reload()
-      }, 3000)
     })
     builder.addCase(createBrandAction.rejected, (state, action) => {
       state.loading = false

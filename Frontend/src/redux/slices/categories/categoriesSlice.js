@@ -99,9 +99,6 @@ const categorySlice = createSlice({
       state.loading = false
       state.category = action.payload
       state.isAdded = true
-      setTimeout(function () {
-        window.location.reload()
-      }, 3000)
     })
     builder.addCase(createCategoryAction.rejected, (state, action) => {
       state.loading = false

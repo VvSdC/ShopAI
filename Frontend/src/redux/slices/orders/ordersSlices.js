@@ -126,9 +126,6 @@ const ordersSlice = createSlice({
       state.loading = false
       state.order = action.payload
       state.isAdded = true
-      setTimeout(function () {
-        window.location.reload()
-      }, 3000)
     })
     builder.addCase(placeOrderAction.rejected, (state, action) => {
       state.loading = false

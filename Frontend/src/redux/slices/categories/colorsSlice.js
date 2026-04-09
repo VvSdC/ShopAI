@@ -62,9 +62,6 @@ const colorsSlice = createSlice({
       state.loading = false
       state.color = action.payload
       state.isAdded = true
-      setTimeout(function () {
-        window.location.reload()
-      }, 3000)
     })
     builder.addCase(createColorAction.rejected, (state, action) => {
       state.loading = false
