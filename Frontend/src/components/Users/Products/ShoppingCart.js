@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { XMarkIcon } from '@heroicons/react/20/solid'
+import { XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/20/solid'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   changeOrderItemQty,
   getCartItemsFromLocalStorageAction,
   removeOrderItemQty,
+  validateCartAction,
 } from '../../../redux/slices/cart/cartSlices'
 import { fetchCouponAction } from '../../../redux/slices/coupons/couponsSlice'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
@@ -16,7 +17,7 @@ export default function ShoppingCart() {
   //dispatch
   const dispatch = useDispatch()
   useEffect(() => {
-    dispatch(getCartItemsFromLocalStorageAction())
+    dispatch(validateCartAction())
   }, [dispatch])
   //coupon state
   const [couponCode, setCouponCode] = useState(null)
@@ -31,16 +32,21 @@ export default function ShoppingCart() {
     (state) => state?.coupons
   )
   //get cart items from store
-  const { cartItems } = useSelector((state) => state?.carts)
+  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
+
+  // available items (not unavailable) for billing
+  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const hasUnavailable = cartItems?.some((item) => item.unavailable)
+
   //add to cart handler
   const changeOrderItemQtyHandler = (productId, color, size, qty) => {
     dispatch(changeOrderItemQty({ productId, color, size, qty }))
     dispatch(getCartItemsFromLocalStorageAction())
   }
   
-  //calculate total price
+  //calculate total price (only available items)
   let sumTotalPrice = 0
-  sumTotalPrice = cartItems?.reduce((acc, current) => {
+  sumTotalPrice = availableItems?.reduce((acc, current) => {
     return acc + current?.totalPrice
   }, 0)
 
@@ -82,6 +88,31 @@ export default function ShoppingCart() {
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
           Shopping Cart
         </h1>
+
+        {/* Stock warnings banner */}
+        {stockWarnings?.length > 0 && (
+          <div className="mt-4 rounded-md bg-yellow-50 border border-yellow-200 p-4">
+            <div className="flex">
+              <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Some items in your cart were adjusted
+                </h3>
+                <ul className="mt-2 text-sm text-yellow-700 list-disc pl-5 space-y-1">
+                  {stockWarnings.map((w, i) => (
+                    <li key={i}>
+                      <span className="capitalize font-medium">{w.name}</span> — {w.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {validating ? (
+          <div className="mt-8"><LoadingComponent /></div>
+        ) : (
         <div className="mt-12 lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
           <section aria-labelledby="cart-heading" className="lg:col-span-7">
             <h2 id="cart-heading" className="sr-only">
@@ -92,14 +123,23 @@ export default function ShoppingCart() {
               role="list"
               className="divide-y divide-gray-200 border-t border-b border-gray-200"
             >
-              {cartItems?.map((product) => (
-                <li key={product._id} className="flex py-6 sm:py-10">
-                  <div className="flex-shrink-0">
+              {cartItems?.map((product) => {
+                const isUnavailable = product.unavailable
+                return (
+                <li key={`${product._id}-${product.color}-${product.size}`} className={`flex py-6 sm:py-10 ${isUnavailable ? 'opacity-50' : ''}`}>
+                  <div className="flex-shrink-0 relative">
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="h-24 w-24 rounded-md object-cover object-center sm:h-48 sm:w-48"
+                      className={`h-24 w-24 rounded-md object-cover object-center sm:h-48 sm:w-48 ${isUnavailable ? 'grayscale' : ''}`}
                     />
+                    {isUnavailable && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-md">
+                        <span className="text-white text-xs font-bold text-center px-2">
+                          Currently Unavailable
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="ml-4 flex flex-1 flex-col justify-between sm:ml-6">
@@ -119,6 +159,11 @@ export default function ShoppingCart() {
                             </p>
                           </h3>
                         </div>
+                        {isUnavailable && (
+                          <p className="text-red-600 text-sm font-medium mb-2">
+                            {product.reason}
+                          </p>
+                        )}
                         <div
                           className="mt-1 flex text-sm"
                           style={{ marginBottom: '10px' }}
@@ -140,38 +185,42 @@ export default function ShoppingCart() {
                             {product.size}
                           </p>
                         </div>
-                        <p className="mt-1 text-sm font-medium text-gray-900">
-                          ₹{product?.price} x {product?.qty} = ₹
-                          {product?.totalPrice}
-                        </p>
+                        {!isUnavailable && (
+                          <p className="mt-1 text-sm font-medium text-gray-900">
+                            ₹{product?.price} x {product?.qty} = ₹
+                            {product?.totalPrice}
+                          </p>
+                        )}
                       </div>
 
                       <div className="mt-4 sm:mt-0 sm:pr-9">
-                        <label className="sr-only">
-                          Quantity, {product.name}
-                        </label>
-                        <select
-                          value={product?.qty}
-                          onChange={(e) =>
-                            changeOrderItemQtyHandler(
-                              product?._id,
-                              product?.color,
-                              product?.size,
-                              e.target.value
-                            )
-                          }
-                          className="max-w-full rounded-md border border-gray-300 py-1.5 text-left text-base font-medium leading-5 text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
-                        >
-                          {/* use the qty  */}
-
-                          {[...Array(product?.qtyLeft)?.keys()]?.map((x) => {
-                            return (
-                              <option key={x} value={x + 1}>
-                                {x + 1}
-                              </option>
-                            )
-                          })}
-                        </select>
+                        {!isUnavailable && (
+                          <>
+                            <label className="sr-only">
+                              Quantity, {product.name}
+                            </label>
+                            <select
+                              value={product?.qty}
+                              onChange={(e) =>
+                                changeOrderItemQtyHandler(
+                                  product?._id,
+                                  product?.color,
+                                  product?.size,
+                                  e.target.value
+                                )
+                              }
+                              className="max-w-full rounded-md border border-gray-300 py-1.5 text-left text-base font-medium leading-5 text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+                            >
+                              {[...Array(product?.qtyLeft || 1)?.keys()]?.map((x) => {
+                                return (
+                                  <option key={x} value={x + 1}>
+                                    {x + 1}
+                                  </option>
+                                )
+                              })}
+                            </select>
+                          </>
+                        )}
                         {/* remove */}
                         <div className="absolute top-0 right-0">
                           <button
@@ -188,7 +237,8 @@ export default function ShoppingCart() {
                     </div>
                   </div>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           </section>
 
@@ -282,19 +332,26 @@ export default function ShoppingCart() {
             </dl>
 
             <div className="mt-6">
-              <Link
-                //  pass data to checkout page
-                to="/order-payment"
-                state={{
-                  sumTotalPrice,
-                }}
-                className="w-full rounded-md border border-transparent bg-indigo-600 py-3 px-4 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"
-              >
-                Proceed to Checkout
-              </Link>
+              {availableItems.length > 0 ? (
+                <Link
+                  //  pass data to checkout page
+                  to="/order-payment"
+                  state={{
+                    sumTotalPrice,
+                  }}
+                  className="w-full rounded-md border border-transparent bg-indigo-600 py-3 px-4 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"
+                >
+                  Proceed to Checkout
+                </Link>
+              ) : (
+                <p className="text-center text-red-600 font-medium">
+                  No available items to checkout
+                </p>
+              )}
             </div>
           </section>
         </div>
+        )}
       </div>
     </div>
   )

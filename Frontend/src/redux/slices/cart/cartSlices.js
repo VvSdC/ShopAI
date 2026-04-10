@@ -1,4 +1,5 @@
 const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
+import axiosInstance from '../../../utils/axiosInstance'
 
 //initalsState
 const initialState = {
@@ -8,6 +9,8 @@ const initialState = {
   isAdded: false,
   isUpdated: false,
   isDelete: false,
+  stockWarnings: [], // [{_id, color, size, reason}]
+  validating: false,
 }
 
 //add product to cart
@@ -91,6 +94,58 @@ export const removeOrderItemQty = createAsyncThunk(
     return newItems
   }
 )
+
+//validate cart items against current stock
+export const validateCartAction = createAsyncThunk(
+  'cart/validate',
+  async (_, { rejectWithValue }) => {
+    try {
+      const cartItems = localStorage.getItem('cartItems')
+        ? JSON.parse(localStorage.getItem('cartItems'))
+        : []
+      if (cartItems.length === 0) {
+        return { items: [], warnings: [] }
+      }
+      const { data } = await axiosInstance.post('/products/validate-cart', {
+        items: cartItems,
+      })
+      const validated = data.items
+      const warnings = []
+      const updatedCart = []
+
+      for (const item of validated) {
+        if (item.unavailable) {
+          warnings.push({
+            _id: item._id,
+            color: item.color,
+            size: item.size,
+            name: item.name,
+            reason: item.reason,
+          })
+          // keep in cart but mark unavailable
+          updatedCart.push({ ...item })
+        } else {
+          if (item.adjusted) {
+            warnings.push({
+              _id: item._id,
+              color: item.color,
+              size: item.size,
+              name: item.name,
+              reason: item.reason,
+            })
+          }
+          updatedCart.push({ ...item })
+        }
+      }
+
+      localStorage.setItem('cartItems', JSON.stringify(updatedCart))
+      return { items: updatedCart, warnings }
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //slice
 const cartSlice = createSlice({
   name: 'cart',
@@ -131,6 +186,19 @@ const cartSlice = createSlice({
         state.error = action.payload
       }
     )
+    //validate cart
+    builder.addCase(validateCartAction.pending, (state) => {
+      state.validating = true
+    })
+    builder.addCase(validateCartAction.fulfilled, (state, action) => {
+      state.validating = false
+      state.cartItems = action.payload.items
+      state.stockWarnings = action.payload.warnings
+    })
+    builder.addCase(validateCartAction.rejected, (state, action) => {
+      state.validating = false
+      state.error = action.payload
+    })
   },
 })
 

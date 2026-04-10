@@ -43,13 +43,42 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
   if (orderItems?.length <= 0) {
     throw new Error('No Order Items')
   }
+
+  //Validate each order item against current stock
+  const orderProductIds = orderItems.map((item) => item._id).filter(Boolean)
+  const orderProducts = await Product.find({ _id: { $in: orderProductIds } })
+  const orderProductMap = {}
+  orderProducts.forEach((p) => {
+    orderProductMap[p._id.toString()] = p
+  })
+
+  const validatedItems = []
+  let recalculatedTotal = 0
+  for (const item of orderItems) {
+    const product = orderProductMap[item._id]
+    if (!product) continue // skip deleted products
+    const qtyLeft = product.totalQty - product.totalSold
+    if (qtyLeft <= 0) continue // skip out of stock
+    const finalQty = Math.min(item.qty, qtyLeft)
+    validatedItems.push({
+      ...item,
+      qty: finalQty,
+      totalPrice: item.price * finalQty,
+    })
+    recalculatedTotal += item.price * finalQty
+  }
+
+  if (validatedItems.length <= 0) {
+    throw new Error('All items in your cart are unavailable or out of stock')
+  }
+
   //Place/create order - save into DB
   const order = await Order.create({
     user: user?._id,
-    orderItems,
+    orderItems: validatedItems,
     shippingAddress,
     // totalPrice: couponFound ? totalPrice - totalPrice * discount :
-    totalPrice,
+    totalPrice: recalculatedTotal,
   })
 
   //push order into user
@@ -58,7 +87,7 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
 
   //make payment (stripe)
   //convert order items to have same structure that stripe need
-  const convertedOrders = orderItems.map((item) => {
+  const convertedOrders = validatedItems.map((item) => {
     return {
       price_data: {
         currency: 'inr',

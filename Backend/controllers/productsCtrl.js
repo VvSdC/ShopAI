@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler'
 import Brand from '../model/Brand.js'
 import Category from '../model/Category.js'
 import Product from '../model/Product.js'
+import Review from '../model/Review.js'
 
 // @desc    Create new product
 // @route   POST /api/v1/products
@@ -224,9 +225,60 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
 // @route   DELETE /api/products/:id/delete
 // @access  Private/Admin
 export const deleteProductCtrl = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id)
+  if (!product) {
+    throw new Error('Product not found')
+  }
+  // Delete all reviews for this product
+  await Review.deleteMany({ product: product._id })
+  // Remove product reference from categories and brands
+  await Category.updateMany({}, { $pull: { products: product._id } })
+  await Brand.updateMany({}, { $pull: { products: product._id } })
+  // Delete the product
   await Product.findByIdAndDelete(req.params.id)
   res.json({
     status: 'success',
     message: 'Product deleted successfully',
   })
+})
+
+// @desc    Validate cart items against current stock
+// @route   POST /api/products/validate-cart
+// @access  Public
+export const validateCartCtrl = asyncHandler(async (req, res) => {
+  const { items } = req.body
+  if (!items || !Array.isArray(items)) {
+    throw new Error('Items array is required')
+  }
+  const productIds = [...new Set(items.map((i) => i._id).filter(Boolean))]
+  const products = await Product.find({ _id: { $in: productIds } })
+  const productMap = {}
+  products.forEach((p) => {
+    productMap[p._id.toString()] = p
+  })
+
+  const validated = items.map((item) => {
+    const product = productMap[item._id]
+    if (!product) {
+      return { ...item, unavailable: true, reason: 'Product no longer exists' }
+    }
+    const qtyLeft = product.totalQty - product.totalSold
+    if (qtyLeft <= 0) {
+      return { ...item, unavailable: true, qtyLeft: 0, reason: 'Out of stock' }
+    }
+    if (item.qty > qtyLeft) {
+      return {
+        ...item,
+        qty: qtyLeft,
+        totalPrice: item.price * qtyLeft,
+        qtyLeft,
+        adjusted: true,
+        unavailable: false,
+        reason: `Only ${qtyLeft} left in stock`,
+      }
+    }
+    return { ...item, qtyLeft, unavailable: false, adjusted: false }
+  })
+
+  res.json({ status: 'success', items: validated })
 })

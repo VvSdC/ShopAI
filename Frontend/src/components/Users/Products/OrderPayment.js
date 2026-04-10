@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useLocation } from 'react-router-dom'
-import { getCartItemsFromLocalStorageAction } from '../../../redux/slices/cart/cartSlices'
+import {
+  getCartItemsFromLocalStorageAction,
+  validateCartAction,
+} from '../../../redux/slices/cart/cartSlices'
 import { placeOrderAction } from '../../../redux/slices/orders/ordersSlices'
 import { getUserProfileAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
@@ -10,14 +13,23 @@ import AddShippingAddress from '../Forms/AddShippingAddress'
 export default function OrderPayment() {
   //get data from location
   const location = useLocation()
-  const { sumTotalPrice } = location.state
+  const { sumTotalPrice: originalTotal } = location.state
   //dispatch
   const dispatch = useDispatch()
   useEffect(() => {
-    dispatch(getCartItemsFromLocalStorageAction())
+    dispatch(validateCartAction())
   }, [dispatch])
   //get cart items from store
-  const { cartItems } = useSelector((state) => state?.carts)
+  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
+
+  // Filter only available items for the order
+  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+
+  // Recalculate total based on available items
+  const sumTotalPrice = availableItems.reduce(
+    (acc, item) => acc + (item?.totalPrice || 0),
+    0
+  )
 
   //user profile
   useEffect(() => {
@@ -39,14 +51,14 @@ export default function OrderPayment() {
       )
     }
 
-    if (cartItems.length === 0) {
-      return error && <ErrorMsg message="Cart items cannot be empty" />
+    if (availableItems.length === 0) {
+      return error && <ErrorMsg message="No available items to order" />
     }
 
     dispatch(
       placeOrderAction({
         shippingAddress: selectedAddress,
-        orderItems: cartItems,
+        orderItems: availableItems,
         totalPrice: sumTotalPrice,
       })
     )
@@ -83,8 +95,18 @@ export default function OrderPayment() {
 
                 <div className="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm">
                   <h3 className="sr-only">Items in your cart</h3>
+                  {stockWarnings?.length > 0 && (
+                    <div className="mx-4 mt-4 rounded-md bg-yellow-50 border border-yellow-200 p-3">
+                      <p className="text-sm font-medium text-yellow-800">
+                        Some items were adjusted or removed due to stock changes.
+                      </p>
+                    </div>
+                  )}
+                  {validating ? (
+                    <div className="py-6"><LoadingComponent /></div>
+                  ) : (
                   <ul role="list" className="divide-y divide-gray-200">
-                    {cartItems?.map((product) => (
+                    {availableItems?.map((product) => (
                       <li key={product._id} className="flex py-6 px-4 sm:px-6">
                         <div className="flex-shrink-0">
                           <img
@@ -134,6 +156,7 @@ export default function OrderPayment() {
                       </li>
                     ))}
                   </ul>
+                  )}
                   <dl className="space-y-6 border-t border-gray-200 py-6 px-4 sm:px-6">
                     <div className="flex items-center justify-between">
                       <dt className="text-sm" style={{ fontSize: '25px' }}>

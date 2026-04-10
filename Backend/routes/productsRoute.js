@@ -6,6 +6,7 @@ import {
   getProductCtrl,
   updateProductCtrl,
   deleteProductCtrl,
+  validateCartCtrl,
 } from '../controllers/productsCtrl.js'
 import isAdmin from '../middlewares/isAdmin.js'
 import { isLoggedIn } from '../middlewares/isLoggedin.js'
@@ -20,6 +21,7 @@ productsRouter.post(
   createProductCtrl
 )
 
+productsRouter.post('/validate-cart', validateCartCtrl)
 productsRouter.get('/', getProductsCtrl)
 productsRouter.get('/:id', getProductCtrl)
 productsRouter.put('/:id', isLoggedIn, isAdmin, updateProductCtrl)
