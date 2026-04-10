@@ -1,4 +1,4 @@
-const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axiosInstance from '../../../utils/axiosInstance'
 
 //initalsState

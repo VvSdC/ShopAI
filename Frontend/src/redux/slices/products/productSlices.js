@@ -207,6 +207,7 @@ const productSlice = createSlice({
     //reset success
     builder.addCase(resetSuccessAction.pending, (state, action) => {
       state.isAdded = false
+      state.isUpdated = false
     })
   },
 })

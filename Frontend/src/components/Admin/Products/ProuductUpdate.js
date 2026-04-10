@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Select from "react-select";
 import makeAnimated from "react-select/animated";
 import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice";
 import { fetchCategoriesAction } from "../../../redux/slices/categories/categoriesSlice";
 import { fetchColorsAction } from "../../../redux/slices/categories/colorsSlice";
 import { fetchProductAction, updateProductAction } from "../../../redux/slices/products/productSlices";
+import { resetSuccessAction } from "../../../redux/slices/globalActions/globalActions";
 
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
@@ -18,8 +19,13 @@ const animatedComponents = makeAnimated();
 export default function ProductUpdate() {
   //dispatch
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   //get id from params
   const { id } = useParams();
+  //reset success state on mount
+  useEffect(() => {
+    dispatch(resetSuccessAction());
+  }, [dispatch]);
   //fetch single product
   useEffect(() => {
     dispatch(fetchProductAction(id));
@@ -139,7 +145,9 @@ export default function ProductUpdate() {
         colors: colorsOption?.map((color) => color.label),
         sizes: sizeOption?.map((size) => size?.label),
       })
-    );
+    ).unwrap().then(() => {
+      navigate('/admin/manage-products');
+    }).catch(() => {});
 
     //reset form data
     setFormData({

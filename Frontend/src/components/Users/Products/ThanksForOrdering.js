@@ -23,7 +23,7 @@ export default function ThanksForOrdering() {
       <main className="relative lg:min-h-full">
         <div className="h-80 overflow-hidden lg:absolute lg:h-full lg:w-1/2 lg:pr-4 xl:pr-12">
           <img
-            src="https://tailwindui.com/img/ecommerce-images/confirmation-page-06-hero.jpg"
+            src="https://images.unsplash.com/photo-1607082349566-187342175e2f?ixlib=rb-4.0.3&auto=format&fit=crop&w=870&q=80"
             alt="TODO"
             className="h-full w-full object-cover object-center"
           />
