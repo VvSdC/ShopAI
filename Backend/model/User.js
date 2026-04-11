@@ -27,7 +27,19 @@ const UserShema = new Schema(
         ref: "WishList",
       },
     ],
+    phone: {
+      type: String,
+      default: "",
+    },
+    country: {
+      type: String,
+      default: "",
+    },
     isAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    isBlocked: {
       type: Boolean,
       default: false,
     },

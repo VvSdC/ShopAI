@@ -12,9 +12,11 @@ const RegisterForm = () => {
     fullname: '',
     email: '',
     password: '',
+    phone: '',
+    country: '',
   })
   //---Destructuring---
-  const { fullname, email, password } = formData
+  const { fullname, email, password, phone, country } = formData
   //---onchange handler----
   const onChangeHandler = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -23,7 +25,7 @@ const RegisterForm = () => {
   //---onsubmit handler----
   const onSubmitHandler = (e) => {
     e.preventDefault()
-    dispatch(registerUserAction({ fullname, email, password }))
+    dispatch(registerUserAction({ fullname, email, password, phone, country }))
   }
   //select store data
   const { user, error, loading } = useSelector((state) => state?.users)
@@ -75,6 +77,22 @@ const RegisterForm = () => {
                     className="w-full mb-4 px-12 py-6 border border-gray-200 focus:ring-blue-300 focus:border-blue-300 rounded-md"
                     type="password"
                     placeholder="Enter your password"
+                  />
+                  <input
+                    name="phone"
+                    value={phone}
+                    onChange={onChangeHandler}
+                    className="w-full mb-4 px-12 py-6 border border-gray-200 focus:ring-blue-300 focus:border-blue-300 rounded-md"
+                    type="tel"
+                    placeholder="Mobile Number"
+                  />
+                  <input
+                    name="country"
+                    value={country}
+                    onChange={onChangeHandler}
+                    className="w-full mb-4 px-12 py-6 border border-gray-200 focus:ring-blue-300 focus:border-blue-300 rounded-md"
+                    type="text"
+                    placeholder="Country"
                   />
                   {loading ? (
                     <LoadingComponent />

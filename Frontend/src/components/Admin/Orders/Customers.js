@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
+import { fetchAllUsersAction, toggleBlockUserAction } from "../../../redux/slices/users/usersSlice";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
@@ -9,35 +9,31 @@ export default function Customers() {
   //dispatch
   const dispatch = useDispatch();
   useEffect(() => {
-    dispatch(fetchOrdersAction());
+    dispatch(fetchAllUsersAction());
   }, [dispatch]);
   //get data from store
-  const { error, loading, orders } = useSelector((state) => state?.orders);
-  const customers = orders?.orders;
+  const { error, loading, users } = useSelector((state) => state?.users);
 
-  //remove duplicates based on user id
-  const uniqueCustomers = customers?.filter((item, idx) => {
-    return (
-      item?.user &&
-      customers
-        ?.map((customer) => customer?.user?._id)
-        .indexOf(item?.user?._id) === idx
-    );
-  });
+  //block/unblock handler
+  const handleToggleBlock = (userId) => {
+    dispatch(toggleBlockUserAction(userId)).then(() => {
+      dispatch(fetchAllUsersAction());
+    });
+  };
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center"></div>
 
       <h3 className="text-lg font-medium leading-6 text-gray-900 mt-3">
-        All Customers [{uniqueCustomers?.length}]
+        All Customers [{users?.length}]
       </h3>
       <div className="-mx-4 mt-3  overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
         {loading ? (
           <LoadingComponent />
         ) : error ? (
           <ErrorMsg message={error?.message} />
-        ) : uniqueCustomers?.length <= 0 ? (
+        ) : users?.length <= 0 ? (
           <NoDataFound />
         ) : (
           <table className="min-w-full divide-y divide-gray-300">
@@ -61,44 +57,58 @@ export default function Customers() {
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  City
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                   Phone
                 </th>
-
                 <th
                   scope="col"
                   className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                  Postal Code
+                  Status
                 </th>
-                {/* <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                <span className="sr-only">Edit</span>
-              </th> */}
+                <th
+                  scope="col"
+                  className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {uniqueCustomers?.map((customer) => (
-                <tr key={customer.user?.fullname}>
+              {users?.map((user) => (
+                <tr key={user._id}>
                   <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-6">
-                    {customer.user?.fullname}
+                    {user.fullname}
                   </td>
                   <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
-                    {customer.user?.email}
+                    {user.email}
                   </td>
                   <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">
-                    {customer.user?.shippingAddress?.country}
+                    {user.country}
                   </td>
                   <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user?.shippingAddress?.city}
+                    {user.phone}
                   </td>
-                  <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user?.shippingAddress?.phone}
+                  <td className="px-3 py-4 text-sm">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        user.isBlocked
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-100 text-green-800"
+                      }`}>
+                      {user.isBlocked ? "Blocked" : "Active"}
+                    </span>
                   </td>
-                  <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user?.shippingAddress?.postalCode}
+                  <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <button
+                      onClick={() => handleToggleBlock(user._id)}
+                      disabled={user.isAdmin}
+                      className={`inline-flex rounded-md px-3 py-1.5 text-xs font-medium ${
+                        user.isAdmin
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : user.isBlocked
+                          ? "bg-green-50 text-green-700 hover:bg-green-100"
+                          : "bg-red-50 text-red-700 hover:bg-red-100"
+                      }`}>
+                      {user.isAdmin ? "Block" : user.isBlocked ? "Re-activate" : "Block"}
+                    </button>
                   </td>
                 </tr>
               ))}

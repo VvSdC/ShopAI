@@ -2,6 +2,7 @@ import User from "../model/User.js";
 import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import Order from "../model/Order.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -27,7 +28,7 @@ const refreshCookieOptions = {
 // @access  Private/Admin
 
 export const registerUserCtrl = asyncHandler(async (req, res) => {
-  const { fullname, email, password } = req.body;
+  const { fullname, email, password, phone, country } = req.body;
   //Check user exists
   const userExists = await User.findOne({ email });
   if (userExists) {
@@ -42,6 +43,8 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     fullname,
     email,
     password: hashedPassword,
+    phone,
+    country,
   });
   res.status(201).json({
     status: "success",
@@ -60,6 +63,10 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
     email,
   });
   if (userFound && (await bcrypt.compare(password, userFound?.password))) {
+    //Check if user is blocked
+    if (userFound.isBlocked) {
+      throw new Error("Your account has been blocked due to malicious activity. Please contact support.");
+    }
     const accessToken = generateAccessToken(userFound);
     const refreshToken = generateRefreshToken(userFound?._id);
     // Store refresh token in DB
@@ -248,5 +255,58 @@ export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
     status: "success",
     message: "Shipping address deleted successfully",
     user,
+  });
+});
+
+// @desc    Get all users
+// @route   GET /api/v1/users
+// @access  Private/Admin
+
+export const getAllUsersCtrl = asyncHandler(async (req, res) => {
+  const users = await User.find().select('-password -refreshToken');
+  res.json({
+    status: "success",
+    message: "All users fetched",
+    users,
+  });
+});
+
+// @desc    Block/Unblock a user
+// @route   PUT /api/v1/users/block/:id
+// @access  Private/Admin
+
+export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.isAdmin) {
+    throw new Error("Cannot block an admin user");
+  }
+  user.isBlocked = !user.isBlocked;
+  await user.save();
+  res.json({
+    status: "success",
+    message: user.isBlocked ? "User blocked successfully" : "User unblocked successfully",
+    user,
+  });
+});
+
+// @desc    Delete own account (keeps orders)
+// @route   DELETE /api/v1/users/delete-account
+// @access  Private
+
+export const deleteAccountCtrl = asyncHandler(async (req, res) => {
+  const userId = req.userAuthId;
+  // Reassign orders to keep them (remove user reference)
+  await Order.updateMany({ user: userId }, { $unset: { user: "" } });
+  // Delete the user
+  await User.findByIdAndDelete(userId);
+  // Clear cookies
+  res.clearCookie("shopai_token");
+  res.clearCookie("shopai_refresh_token");
+  res.json({
+    status: "success",
+    message: "Account deleted successfully",
   });
 });

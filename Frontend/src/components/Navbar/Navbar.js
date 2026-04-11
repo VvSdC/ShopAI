@@ -45,9 +45,9 @@ export default function Navbar() {
   const isLoggedIn = userAuth?.isLoggedIn
   //logout handler
   const logoutHandler = () => {
-    dispatch(logoutAction())
-    //reload
-    window.location.reload()
+    dispatch(logoutAction()).then(() => {
+      window.location.href = '/'
+    })
   }
   //coupons
   useEffect(() => {

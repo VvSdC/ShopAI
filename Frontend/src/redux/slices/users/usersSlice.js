@@ -25,7 +25,7 @@ const initialState = {
 export const registerUserAction = createAsyncThunk(
   'users/register',
   async (
-    { email, password, fullname },
+    { email, password, fullname, phone, country },
     { rejectWithValue, getState, dispatch }
   ) => {
     try {
@@ -34,6 +34,8 @@ export const registerUserAction = createAsyncThunk(
         email,
         password,
         fullname,
+        phone,
+        country,
       })
       return data
     } catch (error) {
@@ -176,6 +178,46 @@ export const logoutAction = createAsyncThunk(
   }
 )
 
+//toggle block user action (admin)
+export const toggleBlockUserAction = createAsyncThunk(
+  'users/toggle-block',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put(`/users/block/${userId}`)
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//fetch all users action (admin)
+export const fetchAllUsersAction = createAsyncThunk(
+  'users/fetch-all',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(`/users/all`)
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
+//delete own account action
+export const deleteAccountAction = createAsyncThunk(
+  'users/delete-account',
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(`/users/delete-account`)
+      localStorage.removeItem('cartItems')
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //users slice
 
 const usersSlice = createSlice({
@@ -281,6 +323,43 @@ const usersSlice = createSlice({
       state.loading = false
     })
     builder.addCase(deleteShippingAddressAction.rejected, (state, action) => {
+      state.error = action.payload
+      state.loading = false
+    })
+    //toggle block user
+    builder.addCase(toggleBlockUserAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(toggleBlockUserAction.fulfilled, (state, action) => {
+      state.loading = false
+    })
+    builder.addCase(toggleBlockUserAction.rejected, (state, action) => {
+      state.error = action.payload
+      state.loading = false
+    })
+    //fetch all users
+    builder.addCase(fetchAllUsersAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(fetchAllUsersAction.fulfilled, (state, action) => {
+      state.users = action.payload.users
+      state.loading = false
+    })
+    builder.addCase(fetchAllUsersAction.rejected, (state, action) => {
+      state.error = action.payload
+      state.loading = false
+    })
+    //delete account
+    builder.addCase(deleteAccountAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteAccountAction.fulfilled, (state) => {
+      state.loading = false
+      state.userAuth.userInfo = null
+      state.userAuth.isLoggedIn = false
+      state.profile = {}
+    })
+    builder.addCase(deleteAccountAction.rejected, (state, action) => {
       state.error = action.payload
       state.loading = false
     })
