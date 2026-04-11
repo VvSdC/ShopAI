@@ -15,9 +15,14 @@ export default function Customers() {
   const { error, loading, orders } = useSelector((state) => state?.orders);
   const customers = orders?.orders;
 
-  //remove duplicates
+  //remove duplicates based on user id
   const uniqueCustomers = customers?.filter((item, idx) => {
-    return customers?.map((customer) => customer?.id).indexOf(item.id) === idx;
+    return (
+      item?.user &&
+      customers
+        ?.map((customer) => customer?.user?._id)
+        .indexOf(item?.user?._id) === idx
+    );
   });
 
   return (
@@ -76,24 +81,24 @@ export default function Customers() {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {uniqueCustomers?.map((customer) => (
-                <tr key={customer.user.fullname}>
+                <tr key={customer.user?.fullname}>
                   <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-6">
-                    {customer.user.fullname}
+                    {customer.user?.fullname}
                   </td>
                   <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
-                    {customer.user.email}
+                    {customer.user?.email}
                   </td>
                   <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">
-                    {customer.user.shippingAddress.country}
+                    {customer.user?.shippingAddress?.country}
                   </td>
                   <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user.shippingAddress.city}
+                    {customer.user?.shippingAddress?.city}
                   </td>
                   <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user.shippingAddress.phone}
+                    {customer.user?.shippingAddress?.phone}
                   </td>
                   <td className="px-3 py-4 text-sm text-gray-500">
-                    {customer.user.shippingAddress.postalCode}
+                    {customer.user?.shippingAddress?.postalCode}
                   </td>
                 </tr>
               ))}
