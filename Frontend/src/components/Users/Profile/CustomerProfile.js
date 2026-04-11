@@ -129,10 +129,44 @@ function OrderDetailsModal({ order, onClose, onCancel }) {
   )
 }
 
+function ConfirmModal({ title, message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="fixed inset-0 bg-black bg-opacity-40" onClick={onCancel} />
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
+          <p className="mt-2 text-sm text-gray-600">{message}</p>
+          <div className="mt-5 flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              No
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 rounded-md bg-red-600 py-2 px-4 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+            >
+              Yes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerProfile() {
   const dispatch = useDispatch()
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [confirmCancel, setConfirmCancel] = useState(null)
   const ORDERS_PER_PAGE = 5
 
   useEffect(() => {
@@ -154,9 +188,15 @@ export default function CustomerProfile() {
   const error = profileError || ordersError
 
   const handleCancelOrder = (orderId) => {
-    if (window.confirm('Are you sure you want to cancel this order?')) {
-      dispatch(cancelOrderAction(orderId))
-    }
+    setConfirmCancel(orderId)
+  }
+
+  const confirmCancelOrder = () => {
+    dispatch(cancelOrderAction(confirmCancel)).then(() => {
+      setConfirmCancel(null)
+      setSelectedOrder(null)
+      dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
+    })
   }
 
   const handleDeleteAccount = () => {
@@ -370,6 +410,16 @@ export default function CustomerProfile() {
         onClose={() => setSelectedOrder(null)}
         onCancel={handleCancelOrder}
       />
+
+      {/* Cancel confirmation modal */}
+      {confirmCancel && (
+        <ConfirmModal
+          title="Cancel Order"
+          message="Are you sure you want to cancel this order? This action cannot be undone."
+          onConfirm={confirmCancelOrder}
+          onCancel={() => setConfirmCancel(null)}
+        />
+      )}
     </div>
   )
 }

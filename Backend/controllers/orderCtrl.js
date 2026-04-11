@@ -150,6 +150,12 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
   if (!orderId) {
     throw new Error('No order associated with this session')
   }
+
+  // Check if stock was already updated for this order to prevent double deduction
+  // (React StrictMode or page refreshes can call this endpoint multiple times)
+  const existingOrder = await Order.findById(orderId)
+  const alreadyVerified = existingOrder?.paymentStatus === 'paid'
+
   const updatedOrder = await Order.findByIdAndUpdate(
     orderId,
     {
@@ -161,8 +167,8 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     { new: true }
   )
 
-  //Update product stock only if payment succeeded
-  if (session.payment_status === 'paid' && updatedOrder) {
+  //Update product stock only if payment succeeded and not already processed
+  if (session.payment_status === 'paid' && updatedOrder && !alreadyVerified) {
     const orderItems = updatedOrder.orderItems || []
     const products = await Product.find({ _id: { $in: orderItems.map((i) => i._id) } })
     for (const item of orderItems) {

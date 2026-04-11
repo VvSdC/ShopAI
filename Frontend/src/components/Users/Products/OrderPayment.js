@@ -39,22 +39,25 @@ export default function OrderPayment() {
 
   //selected shipping address from child
   const [selectedAddress, setSelectedAddress] = useState(null)
+  const [addressError, setAddressError] = useState('')
   const handleAddressSelect = useCallback((addr) => {
     setSelectedAddress(addr)
+    setAddressError('')
   }, [])
 
   //place order action
   const placeOrderHandler = () => {
     if (!selectedAddress) {
-      return (
-        error && <ErrorMsg message="Please select a shipping address to proceed" />
-      )
+      setAddressError('Please select a shipping address to proceed')
+      return
     }
 
     if (availableItems.length === 0) {
-      return error && <ErrorMsg message="No available items to order" />
+      setAddressError('No available items to order')
+      return
     }
 
+    setAddressError('')
     dispatch(
       placeOrderAction({
         shippingAddress: selectedAddress,
@@ -70,8 +73,29 @@ export default function OrderPayment() {
 
   return (
     <>
-      {orderErr && <ErrorMsg message={orderErr?.message} />}
-      <div className="bg-gray-50">
+      {orderErr && <ErrorMsg message={orderErr?.message} />}      {/* Address error modal */}
+      {addressError && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-40" onClick={() => setAddressError('')} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl p-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-gray-900">Required</h3>
+              <p className="mt-2 text-sm text-gray-600">{addressError}</p>
+              <button
+                onClick={() => setAddressError('')}
+                className="mt-5 w-full rounded-md bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}      <div className="bg-gray-50">
         <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl lg:max-w-none">
             <h1 className="sr-only">Checkout</h1>
