@@ -34,6 +34,7 @@ import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
 import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ColorsList from "./components/Admin/Categories/ColorsList";
+import ChatWidget from "./components/ChatBot/ChatWidget";
 
 
 const App = () => {
@@ -215,6 +216,7 @@ const App = () => {
           }
         ></Route>
       </Routes>
+      <ChatWidget />
     </BrowserRouter>
   );
 };

@@ -16,6 +16,7 @@ import reviewRouter from '../routes/reviewRouter.js'
 import userRoutes from '../routes/usersRoute.js'
 import Order from '../model/Order.js'
 import couponsRouter from '../routes/couponsRouter.js'
+import chatRouter from '../routes/chatRouter.js'
 
 //db connect
 dbConnect()
@@ -121,6 +122,7 @@ app.use('/shopai/colors/', colorRouter)
 app.use('/shopai/reviews/', reviewRouter)
 app.use('/shopai/orders/', orderRouter)
 app.use('/shopai/coupons/', couponsRouter)
+app.use('/shopai/chat/', chatRouter)
 //err middleware
 app.use(notFound)
 app.use(globalErrhandler)
