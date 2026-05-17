@@ -34,6 +34,22 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
   })
 })
 
+// @desc    Get active coupon for public display (no code exposed)
+// @route   GET /api/v1/coupons/active
+// @access  Public
+
+export const getActiveCouponCtrl = asyncHandler(async (req, res) => {
+  const coupon = await Coupon.findOne({ endDate: { $gte: new Date() } })
+    .sort({ createdAt: -1 })
+    .select('discount startDate endDate')
+  res.status(200).json({
+    status: 'success',
+    coupon: coupon
+      ? { discount: coupon.discount, daysLeft: coupon.daysLeft, isExpired: coupon.isExpired }
+      : null,
+  })
+})
+
 // @desc    Get all coupons
 // @route   GET /api/v1/coupons
 // @access  Private/Admin
@@ -52,12 +68,10 @@ export const getAllCouponsCtrl = asyncHandler(async (req, res) => {
 
 export const getCouponCtrl = asyncHandler(async (req, res) => {
   const coupon = await Coupon.findOne({ code: req.query.code })
-  //check if is not found
-  if (coupon.length > 0 && !coupon) {
+  if (!coupon) {
     throw new Error('Coupon not found')
   }
-  //check if expired
-  if (coupon.length > 0 && coupon.isExpired) {
+  if (coupon.isExpired) {
     throw new Error('Coupon Expired')
   }
   res.json({

@@ -8,8 +8,8 @@ const Login = () => {
   //dispatch
   const dispatch = useDispatch()
   const [formData, setFormData] = useState({
-    email: 'admin@gmail.com',
-    password: '12345',
+    email: '',
+    password: '',
   })
   //---Destructuring---
   const { email, password } = formData

@@ -38,7 +38,6 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
   //hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
-  //create the user
   const user = await User.create({
     fullname,
     email,
@@ -49,7 +48,13 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
   res.status(201).json({
     status: "success",
     message: "User Registered Successfully",
-    data: user,
+    data: {
+      _id: user._id,
+      fullname: user.fullname,
+      email: user.email,
+      phone: user.phone,
+      country: user.country,
+    },
   });
 });
 // @desc    Login user

@@ -24,7 +24,10 @@ const OrderSchema = new Schema(
       type: String,
       default: randomTxt + randomNumbers,
     },
-    //for stripe payment
+    coupon: {
+      type: String,
+      default: null,
+    },
     paymentStatus: {
       type: String,
       default: "Not paid",

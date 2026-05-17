@@ -14,24 +14,22 @@ import Coupon from '../model/Coupon.js'
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
 export const createOrderCtrl = asyncHandler(async (req, res) => {
-  //get the coupon
-  const coupon = req?.query?.coupon
+  const couponCode = req?.query?.coupon
+  let couponFound = null
+  let discountRate = 0
 
-  const couponFound = await Coupon.findOne({
-    code: coupon ? coupon.toUpperCase() : undefined,
-  })
-  if (couponFound?.isExpired) {
-    throw new Error('Coupon has expired')
+  if (couponCode) {
+    couponFound = await Coupon.findOne({ code: couponCode.toUpperCase() })
+    if (!couponFound) {
+      throw new Error('Coupon does not exist')
+    }
+    if (couponFound.isExpired) {
+      throw new Error('Coupon has expired')
+    }
+    discountRate = couponFound.discount / 100
   }
-  if (!couponFound && couponFound?.length > 0) {
-    throw new Error('Coupon does exists')
-  }
 
-  // get discount
-  // const discount = couponFound?.discount / 100
-
-  //Get the payload(customer, orderItems, shipppingAddress, totalPrice);
-  const { orderItems, shippingAddress, totalPrice } = req.body
+  const { orderItems, shippingAddress } = req.body
   console.log(req.body)
   //Find the user
   const user = await User.findById(req.userAuthId)
@@ -60,25 +58,30 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
     const qtyLeft = product.totalQty - product.totalSold
     if (qtyLeft <= 0) continue // skip out of stock
     const finalQty = Math.min(item.qty, qtyLeft)
+    const trustedPrice = product.price
     validatedItems.push({
       ...item,
+      price: trustedPrice,
       qty: finalQty,
-      totalPrice: item.price * finalQty,
+      totalPrice: trustedPrice * finalQty,
     })
-    recalculatedTotal += item.price * finalQty
+    recalculatedTotal += trustedPrice * finalQty
   }
 
   if (validatedItems.length <= 0) {
     throw new Error('All items in your cart are unavailable or out of stock')
   }
 
-  //Place/create order - save into DB
+  const finalTotal = discountRate > 0
+    ? Math.round(recalculatedTotal * (1 - discountRate) * 100) / 100
+    : recalculatedTotal
+
   const order = await Order.create({
     user: user?._id,
     orderItems: validatedItems,
     shippingAddress,
-    // totalPrice: couponFound ? totalPrice - totalPrice * discount :
-    totalPrice: recalculatedTotal,
+    totalPrice: finalTotal,
+    ...(couponFound && { coupon: couponFound.code }),
   })
 
   //push order into user
@@ -88,6 +91,9 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
   //make payment (stripe)
   //convert order items to have same structure that stripe need
   const convertedOrders = validatedItems.map((item) => {
+    const discountedPrice = discountRate > 0
+      ? Math.round(item.price * (1 - discountRate) * 100)
+      : item.price * 100
     return {
       price_data: {
         currency: 'inr',
@@ -95,7 +101,7 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
           name: item?.name,
           description: item?.description,
         },
-        unit_amount: item?.price * 100,
+        unit_amount: discountedPrice,
       },
       quantity: item?.qty,
     }
@@ -151,9 +157,14 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     throw new Error('No order associated with this session')
   }
 
-  // Check if stock was already updated for this order to prevent double deduction
-  // (React StrictMode or page refreshes can call this endpoint multiple times)
   const existingOrder = await Order.findById(orderId)
+  if (!existingOrder) {
+    throw new Error('Order not found')
+  }
+  if (existingOrder.user.toString() !== req.userAuthId.toString()) {
+    res.status(403)
+    throw new Error('Not authorised to verify this payment')
+  }
   const alreadyVerified = existingOrder?.paymentStatus === 'paid'
 
   const updatedOrder = await Order.findByIdAndUpdate(
@@ -236,10 +247,16 @@ export const getAllordersCtrl = asyncHandler(async (req, res) => {
 //@access private/admin
 
 export const getSingleOrderCtrl = asyncHandler(async (req, res) => {
-  //get the id from params
   const id = req.params.id
   const order = await Order.findById(id)
-  //send response
+  if (!order) {
+    throw new Error('Order not found')
+  }
+  const user = await User.findById(req.userAuthId)
+  if (order.user.toString() !== req.userAuthId.toString() && !user?.isAdmin) {
+    res.status(403)
+    throw new Error('Not authorised to view this order')
+  }
   res.status(200).json({
     success: true,
     message: 'Single order',

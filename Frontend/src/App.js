@@ -102,7 +102,7 @@ const App = () => {
               </AdminRoutes>
             }
           />
-          <Route path="manage-coupon" element={<ManageCoupons />} />
+          <Route path="manage-coupon" element={<AdminRoutes><ManageCoupons /></AdminRoutes>} />
           <Route
             path="manage-coupon/edit/:code"
             element={
@@ -120,7 +120,7 @@ const App = () => {
               </AdminRoutes>
             }
           />
-          <Route path="add-category" element={<AddCategory />} />
+          <Route path="add-category" element={<AdminRoutes><AddCategory /></AdminRoutes>} />
           <Route
             path="manage-category"
             element={
@@ -146,7 +146,7 @@ const App = () => {
               </AdminRoutes>
             }
           />
-          <Route path="all-brands" element={<BrandsList />} />
+          <Route path="all-brands" element={<AdminRoutes><BrandsList /></AdminRoutes>} />
           {/* color category */}
           <Route
             path="add-color"
@@ -156,9 +156,9 @@ const App = () => {
               </AdminRoutes>
             }
           />
-          <Route path="all-colors" element={<ColorsList />} />
+          <Route path="all-colors" element={<AdminRoutes><ColorsList /></AdminRoutes>} />
           {/* Orders */}
-          <Route path="manage-orders" element={<ManageOrders />} />
+          <Route path="manage-orders" element={<AdminRoutes><ManageOrders /></AdminRoutes>} />
           <Route
             path="orders/:id"
             element={

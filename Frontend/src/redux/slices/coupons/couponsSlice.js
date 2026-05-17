@@ -9,6 +9,7 @@ const { createAsyncThunk, createSlice } = require("@reduxjs/toolkit");
 const initialState = {
   coupons: [],
   coupon: null,
+  activeCoupon: null,
   loading: false,
   error: null,
   isAdded: false,
@@ -68,12 +69,25 @@ export const updateCouponAction = createAsyncThunk(
     }
   }
 );
-//fetch coupons action
+//fetch coupons action (admin — requires auth)
 export const fetchCouponsAction = createAsyncThunk(
   "coupons/fetch-All",
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
       const { data } = await axiosInstance.get(`/coupons`);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error?.response?.data);
+    }
+  }
+);
+
+//fetch active coupon for public display (no code exposed)
+export const fetchActiveCouponAction = createAsyncThunk(
+  "coupons/fetch-active",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(`/coupons/active`);
       return data;
     } catch (error) {
       return rejectWithValue(error?.response?.data);
@@ -173,6 +187,19 @@ const couponsSlice = createSlice({
       state.coupons = null;
 
       state.error = action.payload;
+    });
+
+    //fetch active coupon (public)
+    builder.addCase(fetchActiveCouponAction.pending, (state) => {
+      state.loading = true;
+    });
+    builder.addCase(fetchActiveCouponAction.fulfilled, (state, action) => {
+      state.loading = false;
+      state.activeCoupon = action.payload?.coupon || null;
+    });
+    builder.addCase(fetchActiveCouponAction.rejected, (state, action) => {
+      state.loading = false;
+      state.activeCoupon = null;
     });
 
     //fetch single coupon

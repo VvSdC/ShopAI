@@ -44,15 +44,11 @@ app.post(
     let event
 
     try {
-      if (endpointSecret) {
-        // Verify signature when webhook secret is configured
-        event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret)
-      } else {
-        // No webhook secret configured — parse the event directly
-        // WARNING: This skips signature verification; set STRIPE_WEBHOOK_SECRET in production
-        event = JSON.parse(request.body)
-        console.warn('⚠️  Webhook signature verification skipped — set STRIPE_WEBHOOK_SECRET in .env')
+      if (!endpointSecret) {
+        console.error('STRIPE_WEBHOOK_SECRET is not set — rejecting webhook event')
+        return response.status(500).json({ error: 'Webhook secret not configured' })
       }
+      event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret)
     } catch (err) {
       console.error('Webhook signature verification failed:', err.message)
       response.status(400).send(`Webhook Error: ${err.message}`)

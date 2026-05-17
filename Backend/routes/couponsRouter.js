@@ -5,6 +5,7 @@ import {
   getCouponCtrl,
   updateCouponCtrl,
   deleteCouponCtrl,
+  getActiveCouponCtrl,
 } from '../controllers/couponsCtrl.js'
 import isAdmin from '../middlewares/isAdmin.js'
 import { isLoggedIn } from '../middlewares/isLoggedin.js'
@@ -12,9 +13,9 @@ import { isLoggedIn } from '../middlewares/isLoggedin.js'
 const couponsRouter = express.Router()
 
 couponsRouter.post('/', isLoggedIn, isAdmin, createCouponCtrl)
-
-couponsRouter.get('/', getAllCouponsCtrl)
+couponsRouter.get('/active', getActiveCouponCtrl)
+couponsRouter.get('/', isLoggedIn, isAdmin, getAllCouponsCtrl)
 couponsRouter.put('/update/:id', isLoggedIn, isAdmin, updateCouponCtrl)
 couponsRouter.delete('/delete/:id', isLoggedIn, isAdmin, deleteCouponCtrl)
-couponsRouter.get('/single', getCouponCtrl)
+couponsRouter.get('/single', isLoggedIn, getCouponCtrl)
 export default couponsRouter

@@ -13,7 +13,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
 import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
-import { fetchCouponsAction } from '../../redux/slices/coupons/couponsSlice'
+import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
 
 export default function Navbar() {
   //dispatch
@@ -49,14 +49,11 @@ export default function Navbar() {
       window.location.href = '/'
     })
   }
-  //coupons
+  //active coupon (public, safe — no code exposed)
   useEffect(() => {
-    dispatch(fetchCouponsAction())
+    dispatch(fetchActiveCouponAction())
   }, [dispatch])
-  // get coupons
-  const { coupons } = useSelector((state) => state?.coupons)
-  // Get current coupon (most recent) or null
-  const currentCoupon = coupons ? coupons.coupons?.[coupons.coupons.length - 1] : null
+  const { activeCoupon: currentCoupon } = useSelector((state) => state?.coupons)
 
   return (
     <div className="bg-white">
@@ -398,7 +395,7 @@ export default function Navbar() {
               className="flex-1 text-center text-sm font-medium text-white lg:flex-none"
             >
               {currentCoupon
-                ? `${currentCoupon?.code}- ${currentCoupon?.discount}% , ${currentCoupon?.daysLeft}`
+                ? `Flash Sale — ${currentCoupon?.discount}% OFF, ${currentCoupon?.daysLeft}`
                 : 'No Flash sale at the moment'}
             </p>
 
