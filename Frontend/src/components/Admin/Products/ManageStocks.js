@@ -1,18 +1,17 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { fetchProductsAction } from "../../../redux/slices/products/productSlices";
+import Swal from "sweetalert2";
+import { fetchProductsAction, deleteProductAction } from "../../../redux/slices/products/productSlices";
 import baseURL from "../../../utils/baseURL";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
 
 export default function ManageStocks() {
-  //delete product handler
-  const deleteProductHandler = (id) => {};
   let productUrl = `${baseURL}/products`;
-  //dispatch
   const dispatch = useDispatch();
+
   useEffect(() => {
     dispatch(
       fetchProductsAction({
@@ -20,6 +19,30 @@ export default function ManageStocks() {
       })
     );
   }, [dispatch, productUrl]);
+
+  const deleteProductHandler = (id) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This product and all its reviews will be permanently deleted.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete it",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        dispatch(deleteProductAction(id))
+          .unwrap()
+          .then(() => {
+            Swal.fire("Deleted!", "Product has been deleted.", "success");
+            dispatch(fetchProductsAction({ url: productUrl }));
+          })
+          .catch((err) => {
+            Swal.fire("Error", err?.message || "Failed to delete product", "error");
+          });
+      }
+    });
+  };
   //get data from store
   const {
     products: { products },
@@ -31,7 +54,10 @@ export default function ManageStocks() {
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-xl font-semibold text-gray-900">
-            Product List- [{products?.length}]{" "}
+            Product List{" "}
+            <span className="text-gray-500 font-normal">
+              ({products?.length || 0} {products?.length === 1 ? "product" : "products"})
+            </span>
           </h1>
           <p className="mt-2 text-sm text-gray-700">
             List of all the products in your account including their name,
@@ -182,7 +208,7 @@ export default function ManageStocks() {
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <button
                             onClick={() => deleteProductHandler(product._id)}
-                            className="text-indigo-600 hover:text-indigo-900">
+                            className="text-red-600 hover:text-red-900">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"

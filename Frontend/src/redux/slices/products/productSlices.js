@@ -107,6 +107,19 @@ export const updateProductAction = createAsyncThunk(
   }
 )
 
+//delete product action
+export const deleteProductAction = createAsyncThunk(
+  'product/delete',
+  async (productId, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.delete(`/products/${productId}/delete`)
+      return data
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 //fetch products action
 export const fetchProductsAction = createAsyncThunk(
   'product/list',
@@ -172,6 +185,18 @@ const productSlice = createSlice({
       state.isUpdated = false
       state.error = action.payload
     })
+    //delete
+    builder.addCase(deleteProductAction.pending, (state) => {
+      state.loading = true
+    })
+    builder.addCase(deleteProductAction.fulfilled, (state, action) => {
+      state.loading = false
+      state.isDelete = true
+    })
+    builder.addCase(deleteProductAction.rejected, (state, action) => {
+      state.loading = false
+      state.error = action.payload
+    })
     //fetch all
     builder.addCase(fetchProductsAction.pending, (state) => {
       state.loading = true
@@ -208,6 +233,7 @@ const productSlice = createSlice({
     builder.addCase(resetSuccessAction.pending, (state, action) => {
       state.isAdded = false
       state.isUpdated = false
+      state.isDelete = false
     })
   },
 })

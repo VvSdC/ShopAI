@@ -94,7 +94,7 @@ export default function ShoppingCart() {
           <div className="mt-4 rounded-md bg-yellow-50 border border-yellow-200 p-4">
             <div className="flex">
               <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2 flex-shrink-0 mt-0.5" />
-              <div>
+              <div className="flex-1">
                 <h3 className="text-sm font-medium text-yellow-800">
                   Some items in your cart were adjusted
                 </h3>
@@ -105,6 +105,21 @@ export default function ShoppingCart() {
                     </li>
                   ))}
                 </ul>
+                {hasUnavailable && (
+                  <button
+                    onClick={() => {
+                      const unavailable = cartItems.filter((item) => item.unavailable)
+                      unavailable.forEach((item) => {
+                        dispatch(removeOrderItemQty({ productId: item._id, color: item.color, size: item.size }))
+                      })
+                      setTimeout(() => dispatch(getCartItemsFromLocalStorageAction()), 100)
+                    }}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-yellow-100 border border-yellow-300 px-3 py-1.5 text-sm font-medium text-yellow-800 hover:bg-yellow-200 transition-colors"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                    Remove all unavailable items
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -160,9 +175,20 @@ export default function ShoppingCart() {
                           </h3>
                         </div>
                         {isUnavailable && (
-                          <p className="text-red-600 text-sm font-medium mb-2">
-                            {product.reason}
-                          </p>
+                          <>
+                            <p className="text-red-600 text-sm font-medium mb-2">
+                              {product.reason}
+                            </p>
+                            <button
+                              onClick={() =>
+                                removeOrderItemQtyHandler(product?._id, product?.color, product?.size)
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-md bg-red-50 border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors"
+                            >
+                              <XMarkIcon className="h-4 w-4" />
+                              Remove from cart
+                            </button>
+                          </>
                         )}
                         <div
                           className="mt-1 flex text-sm"
