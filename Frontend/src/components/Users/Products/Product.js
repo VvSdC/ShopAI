@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { RadioGroup } from '@headlessui/react'
 import Swal from 'sweetalert2'
 import { Carousel } from 'react-responsive-carousel'
@@ -53,6 +53,7 @@ export default function Product() {
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 0, message: '' })
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [filterTag, setFilterTag] = useState(null)
 
   let productDetails = {}
 
@@ -139,7 +140,8 @@ export default function Product() {
       setEditForm({ rating: '', message: '' })
       setShowReviewModal(false)
       dispatch(fetchProductAction(id))
-      Swal.fire({ icon: 'success', title: 'Updated!', text: 'Your review has been updated' })
+      pollForModeration()
+      Swal.fire({ icon: 'success', title: 'Updated!', text: 'Review updated! Re-checking content...' })
     }).catch((err) => {
       Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Failed to update review' })
     })
@@ -152,6 +154,28 @@ export default function Product() {
       })
     }
   }
+
+  const pollRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [])
+
+  const pollForModeration = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current)
+    let attempts = 0
+    const maxAttempts = 8
+    pollRef.current = setInterval(() => {
+      attempts++
+      dispatch(fetchProductAction(id))
+      if (attempts >= maxAttempts) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }, 3000)
+  }, [dispatch, id])
 
   const handleSubmitReview = (e) => {
     e.preventDefault()
@@ -174,7 +198,8 @@ export default function Product() {
       setShowReviewModal(false)
       setReviewForm({ rating: 0, message: '' })
       dispatch(fetchProductAction(id))
-      Swal.fire({ icon: 'success', title: 'Thank you!', text: 'Your review has been submitted' })
+      pollForModeration()
+      Swal.fire({ icon: 'success', title: 'Thank you!', text: 'Your review is live! Content check in progress...' })
     }).catch((err) => {
       Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Failed to submit review' })
     }).finally(() => {
@@ -182,8 +207,36 @@ export default function Product() {
     })
   }
 
-  //Sort reviews
-  const sortedReviews = [...(product?.reviews || [])]
+  const positiveTags = new Set([
+    'Good quality', 'Durable', 'Value for money', 'Attractive design',
+    'Comfortable fit', 'Works as expected', 'Would recommend', 'Highly satisfied',
+  ])
+  const negativeTags = new Set([
+    'Poor quality', 'Fragile', 'Overpriced', 'Poor design',
+    'Wrong size', 'Defective', 'Would not recommend', 'Disappointed',
+  ])
+  const getTagColor = (tag) => {
+    if (positiveTags.has(tag)) return 'bg-green-100 text-green-700'
+    if (negativeTags.has(tag)) return 'bg-red-100 text-red-700'
+    return 'bg-gray-100 text-gray-600'
+  }
+
+  const visibleReviews = (product?.reviews || []).filter((r) => {
+    if (r.moderationStatus === 'approved' || !r.moderationStatus) return true
+    return r.user?._id === currentUserId
+  })
+
+  const approvedReviewTags = visibleReviews
+    .filter((r) => r.moderationStatus === 'approved' || !r.moderationStatus)
+    .flatMap((r) => r.tags || [])
+  const tagCounts = {}
+  approvedReviewTags.forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1 })
+  const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])
+
+  let sortedReviews = [...visibleReviews]
+  if (filterTag) {
+    sortedReviews = sortedReviews.filter((r) => r.tags?.includes(filterTag))
+  }
   if (reviewSort === 'asc') {
     sortedReviews.sort((a, b) => a.rating - b.rating)
   } else if (reviewSort === 'desc') {
@@ -516,16 +569,55 @@ export default function Product() {
             </div>
           </div>
 
+          {/* Tag summary bar */}
+          {sortedTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {filterTag && (
+                <button
+                  onClick={() => setFilterTag(null)}
+                  className="rounded-full px-3 py-1 text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                >
+                  Clear filter &times;
+                </button>
+              )}
+              {sortedTags.map(([tag, count]) => (
+                <button
+                  key={tag}
+                  onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+                  className={classNames(
+                    'rounded-full px-3 py-1 text-xs font-medium transition-colors border',
+                    filterTag === tag
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : `${getTagColor(tag)} border-transparent hover:opacity-80`
+                  )}
+                >
+                  {tag} ({count})
+                </button>
+              ))}
+            </div>
+          )}
+
           {sortedReviews.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-              <p className="text-gray-500">No reviews yet. Be the first to review this product!</p>
+              <p className="text-gray-500">
+                {filterTag
+                  ? `No reviews match the "${filterTag}" tag.`
+                  : 'No reviews yet. Be the first to review this product!'}
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {sortedReviews.map((review) => (
                 <div
                   key={review._id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+                  className={classNames(
+                    'rounded-xl border p-5 shadow-sm transition-shadow',
+                    review.moderationStatus === 'rejected'
+                      ? 'border-red-200 bg-red-50/30'
+                      : review.moderationStatus === 'pending'
+                      ? 'border-amber-200 bg-amber-50/20'
+                      : 'border-gray-200 bg-white hover:shadow-md'
+                  )}
                 >
                   {/* Top row: user info + date */}
                   <div className="flex items-center justify-between mb-3">
@@ -571,6 +663,27 @@ export default function Product() {
                     )}
                   </div>
 
+                  {/* Moderation status badges (visible only to the review author) */}
+                  {review.moderationStatus === 'pending' && review.user?._id === currentUserId && (
+                    <div className="flex items-center gap-2 mb-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                      <svg className="h-4 w-4 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span className="text-xs font-medium text-amber-700">
+                        Checking content...
+                      </span>
+                    </div>
+                  )}
+                  {review.moderationStatus === 'rejected' && review.user?._id === currentUserId && (
+                    <div className="mb-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                      <p className="text-xs font-semibold text-red-700 mb-0.5">Review flagged</p>
+                      <p className="text-xs text-red-600">
+                        {review.moderationReason || 'Your review did not pass our content guidelines. Please edit or delete it.'}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Stars */}
                   <div className="flex items-center gap-1 mb-2">
                     {[0, 1, 2, 3, 4].map((i) => (
@@ -593,6 +706,23 @@ export default function Product() {
                   <p className="text-sm text-gray-600 leading-relaxed">
                     {review?.message}
                   </p>
+
+                  {/* Tags */}
+                  {review?.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {review.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={classNames(
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            getTagColor(tag)
+                          )}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

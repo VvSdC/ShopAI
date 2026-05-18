@@ -24,6 +24,19 @@ const ReviewSchema = new Schema(
       min: 1,
       max: 5,
     },
+    tags: {
+      type: [String],
+      default: [],
+    },
+    moderationStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    moderationReason: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

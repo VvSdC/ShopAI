@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Product from "../model/Product.js";
 import Review from "../model/Review.js";
+import { moderateReviewInBackground } from "../services/reviewModeration.js";
 
 // @desc    Create new review
 // @route   POST /api/v1/reviews/:productID
@@ -8,33 +9,31 @@ import Review from "../model/Review.js";
 
 export const createReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
-  //1. Find the product
   const { productID } = req.params;
   const productFound = await Product.findById(productID).populate("reviews");
   if (!productFound) {
     throw new Error("Product Not Found");
   }
-  //check if user already reviewed this product
   const hasReviewed = productFound?.reviews?.find((review) => {
     return review?.user?.toString() === req?.userAuthId?.toString();
   });
   if (hasReviewed) {
     throw new Error("You have already reviewed this product");
   }
-  //create review
   const review = await Review.create({
     message,
     rating,
     product: productFound?._id,
     user: req.userAuthId,
   });
-  //Push review into product Found
   productFound.reviews.push(review?._id);
-  //resave
   await productFound.save();
+
+  moderateReviewInBackground(review._id);
+
   res.status(201).json({
     success: true,
-    message: "Review created successfully",
+    message: "Review submitted — checking content...",
   });
 });
 
@@ -47,17 +46,21 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
   if (!review) {
     throw new Error("Review not found");
   }
-  //check ownership
   if (review.user.toString() !== req.userAuthId.toString()) {
     throw new Error("You can only update your own review");
   }
   review.message = message !== undefined ? message : review.message;
   review.rating = rating !== undefined ? rating : review.rating;
+  review.moderationStatus = "pending";
+  review.moderationReason = "";
+  review.tags = [];
   await review.save();
+
+  moderateReviewInBackground(review._id);
 
   res.json({
     success: true,
-    message: "Review updated successfully",
+    message: "Review updated — re-checking content...",
     review,
   });
 });
