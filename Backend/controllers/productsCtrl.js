@@ -3,6 +3,7 @@ import Brand from '../model/Brand.js'
 import Category from '../model/Category.js'
 import Product from '../model/Product.js'
 import Review from '../model/Review.js'
+import { tagProductInBackground } from '../services/productTagging.js'
 
 // @desc    Create new product
 // @route   POST /api/v1/products
@@ -55,6 +56,9 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   brandFound.products.push(product._id)
   //resave
   await brandFound.save()
+
+  tagProductInBackground(product._id)
+
   //send response
   res.json({
     status: 'success',
@@ -214,6 +218,9 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       runValidators: true,
     }
   )
+
+  if (product) tagProductInBackground(product._id)
+
   res.json({
     status: 'success',
     message: 'Product updated successfully',

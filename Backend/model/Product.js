@@ -65,6 +65,10 @@ const ProductSchema = new Schema(
       required: true,
       default: 0,
     },
+    tags: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

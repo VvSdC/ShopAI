@@ -3,7 +3,7 @@ import User from '../model/User.js'
 import { chatCompletion } from '../services/llmService.js'
 import { toolDefinitions, executeTool } from '../services/chatTools.js'
 
-const MAX_TOOL_ROUNDS = 3
+const MAX_TOOL_ROUNDS = 5
 const MAX_HISTORY = 20
 
 function buildSystemPrompt(userName) {
@@ -136,10 +136,11 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
   }
 
   const lastChoice = response?.choices?.[0]
+  const fallbackContent = lastChoice?.message?.content
   res.json({
     success: true,
     reply:
-      lastChoice?.message?.content ||
-      "I found some information but had trouble putting it together. Could you try asking in a different way?",
+      fallbackContent ||
+      "I'm sorry, I wasn't able to find what you're looking for. Could you try rephrasing your question? For example, you can ask me to search for a specific product name, check your orders, or find active coupons.",
   })
 })

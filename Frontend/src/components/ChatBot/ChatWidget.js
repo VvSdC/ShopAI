@@ -2,6 +2,95 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
 
+function formatMessage(text) {
+  if (!text) return text
+
+  const lines = text.split('\n')
+  const elements = []
+  let listBuffer = []
+  let listType = null
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return
+    const tag = listType === 'ol' ? 'ol' : 'ul'
+    const listClass = tag === 'ol'
+      ? 'list-decimal pl-5 my-1 space-y-0.5'
+      : 'list-disc pl-5 my-1 space-y-0.5'
+    const items = listBuffer.map((item, j) => (
+      <li key={`li-${elements.length}-${j}`}>{formatInline(item)}</li>
+    ))
+    elements.push(
+      tag === 'ol'
+        ? <ol key={`list-${elements.length}`} className={listClass}>{items}</ol>
+        : <ul key={`list-${elements.length}`} className={listClass}>{items}</ul>
+    )
+    listBuffer = []
+    listType = null
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const ulMatch = line.match(/^[\s]*[-•*]\s+(.+)/)
+    const olMatch = line.match(/^[\s]*\d+[.)]\s+(.+)/)
+
+    if (ulMatch) {
+      if (listType === 'ol') flushList()
+      listType = 'ul'
+      listBuffer.push(ulMatch[1])
+    } else if (olMatch) {
+      if (listType === 'ul') flushList()
+      listType = 'ol'
+      listBuffer.push(olMatch[1])
+    } else {
+      flushList()
+      if (line.trim() === '') {
+        elements.push(<br key={`br-${i}`} />)
+      } else {
+        elements.push(
+          <span key={`line-${i}`}>
+            {formatInline(line)}
+            {i < lines.length - 1 && <br />}
+          </span>
+        )
+      }
+    }
+  }
+  flushList()
+
+  return elements
+}
+
+function formatInline(text) {
+  const parts = []
+  const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)/g
+  let lastIndex = 0
+  let match
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+    if (match[1]) {
+      parts.push(<strong key={`b-${match.index}`}>{match[2]}</strong>)
+    } else if (match[3]) {
+      parts.push(<em key={`i-${match.index}`}>{match[4]}</em>)
+    } else if (match[5]) {
+      parts.push(
+        <code key={`c-${match.index}`} className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-xs">
+          {match[6]}
+        </code>
+      )
+    }
+    lastIndex = regex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts
+}
+
 const ChatIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
@@ -164,13 +253,13 @@ export default function ChatWidget() {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-blue-800 text-white rounded-br-md'
+                      ? 'bg-blue-800 text-white rounded-br-md whitespace-pre-wrap'
                       : 'bg-white text-gray-800 rounded-bl-md border border-gray-200'
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
                 </div>
               </div>
             ))}

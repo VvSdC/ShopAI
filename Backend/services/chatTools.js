@@ -50,21 +50,21 @@ export const toolDefinitions = [
     function: {
       name: 'search_products',
       description:
-        'Search for products by name, category, brand, color, or price range. Use when user is looking for products or wants recommendations.',
+        'Search for products. ALWAYS start with the "query" parameter — it searches across product name AND description. Only add category/brand filters if you already know the exact category or brand name from get_categories or get_brands. When in doubt, use just "query".',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'Search term to match against product name (partial match)',
+            description: 'Search term — matched against product name AND description. Use this as the primary search parameter.',
           },
           category: {
             type: 'string',
-            description: 'Filter by category name',
+            description: 'EXACT category name to filter by (get exact names from get_categories first)',
           },
           brand: {
             type: 'string',
-            description: 'Filter by brand name',
+            description: 'EXACT brand name to filter by (get exact names from get_brands first)',
           },
           color: {
             type: 'string',
@@ -210,20 +210,38 @@ const toolExecutors = {
   },
 
   async search_products(_userId, args) {
-    const filter = {}
-    if (args.query) filter.name = { $regex: args.query, $options: 'i' }
-    if (args.category) filter.category = { $regex: args.category, $options: 'i' }
-    if (args.brand) filter.brand = { $regex: args.brand, $options: 'i' }
-    if (args.color) filter.colors = { $regex: args.color, $options: 'i' }
+    const conditions = []
+
+    if (args.query) {
+      const words = args.query.trim().split(/\s+/).filter(Boolean)
+      const wordConditions = words.map((w) => {
+        const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        return {
+          $or: [
+            { name: { $regex: escaped, $options: 'i' } },
+            { description: { $regex: escaped, $options: 'i' } },
+            { category: { $regex: escaped, $options: 'i' } },
+            { brand: { $regex: escaped, $options: 'i' } },
+            { tags: { $regex: escaped, $options: 'i' } },
+          ],
+        }
+      })
+      conditions.push(...wordConditions)
+    }
+    if (args.category) conditions.push({ category: { $regex: args.category, $options: 'i' } })
+    if (args.brand) conditions.push({ brand: { $regex: args.brand, $options: 'i' } })
+    if (args.color) conditions.push({ colors: { $regex: args.color, $options: 'i' } })
     if (args.min_price || args.max_price) {
-      filter.price = {}
-      if (args.min_price) filter.price.$gte = args.min_price
-      if (args.max_price) filter.price.$lte = args.max_price
+      const priceFilter = {}
+      if (args.min_price) priceFilter.$gte = args.min_price
+      if (args.max_price) priceFilter.$lte = args.max_price
+      conditions.push({ price: priceFilter })
     }
 
+    const filter = conditions.length > 0 ? { $and: conditions } : {}
     const limit = Math.min(Math.max(args.limit || 8, 1), 15)
     const products = await Product.find(filter).limit(limit).select(
-      'name brand category price totalQty totalSold colors sizes images'
+      'name brand category price totalQty totalSold colors sizes images description tags'
     )
 
     if (!products.length) return { message: 'No products found matching your criteria.' }
