@@ -59,7 +59,10 @@ const OrderSchema = new Schema(
   }
 );
 
-//compile to form model
+OrderSchema.index({ user: 1, createdAt: -1 })
+OrderSchema.index({ orderNumber: 1 }, { unique: true })
+OrderSchema.index({ status: 1 })
+
 const Order = mongoose.model("Order", OrderSchema);
 
 export default Order;

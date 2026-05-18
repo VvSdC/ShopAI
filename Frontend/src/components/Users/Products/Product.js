@@ -7,8 +7,6 @@ import { CurrencyDollarIcon, GlobeAmericasIcon } from '@heroicons/react/24/outli
 import { StarIcon } from '@heroicons/react/20/solid'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import ErrorMsg from '../../ErrorMsg/ErrorMsg'
-import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
 import {
   addOrderToCartaction,
@@ -71,8 +69,7 @@ export default function Product() {
     colorHexMap[c.name] = c.hex
   })
 
-  //get data from store
-  const { loading, error, product } = useSelector((state) => state?.products)
+  const { product } = useSelector((state) => state?.products)
   const { cartItems = [] } = useSelector((state) => state?.cart || {})
   const { userAuth } = useSelector((state) => state?.users)
   const currentUserId = userAuth?.userInfo?._id
@@ -288,9 +285,8 @@ export default function Product() {
                   className="ml-4 text-sm text-gray-300"
                 ></div>
                 <div className="ml-4 flex">
-                  <a
-                    href="#"
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                  <span
+                    className="text-sm font-medium text-indigo-600"
                     style={{
                       textTransform: 'capitalize',
                       fontSize: '18px',
@@ -299,7 +295,7 @@ export default function Product() {
                     }}
                   >
                     {productDetails?.product?.totalReviews} total reviews
-                  </a>
+                  </span>
                 </div>
               </div>
               {/* leave a review */}

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "crypto";
 const Schema = mongoose.Schema;
 
 const UserShema = new Schema(
@@ -10,6 +11,7 @@ const UserShema = new Schema(
     email: {
       type: String,
       required: true,
+      unique: true,
     },
     password: {
       type: String,
@@ -21,10 +23,10 @@ const UserShema = new Schema(
         ref: "Order",
       },
     ],
-    wishLists: [
+    wishlist: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "WishList",
+        ref: "Product",
       },
     ],
     phone: {
@@ -63,11 +65,23 @@ const UserShema = new Schema(
         phone: { type: String },
       },
     ],
+    passwordResetOTP: { type: String },
+    passwordResetExpires: { type: Date },
   },
   {
     timestamps: true,
   }
 );
+
+UserShema.methods.createPasswordResetOTP = function () {
+  const otp = String(crypto.randomInt(100000, 999999));
+  this.passwordResetOTP = crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex");
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  return otp;
+};
 
 //compile the schema to model
 const User = mongoose.model("User", UserShema);

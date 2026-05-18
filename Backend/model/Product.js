@@ -99,6 +99,12 @@ ProductSchema.virtual('averageRating').get(function () {
   )
   return averageRating
 })
+ProductSchema.index({ name: 'text', description: 'text', tags: 'text' })
+ProductSchema.index({ category: 1 })
+ProductSchema.index({ brand: 1 })
+ProductSchema.index({ price: 1 })
+ProductSchema.index({ tags: 1 })
+
 const Product = mongoose.model('Product', ProductSchema)
 
 export default Product

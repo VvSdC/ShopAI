@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import User from "../model/User.js";
 import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
@@ -7,6 +8,7 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/generateToken.js";
+import { sendPasswordResetOTPEmail, sendWelcomeEmail } from "../services/emailService.js";
 
 // Cookie options
 const accessCookieOptions = {
@@ -45,6 +47,8 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     phone,
     country,
   });
+  sendWelcomeEmail(user.email, user.fullname);
+
   res.status(201).json({
     status: "success",
     message: "User Registered Successfully",
@@ -163,12 +167,47 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
 // @route   GET /api/v1/users/profile
 // @access  Private
 export const getUserProfileCtrl = asyncHandler(async (req, res) => {
-  //find the user
-  const user = await User.findById(req.userAuthId).populate("orders");
+  const user = await User.findById(req.userAuthId)
+    .select('-password -refreshToken')
+    .populate("orders");
   res.json({
     status: "success",
     message: "User profile fetched successfully",
     user,
+  });
+});
+
+// @desc    Update user profile (name, email, phone)
+// @route   PUT /api/v1/users/update/profile
+// @access  Private
+export const updateProfileCtrl = asyncHandler(async (req, res) => {
+  const { fullname, email, phone, country } = req.body;
+  const user = await User.findById(req.userAuthId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (email && email !== user.email) {
+    const emailTaken = await User.findOne({ email });
+    if (emailTaken) {
+      res.status(400);
+      throw new Error("Email is already in use");
+    }
+    user.email = email;
+  }
+  if (fullname) user.fullname = fullname;
+  if (phone !== undefined) user.phone = phone;
+  if (country !== undefined) user.country = country;
+  await user.save();
+  res.json({
+    status: "success",
+    message: "Profile updated successfully",
+    user: {
+      _id: user._id,
+      fullname: user.fullname,
+      email: user.email,
+      phone: user.phone,
+      country: user.country,
+    },
   });
 });
 
@@ -303,15 +342,100 @@ export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
 
 export const deleteAccountCtrl = asyncHandler(async (req, res) => {
   const userId = req.userAuthId;
-  // Reassign orders to keep them (remove user reference)
   await Order.updateMany({ user: userId }, { $unset: { user: "" } });
-  // Delete the user
   await User.findByIdAndDelete(userId);
-  // Clear cookies
   res.clearCookie("shopai_token");
   res.clearCookie("shopai_refresh_token");
   res.json({
     status: "success",
     message: "Account deleted successfully",
+  });
+});
+
+// @desc    Forgot password — send OTP email
+// @route   POST /api/v1/users/forgot-password
+// @access  Public
+export const forgotPasswordCtrl = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email?.toLowerCase()?.trim() });
+  if (!user) {
+    return res.json({
+      status: "success",
+      message: "If an account with that email exists, a reset OTP has been sent.",
+    });
+  }
+  const otp = user.createPasswordResetOTP();
+  await user.save({ validateBeforeSave: false });
+
+  sendPasswordResetOTPEmail(user.email, user.fullname, otp);
+
+  res.json({
+    status: "success",
+    message: "If an account with that email exists, a reset OTP has been sent.",
+  });
+});
+
+// @desc    Verify OTP
+// @route   POST /api/v1/users/verify-otp
+// @access  Public
+export const verifyOTPCtrl = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    res.status(400);
+    throw new Error("Email and OTP are required");
+  }
+
+  const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+    passwordResetOTP: hashedOTP,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Invalid or expired OTP");
+  }
+
+  res.json({ status: "success", message: "OTP verified" });
+});
+
+// @desc    Reset password with OTP
+// @route   POST /api/v1/users/reset-password
+// @access  Public
+export const resetPasswordCtrl = asyncHandler(async (req, res) => {
+  const { email, otp, password } = req.body;
+  if (!email || !otp || !password) {
+    res.status(400);
+    throw new Error("Email, OTP and new password are required");
+  }
+
+  const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+    passwordResetOTP: hashedOTP,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error("Invalid or expired OTP");
+  }
+
+  if (password.length < 6) {
+    res.status(400);
+    throw new Error("Password must be at least 6 characters");
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(password, salt);
+  user.passwordResetOTP = undefined;
+  user.passwordResetExpires = undefined;
+  user.refreshToken = "";
+  await user.save();
+
+  res.json({
+    status: "success",
+    message: "Password reset successful. Please log in with your new password.",
   });
 });

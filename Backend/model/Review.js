@@ -43,6 +43,9 @@ const ReviewSchema = new Schema(
   }
 );
 
+ReviewSchema.index({ product: 1 })
+ReviewSchema.index({ user: 1 })
+
 const Review = mongoose.model("Review", ReviewSchema);
 
 export default Review;

@@ -72,83 +72,37 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getProductsCtrl = asyncHandler(async (req, res) => {
-  //query
-  let productQuery = Product.find()
+  const filter = {}
 
-  //search by name
-  if (req.query.name) {
-    productQuery = productQuery.find({
-      name: req.query.name,
-    })
-  }
-
-  //filter by brand
-  if (req.query.brand) {
-    productQuery = productQuery.find({
-      brand: req.query.brand,
-    })
-  }
-
-  //filter by category
-  if (req.query.category) {
-    productQuery = productQuery.find({
-      category: req.query.category,
-    })
-  }
-
-  //filter by color
-  if (req.query.color) {
-    productQuery = productQuery.find({
-      colors: req.query.color,
-    })
-  }
-
-  //filter by size
-  if (req.query.size) {
-    productQuery = productQuery.find({
-      sizes: req.query.size,
-    })
-  }
-  //filter by price range
+  if (req.query.name) filter.name = { $regex: req.query.name, $options: 'i' }
+  if (req.query.brand) filter.brand = req.query.brand
+  if (req.query.category) filter.category = req.query.category
+  if (req.query.color) filter.colors = req.query.color
+  if (req.query.size) filter.sizes = req.query.size
   if (req.query.price) {
     const priceRange = req.query.price.split('-')
-    //gte: greater or equal
-    //lte: less than or equal to
-    productQuery = productQuery.find({
-      price: { $gte: priceRange[0], $lte: priceRange[1] },
-    })
+    filter.price = { $gte: priceRange[0], $lte: priceRange[1] }
   }
-  //pagination
-  //page
-  const page = parseInt(req.query.page) ? parseInt(req.query.page) : 1
-  //limit
-  const limit = parseInt(req.query.limit) ? parseInt(req.query.limit) : 100
-  //startIdx
+
+  const page = parseInt(req.query.page) || 1
+  const limit = parseInt(req.query.limit) || 12
   const startIndex = (page - 1) * limit
-  //endIdx
   const endIndex = page * limit
-  //total
-  const total = await Product.countDocuments()
+  const total = await Product.countDocuments(filter)
 
-  productQuery = productQuery.skip(startIndex).limit(limit)
+  const products = await Product.find(filter)
+    .skip(startIndex)
+    .limit(limit)
+    .populate('reviews')
 
-  //pagination results
   const pagination = {}
   if (endIndex < total) {
-    pagination.next = {
-      page: page + 1,
-      limit,
-    }
+    pagination.next = { page: page + 1, limit }
   }
   if (startIndex > 0) {
-    pagination.prev = {
-      page: page - 1,
-      limit,
-    }
+    pagination.prev = { page: page - 1, limit }
   }
 
-  //await the query
-  const products = await productQuery.populate('reviews')
   res.json({
     status: 'success',
     total,

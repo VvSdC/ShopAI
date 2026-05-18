@@ -35,6 +35,7 @@ import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
+import ForgotPassword from "./components/Users/Forms/ForgotPassword";
 
 
 const App = () => {
@@ -207,6 +208,7 @@ const App = () => {
         {/* users */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegisterForm />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/customer-profile"
           element={

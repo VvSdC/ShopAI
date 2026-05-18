@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Link } from 'react-router-dom'
 import { getCurrentUserAction, loginUserAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
@@ -103,6 +104,14 @@ const Login = () => {
                         Login
                       </button>
                     )}
+                  </div>
+                  <div className="w-full px-4 mt-4">
+                    <Link
+                      to="/forgot-password"
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Forgot your password?
+                    </Link>
                   </div>
                 </form>
               </div>
