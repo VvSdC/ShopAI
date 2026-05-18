@@ -381,5 +381,5 @@ For major features, create a branch and include clear testing steps.
 ---
 
 <p align="center">
-  Built by <a href="https://github.com/vvsd-charan"><strong>VVSD Charan</strong></a>
+  Built by <a href="https://github.com/VvSdC"><strong>VVSD Charan</strong></a>
 </p>
