@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
 
@@ -60,35 +61,78 @@ function formatMessage(text) {
   return elements
 }
 
-function formatInline(text) {
+function renderTextSegment(segment, keyPrefix) {
   const parts = []
-  const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)/g
+  const regex =
+    /(\[([^\]]+)\]\((\/products\/[a-f0-9]{24}|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})/gi
   let lastIndex = 0
   let match
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(segment)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index))
+      parts.push(segment.slice(lastIndex, match.index))
     }
     if (match[1]) {
-      parts.push(<strong key={`b-${match.index}`}>{match[2]}</strong>)
-    } else if (match[3]) {
-      parts.push(<em key={`i-${match.index}`}>{match[4]}</em>)
-    } else if (match[5]) {
+      const href = match[3]
+      const label = match[2]
       parts.push(
-        <code key={`c-${match.index}`} className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-xs">
-          {match[6]}
+        href.startsWith('/products/') ? (
+          <Link
+            key={`${keyPrefix}-lnk-${match.index}`}
+            to={href}
+            className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+          >
+            {label}
+          </Link>
+        ) : (
+          <a
+            key={`${keyPrefix}-lnk-${match.index}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+          >
+            {label}
+          </a>
+        )
+      )
+    } else if (match[4]) {
+      parts.push(<strong key={`${keyPrefix}-b-${match.index}`}>{match[5]}</strong>)
+    } else if (match[6]) {
+      parts.push(<em key={`${keyPrefix}-i-${match.index}`}>{match[7]}</em>)
+    } else if (match[8]) {
+      parts.push(
+        <code
+          key={`${keyPrefix}-c-${match.index}`}
+          className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-xs"
+        >
+          {match[9]}
         </code>
+      )
+    } else if (match[10]) {
+      parts.push(
+        <Link
+          key={`${keyPrefix}-path-${match.index}`}
+          to={match[10]}
+          className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+        >
+          View product
+        </Link>
       )
     }
     lastIndex = regex.lastIndex
   }
 
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex))
+  if (lastIndex < segment.length) {
+    parts.push(segment.slice(lastIndex))
   }
 
-  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : parts
+  return parts.length ? parts : segment
+}
+
+function formatInline(text) {
+  const rendered = renderTextSegment(text, 'inline')
+  return Array.isArray(rendered) ? rendered : rendered
 }
 
 const ChatIcon = () => (

@@ -6,6 +6,71 @@ import { toolDefinitions, executeTool } from '../services/chatTools.js'
 const MAX_TOOL_ROUNDS = 5
 const MAX_HISTORY = 20
 
+function parseToolContent(content) {
+  try {
+    return JSON.parse(content)
+  } catch {
+    return null
+  }
+}
+
+function findLastProductCatalog(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'tool') continue
+    const data = parseToolContent(msg.content)
+    if (!data) continue
+    if (Array.isArray(data.products)) {
+      return {
+        count: data.count ?? data.products.length,
+        products: data.products,
+        message: data.message,
+        strictListing: true,
+      }
+    }
+    if (Array.isArray(data) && data.length > 0 && data[0]?.name) {
+      return { count: data.length, products: data }
+    }
+  }
+  return null
+}
+
+function formatInr(price) {
+  return `₹${Number(price).toLocaleString('en-IN')}`
+}
+
+function formatProductListBlock(searchResult) {
+  const { products, count } = searchResult
+  if (!count || !products?.length) {
+    return searchResult.message || 'No matching products are in our catalog right now.'
+  }
+  return products
+    .map((p, i) => {
+      const url = p.productUrl || `/products/${p.id}`
+      const stock = p.qtyLeft != null ? `${p.qtyLeft} in stock` : p.inStock ? 'In stock' : 'Out of stock'
+      return `${i + 1}. **${p.name}**\n   - Price: ${formatInr(p.price)}\n   - ${stock}\n   - [View product](${url})`
+    })
+    .join('\n\n')
+}
+
+function buildCatalogBackedReply(searchResult) {
+  const count = searchResult.count ?? 0
+  if (count === 0) {
+    return (
+      searchResult.message ||
+      "I couldn't find any products matching that in our catalog. Would you like me to try a different search?"
+    )
+  }
+
+  const list = formatProductListBlock(searchResult)
+  const intro =
+    count === 1
+      ? 'I found **1** product in our catalog that matches:'
+      : `I found **${count}** products in our catalog that match:`
+
+  return `${intro}\n\n${list}\n\nTap **View product** to see full details. Let me know if you need anything else.`
+}
+
 function buildSystemPrompt(userName) {
   return `You are ShopAI Assistant — the shopping assistant for ShopAI, an online shopping platform.
 
@@ -58,10 +123,14 @@ TONE & BEHAVIOR:
 ═══════════════════════════════════════
 DATA & FORMATTING:
 ═══════════════════════════════════════
-- NEVER fabricate data. Always use tools to fetch real information before answering.
-- Format prices in INR with the ₹ symbol.
+- NEVER fabricate data. Always call search_products (or get_product_details) BEFORE naming any product, price, stock, or category.
+- PRODUCT LISTINGS — CRITICAL:
+  • You may ONLY mention products returned in the latest search_products or get_product_details tool result.
+  • If the tool returns count: 0, say nothing is in stock — do NOT suggest products from general knowledge (e.g. no "jerseys" or "balls" unless the tool listed them).
+  • If the tool returns count: 1, list exactly ONE product with its exact name and price from the tool — never add similar items.
+  • Every product you mention MUST include its productUrl as a markdown link: [View product](/products/ID)
+- Format prices in INR with the ₹ symbol (use exact values from tools).
 - Use clean numbered lists for multiple items.
-- When suggesting products, mention they can view full details on the product page.
 - For coupon codes, explain: enter the code on the cart page before checkout.`
 }
 
@@ -129,18 +198,32 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
       continue
     }
 
+    let reply =
+      assistantMessage.content || "I'm sorry, I couldn't generate a response. Please try again."
+
+    const lastCatalog = findLastProductCatalog(messages)
+    if (lastCatalog?.strictListing) {
+      reply = buildCatalogBackedReply(lastCatalog)
+    }
+
     return res.json({
       success: true,
-      reply: assistantMessage.content || "I'm sorry, I couldn't generate a response. Please try again.",
+      reply,
     })
   }
 
   const lastChoice = response?.choices?.[0]
-  const fallbackContent = lastChoice?.message?.content
+  let reply =
+    lastChoice?.message?.content ||
+    "I'm sorry, I wasn't able to find what you're looking for. Could you try rephrasing your question? For example, you can ask me to search for a specific product name, check your orders, or find active coupons."
+
+  const lastCatalog = findLastProductCatalog(messages)
+  if (lastCatalog?.strictListing) {
+    reply = buildCatalogBackedReply(lastCatalog)
+  }
+
   res.json({
     success: true,
-    reply:
-      fallbackContent ||
-      "I'm sorry, I wasn't able to find what you're looking for. Could you try rephrasing your question? For example, you can ask me to search for a specific product name, check your orders, or find active coupons.",
+    reply,
   })
 })

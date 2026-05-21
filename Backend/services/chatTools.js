@@ -50,7 +50,7 @@ export const toolDefinitions = [
     function: {
       name: 'search_products',
       description:
-        'Search for products. ALWAYS start with the "query" parameter — it searches across product name AND description. Only add category/brand filters if you already know the exact category or brand name from get_categories or get_brands. When in doubt, use just "query".',
+        'Search the ShopAI product catalog (database only). ALWAYS use this before naming any product, price, or stock. Use "query" first — searches name, description, category, brand, and tags. Only add category/brand if you know exact values from get_categories/get_brands. You may ONLY describe products returned by this tool — never invent items.',
       parameters: {
         type: 'object',
         properties: {
@@ -214,19 +214,21 @@ const toolExecutors = {
 
     if (args.query) {
       const words = args.query.trim().split(/\s+/).filter(Boolean)
-      const wordConditions = words.map((w) => {
-        const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        return {
-          $or: [
-            { name: { $regex: escaped, $options: 'i' } },
-            { description: { $regex: escaped, $options: 'i' } },
-            { category: { $regex: escaped, $options: 'i' } },
-            { brand: { $regex: escaped, $options: 'i' } },
-            { tags: { $regex: escaped, $options: 'i' } },
-          ],
-        }
-      })
-      conditions.push(...wordConditions)
+      if (words.length > 0) {
+        const wordConditions = words.map((w) => {
+          const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          return {
+            $or: [
+              { name: { $regex: escaped, $options: 'i' } },
+              { description: { $regex: escaped, $options: 'i' } },
+              { category: { $regex: escaped, $options: 'i' } },
+              { brand: { $regex: escaped, $options: 'i' } },
+              { tags: { $regex: escaped, $options: 'i' } },
+            ],
+          }
+        })
+        conditions.push({ $or: wordConditions })
+      }
     }
     if (args.category) conditions.push({ category: { $regex: args.category, $options: 'i' } })
     if (args.brand) conditions.push({ brand: { $regex: args.brand, $options: 'i' } })
@@ -244,20 +246,38 @@ const toolExecutors = {
       'name brand category price totalQty totalSold colors sizes images description tags'
     )
 
-    if (!products.length) return { message: 'No products found matching your criteria.' }
+    if (!products.length) {
+      return {
+        count: 0,
+        products: [],
+        message: 'No products found in the catalog for this search.',
+        rule: 'Tell the user nothing matched. Do NOT suggest or name products that were not returned here.',
+      }
+    }
 
-    return products.map((p) => ({
-      id: p._id,
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      price: p.price,
-      inStock: p.totalQty - p.totalSold > 0,
-      qtyLeft: p.totalQty - p.totalSold,
-      colors: p.colors,
-      sizes: p.sizes,
-      image: p.images?.[0] || null,
-    }))
+    const mapped = products.map((p) => {
+      const id = String(p._id)
+      return {
+        id,
+        name: p.name,
+        brand: p.brand,
+        category: p.category,
+        price: p.price,
+        inStock: p.totalQty - p.totalSold > 0,
+        qtyLeft: p.totalQty - p.totalSold,
+        colors: p.colors,
+        sizes: p.sizes,
+        image: p.images?.[0] || null,
+        productUrl: `/products/${id}`,
+      }
+    })
+
+    return {
+      count: mapped.length,
+      products: mapped,
+      rule:
+        'List ONLY these products with EXACT names, prices, and stock from this response. Include each productUrl as a markdown link: [View product](productUrl). Never add products not in this list.',
+    }
   },
 
   async get_product_details(_userId, args) {
@@ -267,8 +287,9 @@ const toolExecutors = {
 
     if (!product) return { error: 'Product not found.' }
 
+    const id = String(product._id)
     return {
-      id: product._id,
+      id,
       name: product.name,
       description: product.description,
       brand: product.brand,
@@ -280,6 +301,7 @@ const toolExecutors = {
       sizes: product.sizes,
       images: product.images,
       totalReviews: product.reviews?.length || 0,
+      productUrl: `/products/${id}`,
     }
   },
 
