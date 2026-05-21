@@ -62,6 +62,11 @@ const ordersLinks = [
       </svg>
     ),
   },
+  {
+    name: 'Manage Orders',
+    href: 'manage-orders',
+    icon: ScaleIcon,
+  },
 ]
 
 const productsLinks = [
@@ -168,7 +173,6 @@ const brandsLinks = [
 
 export default function AddminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // get logged in user from redux (set from JWT claims via /me)
   const { userAuth } = useSelector((state) => state?.users)
   const currentUser = userAuth?.userInfo
   const fullname = currentUser?.fullname || 'Admin'
@@ -209,7 +213,7 @@ export default function AddminDashboard() {
                 leaveFrom="translate-x-0"
                 leaveTo="-translate-x-full"
               >
-                <Dialog.Panel className="relative flex w-full max-w-xs flex-1 flex-col bg-cyan-700 pt-5 pb-4">
+                <Dialog.Panel className="relative flex w-full max-w-xs flex-1 flex-col bg-slate-800 pt-5 pb-4">
                   <Transition.Child
                     as={Fragment}
                     enter="ease-in-out duration-300"
@@ -235,7 +239,7 @@ export default function AddminDashboard() {
                   </Transition.Child>
                   <div className="flex flex-shrink-0 items-center px-4"></div>
                   <nav
-                    className="mt-5 flex flex-1 flex-col divide-y divide-cyan-800 overflow-y-auto"
+                    className="mt-5 flex flex-1 flex-col divide-y divide-slate-800 overflow-y-auto"
                     aria-label="Sidebar"
                   >
                     {/* orders links mobile */}
@@ -245,10 +249,10 @@ export default function AddminDashboard() {
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                           >
                             <item.icon
-                              className="mr-4 h-6 w-6 text-cyan-200"
+                              className="mr-4 h-6 w-6 text-slate-400"
                               aria-hidden="true"
                             />
                             {item.name}
@@ -264,14 +268,14 @@ export default function AddminDashboard() {
                           to={item.href}
                           className={classNames(
                             item.current
-                              ? 'bg-cyan-800 text-white'
-                              : 'text-cyan-100 hover:text-white hover:bg-cyan-600',
+                              ? 'bg-indigo-700 text-white'
+                              : 'text-slate-200 hover:text-white hover:bg-indigo-600',
                             'group flex items-center px-2 py-2 text-sm leading-6 font-medium rounded-md'
                           )}
                           aria-current={item.current ? 'page' : undefined}
                         >
                           <item.icon
-                            className="mr-4 h-6 w-6 flex-shrink-0 text-cyan-200"
+                            className="mr-4 h-6 w-6 flex-shrink-0 text-slate-400"
                             aria-hidden="true"
                           />
                           {item.name}
@@ -284,10 +288,10 @@ export default function AddminDashboard() {
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                           >
                             <item.icon
-                              className="mr-4 h-6 w-6 text-cyan-200"
+                              className="mr-4 h-6 w-6 text-slate-400"
                               aria-hidden="true"
                             />
                             {item.name}
@@ -302,10 +306,10 @@ export default function AddminDashboard() {
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                           >
                             <item.icon
-                              className="mr-4 h-6 w-6 text-cyan-200"
+                              className="mr-4 h-6 w-6 text-slate-400"
                               aria-hidden="true"
                             />
                             {item.name}
@@ -320,10 +324,10 @@ export default function AddminDashboard() {
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                           >
                             <item.icon
-                              className="mr-4 h-6 w-6 text-cyan-200"
+                              className="mr-4 h-6 w-6 text-slate-400"
                               aria-hidden="true"
                             />
                             {item.name}
@@ -338,10 +342,10 @@ export default function AddminDashboard() {
                           <Link
                             key={item.name}
                             to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                           >
                             <item.icon
-                              className="mr-4 h-6 w-6 text-cyan-200"
+                              className="mr-4 h-6 w-6 text-slate-400"
                               aria-hidden="true"
                             />
                             {item.name}
@@ -360,12 +364,20 @@ export default function AddminDashboard() {
           </Dialog>
         </Transition.Root>
 
-        {/* Static sidebar for desktop */}
-        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-          {/* Sidebar component, swap this element with another sidebar if you like */}
-          <div className="flex flex-grow flex-col overflow-y-auto bg-cyan-900 pt-32 pb-4">
+        {/* Static sidebar for desktop — full height; content clears sticky navbar */}
+        <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-64 lg:flex-col lg:bg-slate-900">
+          <div
+            className="flex flex-grow flex-col overflow-y-auto pb-4"
+            style={{ paddingTop: 'var(--shopai-navbar-height, calc(4rem + 1px))' }}
+          >
+            <div className="border-b border-slate-800 px-4 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Admin
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-white">ShopAI Console</p>
+            </div>
             <nav
-              className="mt-5 flex flex-1 flex-col divide-y divide-cyan-800 overflow-y-auto"
+              className="mt-5 flex flex-1 flex-col divide-y divide-slate-800 overflow-y-auto"
               aria-label="Sidebar"
             >
               {/* orders links desktop */}
@@ -375,10 +387,10 @@ export default function AddminDashboard() {
                     <Link
                       key={item.name}
                       to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                     >
                       <item.icon
-                        className="mr-4 h-6 w-6 text-cyan-200"
+                        className="mr-4 h-6 w-6 text-slate-400"
                         aria-hidden="true"
                       />
                       {item.name}
@@ -394,14 +406,14 @@ export default function AddminDashboard() {
                     to={item.href}
                     className={classNames(
                       item.current
-                        ? 'bg-cyan-800 text-white'
-                        : 'text-cyan-100 hover:text-white hover:bg-cyan-600',
+                        ? 'bg-indigo-700 text-white'
+                        : 'text-slate-200 hover:text-white hover:bg-indigo-600',
                       'group flex items-center px-2 py-2 text-sm leading-6 font-medium rounded-md'
                     )}
                     aria-current={item.current ? 'page' : undefined}
                   >
                     <item.icon
-                      className="mr-4 h-6 w-6 flex-shrink-0 text-cyan-200"
+                      className="mr-4 h-6 w-6 flex-shrink-0 text-slate-400"
                       aria-hidden="true"
                     />
                     {item.name}
@@ -414,10 +426,10 @@ export default function AddminDashboard() {
                     <Link
                       key={item.name}
                       to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                     >
                       <item.icon
-                        className="mr-4 h-6 w-6 text-cyan-200"
+                        className="mr-4 h-6 w-6 text-slate-400"
                         aria-hidden="true"
                       />
                       {item.name}
@@ -432,10 +444,10 @@ export default function AddminDashboard() {
                     <Link
                       key={item.name}
                       to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                     >
                       <item.icon
-                        className="mr-4 h-6 w-6 text-cyan-200"
+                        className="mr-4 h-6 w-6 text-slate-400"
                         aria-hidden="true"
                       />
                       {item.name}
@@ -450,10 +462,10 @@ export default function AddminDashboard() {
                     <Link
                       key={item.name}
                       to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                     >
                       <item.icon
-                        className="mr-4 h-6 w-6 text-cyan-200"
+                        className="mr-4 h-6 w-6 text-slate-400"
                         aria-hidden="true"
                       />
                       {item.name}
@@ -468,10 +480,10 @@ export default function AddminDashboard() {
                     <Link
                       key={item.name}
                       to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-cyan-100 hover:bg-cyan-600 hover:text-white"
+                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
                     >
                       <item.icon
-                        className="mr-4 h-6 w-6 text-cyan-200"
+                        className="mr-4 h-6 w-6 text-slate-400"
                         aria-hidden="true"
                       />
                       {item.name}
@@ -483,18 +495,18 @@ export default function AddminDashboard() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col lg:pl-64">
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
           <div className="flex h-16 flex-shrink-0 border-b border-gray-200 bg-white lg:border-none">
             <button
               type="button"
-              className="border-r border-gray-200 px-4 text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-500 lg:hidden"
+              className="border-r border-gray-200 px-4 text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 lg:hidden"
               onClick={() => setSidebarOpen(true)}
             >
               <span className="sr-only">Open sidebar</span>
               <Bars3CenterLeftIcon className="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
-          <main className="flex-1 pb-8">
+          <main className="flex-1 bg-gray-50 pb-8">
             {/* Page header */}
             <div className="bg-white shadow">
               <div className="px-4 sm:px-6 lg:mx-auto lg:max-w-6xl lg:px-8">
@@ -579,12 +591,12 @@ export default function AddminDashboard() {
                   {/* <div className="mt-6 flex space-x-3 md:mt-0 md:ml-4">
                     <button
                       type="button"
-                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2">
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                       Add money
                     </button>
                     <button
                       type="button"
-                      className="inline-flex items-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2">
+                      className="inline-flex items-center rounded-md border border-transparent bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                       Send money
                     </button>
                   </div> */}

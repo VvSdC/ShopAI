@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Dialog, Popover, Transition } from '@headlessui/react'
 import {
   Bars3Icon,
@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon } from '@heroicons/react/24/solid'
 import { Link } from 'react-router-dom'
-import logo from './shopai.png'
+import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
@@ -55,8 +55,34 @@ export default function Navbar() {
   }, [dispatch])
   const { activeCoupon: currentCoupon } = useSelector((state) => state?.coupons)
 
+  const navRef = useRef(null)
+  const [navHeight, setNavHeight] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = navRef.current
+    if (!el) return
+
+    const syncHeight = () => {
+      const heightPx = `${el.offsetHeight}px`
+      setNavHeight(el.offsetHeight)
+      document.documentElement.style.setProperty('--shopai-navbar-height', heightPx)
+    }
+
+    syncHeight()
+    const observer = new ResizeObserver(syncHeight)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      document.documentElement.style.removeProperty('--shopai-navbar-height')
+    }
+  }, [isLoggedIn, currentCoupon?.isExpired])
+
   return (
-    <div className="bg-white">
+    <>
+    <div
+      ref={navRef}
+      className="fixed inset-x-0 top-0 z-50 w-full bg-white shadow-sm"
+    >
       {/* Mobile menu */}
       <Transition.Root show={mobileMenuOpen} as={Fragment}>
         <Dialog
@@ -87,7 +113,8 @@ export default function Navbar() {
               leaveTo="-translate-x-full"
             >
               <Dialog.Panel className="relative flex w-full max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-xl">
-                <div className="flex px-4 pt-5 pb-2">
+                <div className="flex items-center justify-between px-4 pt-5 pb-2">
+                  <ShopAILogo compact />
                   <button
                     type="button"
                     className="-m-2 inline-flex items-center justify-center rounded-md p-2 text-gray-400"
@@ -184,225 +211,196 @@ export default function Navbar() {
         </Dialog>
       </Transition.Root>
 
-      <header className="relative z-10">
+      <header>
         <nav aria-label="Top">
-          {/* Top navigation  desktop*/}
+          {/* Top bar — register / login (desktop, logged out) */}
           {!isLoggedIn && (
-            <div className="bg-gray-800">
-              <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                <div className="hidden lg:flex lg:flex-1 lg:items-center lg:justify-end lg:space-x-6">
-                  {!isLoggedIn && (
-                    <>
-                      <Link
-                        to="/register"
-                        className="text-sm font-medium text-white hover:text-gray-100"
-                      >
-                        Create an account
-                      </Link>
-                      <span
-                        className="h-6 w-px bg-gray-600"
-                        aria-hidden="true"
-                      />
-                      <Link
-                        to="/login"
-                        className="text-sm font-medium text-white hover:text-gray-100"
-                      >
-                        Sign in
-                      </Link>
-                    </>
-                  )}
+            <div className="hidden bg-gray-800 lg:block">
+              <div className="mx-auto flex h-10 max-w-7xl items-center justify-end px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center gap-6">
+                  <Link
+                    to="/register"
+                    className="text-sm font-medium text-white hover:text-gray-100"
+                  >
+                    Create an account
+                  </Link>
+                  <span className="h-6 w-px bg-gray-600" aria-hidden="true" />
+                  <Link
+                    to="/login"
+                    className="text-sm font-medium text-white hover:text-gray-100"
+                  >
+                    Sign in
+                  </Link>
                 </div>
               </div>
             </div>
           )}
-          {/* Deskto Navigation */}
-          <div className="bg-white">
-            <div>
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="flex h-16 items-center justify-between">
-                  {/* Logo (lg+) */}
-                  <div className="hidden lg:flex lg:items-center">
-                    <Link to="/">
-                      <span className="sr-only">ShopAI</span>
-                      <img src={logo} alt="ShopAI logo" className="h-12 w-auto" style={{ mixBlendMode: 'multiply', transform: 'translateY(10px)' }} />
-                    </Link>
-                  </div>
 
-                  <div className="hidden h-full lg:flex">
-                    {/*  menus links*/}
-                    <Popover.Group className="ml-8">
-                      <div className="flex h-full justify-center">
-                        <Popover className="relative">
-                          {({ open }) => (
-                            <>
-                              <Popover.Button
-                                className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 rounded"
-                                style={{ fontSize: '18px', margin: '37px 10px', transform: 'translateY(-1.5px)' }}
-                                aria-expanded={open}
-                              >
-                                <span>CATEGORIES</span>
-                                <ChevronDownIcon className={`ml-2 h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
-                              </Popover.Button>
-
-                              <Transition
-                                as={Fragment}
-                                enter="transition ease-out duration-200"
-                                enterFrom="opacity-0 translate-y-1"
-                                enterTo="opacity-100 translate-y-0"
-                                leave="transition ease-in duration-150"
-                                leaveFrom="opacity-100 translate-y-0"
-                                leaveTo="opacity-0 translate-y-1"
-                              >
-                                <Popover.Panel className="absolute z-10 mt-3 w-56 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
-                                  <div className="py-1">
-                                    {categoriesToDisplay?.length <= 0 ? (
-                                      <div className="px-4 py-2 text-sm text-gray-700">NO CATEGORIES</div>
-                                    ) : (
-                                      categoriesToDisplay.map((category) => (
-                                        <Link
-                                          key={category?._id}
-                                          to={`/products-filters?category=${category?.name}`}
-                                          className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100"
-                                        >
-                                          <div className="flex items-center gap-3">
-                                            {category?.image ? (
-                                              <img src={category.image} alt={category?.name} className="h-6 w-6 rounded-full object-cover" />
-                                            ) : (
-                                              <div className="h-6 w-6 rounded-full bg-gray-200" />
-                                            )}
-                                            <span className="uppercase">{category?.name}</span>
-                                          </div>
-                                          <span className="text-xs text-gray-500">{(category?.products?.length || 0)}</span>
-                                        </Link>
-                                      ))
-                                    )}
-                                    <div className="border-t my-1" />
-                                    <Link to="/all-categories" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-100">ALL CATEGORIES</Link>
-                                  </div>
-                                </Popover.Panel>
-                              </Transition>
-                            </>
-                          )}
-                        </Popover>
-                      </div>
-                    </Popover.Group>
-                  </div>
-
-                  {/* Mobile Naviagtion */}
-                  <div className="flex flex-1 items-center lg:hidden">
-                    <button
-                      type="button"
-                      className="-ml-2 rounded-md bg-white p-2 text-gray-400"
-                      onClick={() => setMobileMenuOpen(true)}
-                    >
-                      <span className="sr-only">Open menu</span>
-                      <Bars3Icon className="h-6 w-6" aria-hidden="true" />
-                    </button>
-                  </div>
-                  {/* logo */}
-                  <Link to="/" className="lg:hidden">
-                    <img src={logo} alt="ShopAI logo" className="h-10 w-auto" style={{ mixBlendMode: 'multiply' }} />
-                  </Link>
-
-                  {/* login profile icon mobile */}
-                  <div
-                    className="flex flex-1 items-center justify-end"
-                    style={{ marginTop: '20px' }}
+          {/* Main navigation */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="flex h-16 w-full items-center justify-between gap-4 pl-3 pr-3 sm:pl-4 sm:pr-4 lg:pl-5 lg:pr-6">
+                {/* Mobile: menu + logo */}
+                <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    className="-ml-2 inline-flex items-center justify-center rounded-md p-2 text-gray-400"
+                    onClick={() => setMobileMenuOpen(true)}
                   >
-                    {user?.isAdmin && (
-                      <Link
-                        to="/admin"
-                        className="inline-flex items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                        style={{background:'#FF0060'}}>
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    <div className="flex items-center lg:ml-8">
-                      <div className="flex space-x-8">
-                        {isLoggedIn && (
-                          <div className="flex">
-                            <Link
-                              to="/customer-profile"
-                              className="-m-2 p-2 mr-2 text-gray-400 hover:text-gray-500"
-                            >
-                              <UserIcon
-                                className="h-6 w-6"
-                                aria-hidden="true"
-                              />
-                            </Link>
-                            {/* logout */}
-                            <button onClick={logoutHandler}>
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={1.5}
-                                stroke="currentColor"
-                                className="w-6 h-6 text-gray-500"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <span
-                        className="mx-4 h-6 w-px bg-gray-200 lg:mx-6"
-                        aria-hidden="true"
-                      />
-                      {/* login shopping cart mobile */}
-                      <div className="flow-root">
-                        <Link
-                          to="/shopping-cart"
-                          className="group -m-2 flex items-center p-2"
-                        >
-                          <ShoppingCartIcon
-                            className="h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
-                            aria-hidden="true"
-                          />
-                          <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-gray-800">
-                            {cartItems?.length > 0 ? cartItems?.length : 0}
-                          </span>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                    <span className="sr-only">Open menu</span>
+                    <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                  </button>
+                  <ShopAILogo compact />
                 </div>
-              </div>
+
+                {/* Desktop: logo + nav links — nudged toward left edge */}
+                <div className="hidden shrink-0 items-center gap-6 lg:flex xl:gap-8">
+                  <ShopAILogo />
+                  <Popover.Group as="div" className="flex items-center">
+                    <Popover className="relative flex items-center">
+                      {({ open }) => (
+                        <>
+                          <Popover.Button className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            <span>CATEGORIES</span>
+                            <ChevronDownIcon
+                              className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+                              aria-hidden="true"
+                            />
+                          </Popover.Button>
+
+                          <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-200"
+                            enterFrom="opacity-0 translate-y-1"
+                            enterTo="opacity-100 translate-y-0"
+                            leave="transition ease-in duration-150"
+                            leaveFrom="opacity-100 translate-y-0"
+                            leaveTo="opacity-0 translate-y-1"
+                          >
+                            <Popover.Panel className="absolute left-0 top-full z-10 mt-2 w-56 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+                              <div className="py-1">
+                                {categoriesToDisplay?.length <= 0 ? (
+                                  <div className="px-4 py-2 text-sm text-gray-700">NO CATEGORIES</div>
+                                ) : (
+                                  categoriesToDisplay.map((category) => (
+                                    <Link
+                                      key={category?._id}
+                                      to={`/products-filters?category=${category?.name}`}
+                                      className="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        {category?.image ? (
+                                          <img
+                                            src={category.image}
+                                            alt={category?.name}
+                                            className="h-6 w-6 rounded-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="h-6 w-6 rounded-full bg-gray-200" />
+                                        )}
+                                        <span className="uppercase">{category?.name}</span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">
+                                        {category?.products?.length || 0}
+                                      </span>
+                                    </Link>
+                                  ))
+                                )}
+                                <div className="my-1 border-t" />
+                                <Link
+                                  to="/all-categories"
+                                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  ALL CATEGORIES
+                                </Link>
+                              </div>
+                            </Popover.Panel>
+                          </Transition>
+                        </>
+                      )}
+                    </Popover>
+                  </Popover.Group>
+                </div>
+
+                {/* Right: admin, profile, cart */}
+                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                  {user?.isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:px-4 sm:py-2 sm:text-sm"
+                    >
+                      Admin
+                    </Link>
+                  )}
+                  {isLoggedIn && (
+                    <div className="flex items-center gap-1">
+                      <Link
+                        to="/customer-profile"
+                        className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:text-gray-600"
+                      >
+                        <UserIcon className="h-6 w-6" aria-hidden="true" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={logoutHandler}
+                        className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:text-gray-600"
+                        aria-label="Log out"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="h-6 w-6"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  <span className="hidden h-6 w-px bg-gray-200 sm:block" aria-hidden="true" />
+                  <Link
+                    to="/shopping-cart"
+                    className="group inline-flex items-center gap-2 rounded-md p-2 text-gray-700 hover:text-gray-900"
+                  >
+                    <ShoppingCartIcon
+                      className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-gray-600"
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm font-medium">
+                      {cartItems?.length > 0 ? cartItems.length : 0}
+                    </span>
+                  </Link>
+                </div>
             </div>
           </div>
         </nav>
       </header>
 
-      {/* Coupon navbar */}
+      {/* Coupon bar — sticks with navbar */}
       {!currentCoupon?.isExpired && (
-        <div
-          style={{
-            marginTop: '20px',
-            background: '#164B60',
-            marginBottom: '3px',
-            padding: '10px',
-          }}
-        >
-          <div className="mx-auto flex h-10 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <p
-              style={{ textAlign: 'center', width: '100%', fontSize: '15px' }}
-              className="flex-1 text-center text-sm font-medium text-white lg:flex-none"
-            >
+        <div className="border-t border-slate-700 bg-slate-800">
+          <div className="mx-auto flex h-10 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+            <p className="w-full text-center text-sm font-medium text-white">
               {currentCoupon
                 ? `Flash Sale — ${currentCoupon?.discount}% OFF, ${currentCoupon?.daysLeft}`
                 : 'No Flash sale at the moment'}
             </p>
 
-            <div className="hidden lg:flex lg:flex-1 lg:items-center lg:justify-end lg:space-x-6"></div>
           </div>
         </div>
       )}
     </div>
+    {/* Reserve space so page content is not hidden under fixed navbar */}
+    <div
+      aria-hidden="true"
+      className="shrink-0"
+      style={{ height: navHeight > 0 ? navHeight : 'calc(4rem + 1px)' }}
+    />
+    </>
   )
 }

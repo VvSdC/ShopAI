@@ -43,7 +43,6 @@ const App = () => {
     <BrowserRouter>
       <Navbar />
 
-      {/* hide navbar if admin */}
       <Routes>
         {/* admin route */}
         <Route

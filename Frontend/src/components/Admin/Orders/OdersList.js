@@ -37,12 +37,11 @@ export default function OrdersList() {
         {/* order stats */}
         <OrdersStats />
 
-        <div style={{textAlign:'center',marginTop:'60px'}}>
-          <h3 className="text-lg font-medium leading-6 text-gray-900 mt-3">
-            Recent Oders
-          </h3>
+        <div className="mt-10">
+          <h3 className="text-lg font-semibold text-gray-900">Recent orders</h3>
+          <p className="mt-1 text-sm text-gray-500">Latest successful payments</p>
         </div>
-        <div className="-mx-4 mt-3  overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
+        <div className="-mx-4 mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:-mx-6 md:mx-0">
           <table className="min-w-full divide-y divide-gray-300">
             <thead className="bg-gray-50">
               <tr>
