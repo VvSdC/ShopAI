@@ -26,7 +26,6 @@ import AddReview from "./components/Users/Reviews/AddReview";
 import UpdateCategory from "./components/Admin/Categories/UpdateCategory";
 import OrdersList from "./components/Admin/Orders/OdersList";
 import AllOrders from "./components/Admin/Orders/AllOrders";
-import ManageOrders from "./components/Admin/Orders/ManageOrders";
 import Customers from "./components/Admin/Orders/Customers";
 import BrandsList from "./components/Admin/Categories/BrandsList";
 import AuthRoute from "./components/AuthRoute/AuthRoute";
@@ -160,7 +159,6 @@ const App = () => {
           />
           <Route path="all-colors" element={<AdminRoutes><ColorsList /></AdminRoutes>} />
           {/* Orders */}
-          <Route path="manage-orders" element={<AdminRoutes><ManageOrders /></AdminRoutes>} />
           <Route
             path="orders/:id"
             element={

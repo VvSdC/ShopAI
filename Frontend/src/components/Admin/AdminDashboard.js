@@ -6,8 +6,10 @@ import {
   Bars3CenterLeftIcon,
   ScaleIcon,
   CogIcon,
-  QuestionMarkCircleIcon,
   XMarkIcon,
+  Squares2X2Icon,
+  SwatchIcon,
+  BuildingStorefrontIcon,
 } from '@heroicons/react/24/outline'
 // logo removed; replace with new asset when available
 import user from './user.png'
@@ -61,11 +63,6 @@ const ordersLinks = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5h18M3 12h18M3 16.5h18" />
       </svg>
     ),
-  },
-  {
-    name: 'Manage Orders',
-    href: 'manage-orders',
-    icon: ScaleIcon,
   },
 ]
 
@@ -151,7 +148,7 @@ const CategoryLinks = [
   {
     name: 'All Categories',
     href: 'manage-category',
-    icon: QuestionMarkCircleIcon,
+    icon: Squares2X2Icon,
   },
 ]
 
@@ -159,7 +156,7 @@ const colorsLinks = [
   {
     name: 'All Colors',
     href: 'all-colors',
-    icon: QuestionMarkCircleIcon,
+    icon: SwatchIcon,
   },
 ]
 
@@ -167,9 +164,12 @@ const brandsLinks = [
   {
     name: 'All Brands',
     href: 'all-brands',
-    icon: QuestionMarkCircleIcon,
+    icon: BuildingStorefrontIcon,
   },
 ]
+
+const adminSidebarScrollClass =
+  'admin-sidebar-scroll overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:rgb(71_85_105)_transparent]'
 
 export default function AddminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -239,7 +239,7 @@ export default function AddminDashboard() {
                   </Transition.Child>
                   <div className="flex flex-shrink-0 items-center px-4"></div>
                   <nav
-                    className="mt-5 flex flex-1 flex-col divide-y divide-slate-800 overflow-y-auto"
+                    className={`mt-5 flex flex-1 flex-col divide-y divide-slate-800 ${adminSidebarScrollClass}`}
                     aria-label="Sidebar"
                   >
                     {/* orders links mobile */}
@@ -367,7 +367,7 @@ export default function AddminDashboard() {
         {/* Static sidebar for desktop — full height; content clears sticky navbar */}
         <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-64 lg:flex-col lg:bg-slate-900">
           <div
-            className="flex flex-grow flex-col overflow-y-auto pb-4"
+            className={`flex flex-grow flex-col pb-4 ${adminSidebarScrollClass}`}
             style={{ paddingTop: 'var(--shopai-navbar-height, calc(4rem + 1px))' }}
           >
             <div className="border-b border-slate-800 px-4 py-4">
@@ -377,7 +377,7 @@ export default function AddminDashboard() {
               <p className="mt-0.5 text-sm font-medium text-white">ShopAI Console</p>
             </div>
             <nav
-              className="mt-5 flex flex-1 flex-col divide-y divide-slate-800 overflow-y-auto"
+              className={`mt-5 flex flex-1 flex-col divide-y divide-slate-800 ${adminSidebarScrollClass}`}
               aria-label="Sidebar"
             >
               {/* orders links desktop */}
