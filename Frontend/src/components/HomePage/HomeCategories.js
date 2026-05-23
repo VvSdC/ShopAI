@@ -1,57 +1,95 @@
-import React, { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
+import { ArrowRightIcon } from '@heroicons/react/24/outline'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 
-const HomeCategories = () => {
-  //dispatch
+export default function HomeCategories() {
   const dispatch = useDispatch()
   useEffect(() => {
     dispatch(fetchCategoriesAction())
   }, [dispatch])
 
-  //get data from store
   const { categories } = useSelector((state) => state?.categories)
 
-  const categoriesToShow = categories?.categories?.slice(0, 5)
+  const categoriesToShow = useMemo(() => {
+    const list = [...(categories?.categories ?? [])]
+    return list
+      .sort((a, b) => (b?.products?.length ?? 0) - (a?.products?.length ?? 0))
+      .slice(0, 5)
+  }, [categories?.categories])
+
+  if (categoriesToShow.length === 0) {
+    return (
+      <p className="mt-8 text-center text-sm text-stone-500">Categories loading…</p>
+    )
+  }
 
   return (
-    <>
-      <div className="mt-4 flow-root">
-        <div className="-my-2">
-          <div className="relative box-content h-80 overflow-x-auto py-2 xl:overflow-visible">
-            <div className="min-w-screen-xl absolute flex space-x-8 px-4 sm:px-6 lg:px-8 xl:relative xl:grid xl:grid-cols-5 xl:gap-x-8 xl:space-x-0 xl:px-0">
-              {categoriesToShow?.map((category) => (
-                <Link
-                  key={category.name}
-                  to={`/products-filters?category=${category.name}`}
-                  className="relative flex h-80 w-56 flex-col overflow-hidden rounded-lg p-6 hover:opacity-75 xl:w-auto"
-                >
-                  <span aria-hidden="true" className="absolute inset-0">
-                    <img
-                      src={category.image}
-                      alt=""
-                      className="h-full w-full object-cover object-center"
-                    />
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-gray-800 opacity-50"
-                  />
-                  <span
-                    className="relative mt-auto text-center text-xl font-bold text-white"
-                    style={{ textTransform: 'capitalize' }}
-                  >
-                    {category.name} ({category.products.length})
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+    <div className="mt-8">
+      <div className="relative sm:hidden">
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-stone-50 to-transparent" />
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pl-1 pr-6">
+          {categoriesToShow.map((category) => (
+            <CategoryCard
+              key={category._id || category.name}
+              category={category}
+              variant="carousel"
+            />
+          ))}
         </div>
       </div>
-    </>
+
+      <div className="hidden gap-4 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+        {categoriesToShow.map((category) => (
+          <CategoryCard key={category._id || category.name} category={category} variant="grid" />
+        ))}
+      </div>
+    </div>
   )
 }
 
-export default HomeCategories
+function CategoryCard({ category, variant = 'grid' }) {
+  const count = category?.products?.length ?? 0
+  const isCarousel = variant === 'carousel'
+
+  return (
+    <Link
+      to={`/products-filters?category=${category.name}`}
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md ${
+        isCarousel ? 'w-44 shrink-0 snap-center sm:w-48' : ''
+      }`}
+    >
+      <div className="relative aspect-[4/3] w-full max-h-[9.375rem] overflow-hidden bg-stone-100 sm:max-h-[10.625rem]">
+        {category.image ? (
+          <img
+            src={category.image}
+            alt={category.name}
+            className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200 text-indigo-600">
+            {category.name?.charAt(0)}
+          </div>
+        )}
+        <span className="absolute right-2 top-2 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-stone-700 shadow-sm">
+          {count} items
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-stone-100 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold capitalize text-stone-900 sm:text-base">
+            {category.name}
+          </p>
+          <p className="mt-0.5 text-xs font-medium text-indigo-600 group-hover:underline">
+            Shop now
+          </p>
+        </div>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition group-hover:bg-indigo-600 group-hover:text-white">
+          <ArrowRightIcon className="h-4 w-4" />
+        </span>
+      </div>
+    </Link>
+  )
+}
