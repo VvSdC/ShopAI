@@ -49,7 +49,7 @@ const RegisterForm = () => {
                   sign-up
                 </h3>
                 {/* errr */}
-                {error && <ErrorMsg message={error?.message} />}
+                {error && <ErrorMsg message={error} />}
                 <p className="mb-10" style={{ fontSize: '23px' }}>
                   Quick, hassle-free way to create an account.
                 </p>
