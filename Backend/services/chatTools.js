@@ -4,6 +4,7 @@ import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import Coupon from '../model/Coupon.js'
 import User from '../model/User.js'
+import { isCouponLive } from '../utils/couponDates.js'
 
 export const toolDefinitions = [
   {
@@ -323,13 +324,14 @@ const toolExecutors = {
   },
 
   async get_active_coupons() {
-    const coupons = await Coupon.find({ endDate: { $gte: new Date() } })
+    const coupons = await Coupon.find()
       .select('code discount startDate endDate')
       .sort({ createdAt: -1 })
 
-    if (!coupons.length) return { message: 'No active coupons available right now.' }
+    const live = coupons.filter((c) => isCouponLive(c))
+    if (!live.length) return { message: 'No active coupons available right now.' }
 
-    return coupons.map((c) => ({
+    return live.map((c) => ({
       code: c.code,
       discount: c.discount,
       daysLeft: c.daysLeft,

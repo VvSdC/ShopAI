@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   ArrowPathIcon,
@@ -9,6 +9,11 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
+import {
+  isPromoActive,
+  homepagePromoHeadline,
+  homepagePromoSubline,
+} from '../../utils/promoMessaging'
 import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
 
@@ -26,7 +31,19 @@ export default function HomePage() {
   }, [dispatch])
 
   const { activeCoupon: coupon } = useSelector((state) => state?.coupons)
-  const showCoupon = coupon && !coupon.isExpired
+  const showCoupon = isPromoActive(coupon)
+  const [codeCopied, setCodeCopied] = useState(false)
+
+  const copyCouponCode = async () => {
+    if (!coupon?.code) return
+    try {
+      await navigator.clipboard.writeText(coupon.code)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch {
+      setCodeCopied(false)
+    }
+  }
 
   return (
     <div className="flex min-h-full flex-col bg-stone-50">
@@ -83,24 +100,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Flash sale / coupon */}
       {showCoupon && (
         <section className="bg-indigo-600">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-6 text-center sm:flex-row sm:px-6 sm:text-left lg:px-8">
-            <div>
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-4 py-7 sm:flex-row sm:px-6 sm:text-left lg:px-8">
+            <div className="text-center sm:text-left">
               <p className="text-sm font-semibold uppercase tracking-wide text-indigo-200">
-                Limited time
+                Limited-time offer
               </p>
               <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
-                Flash sale — {coupon.discount}% off
+                {homepagePromoHeadline(coupon)}
               </p>
-              <p className="mt-1 text-sm text-indigo-100">{coupon.daysLeft}</p>
+              <p className="mt-2 text-sm text-indigo-100">{homepagePromoSubline(coupon)}</p>
+              <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <span className="text-sm text-indigo-100">Coupon code</span>
+                <span className="rounded-md bg-white/15 px-3 py-1.5 font-mono text-sm font-bold tracking-wide text-white ring-1 ring-white/25">
+                  {coupon.code}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyCouponCode}
+                  className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/20"
+                >
+                  {codeCopied ? 'Copied' : 'Copy code'}
+                </button>
+              </div>
             </div>
             <Link
               to="/products-filters"
-              className="shrink-0 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50"
+              className="shrink-0 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
             >
-              Shop the sale
+              Shop now
             </Link>
           </div>
         </section>

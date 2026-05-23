@@ -11,6 +11,7 @@ import {
   updateCouponAction,
 } from "../../../redux/slices/coupons/couponsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { serializeCouponDates, startOfDay } from "../../../utils/couponDates";
 
 export default function UpdateCoupon() {
   //get coupon from url
@@ -29,11 +30,21 @@ export default function UpdateCoupon() {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
 
-  //---handle form data---
   const [formData, setFormData] = useState({
-    code: coupon?.coupon?.code,
-    discount: coupon?.coupon?.discount,
+    code: "",
+    discount: "",
   });
+
+  useEffect(() => {
+    if (coupon?.coupon) {
+      setFormData({
+        code: coupon.coupon.code || "",
+        discount: coupon.coupon.discount ?? "",
+      });
+      setStartDate(new Date(coupon.coupon.startDate));
+      setEndDate(new Date(coupon.coupon.endDate));
+    }
+  }, [coupon]);
 
   //onHandleChange---
   const onHandleChange = (e) => {
@@ -42,13 +53,13 @@ export default function UpdateCoupon() {
   //onHandleSubmit---
   const onHandleSubmit = (e) => {
     e.preventDefault();
+    const dates = serializeCouponDates(startDate, endDate);
     dispatch(
       updateCouponAction({
         id: coupon?.coupon?._id,
         code: formData?.code,
         discount: formData?.discount,
-        startDate,
-        endDate,
+        ...dates,
       })
     );
     //reset
@@ -123,6 +134,8 @@ export default function UpdateCoupon() {
                   <DatePicker
                     selected={endDate}
                     onChange={(date) => setEndDate(date)}
+                    minDate={startDate}
+                    dateFormat="dd/MM/yyyy"
                   />
                 </div>
               </div>

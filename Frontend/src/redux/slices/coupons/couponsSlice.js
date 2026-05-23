@@ -82,7 +82,7 @@ export const fetchCouponsAction = createAsyncThunk(
   }
 );
 
-//fetch active coupon for public display (no code exposed)
+//fetch active coupon for public display (homepage + navbar)
 export const fetchActiveCouponAction = createAsyncThunk(
   "coupons/fetch-active",
   async (payload, { rejectWithValue }) => {
@@ -195,7 +195,14 @@ const couponsSlice = createSlice({
     });
     builder.addCase(fetchActiveCouponAction.fulfilled, (state, action) => {
       state.loading = false;
-      state.activeCoupon = action.payload?.coupon || null;
+      const raw = action.payload?.coupon
+      state.activeCoupon = raw
+        ? {
+            ...raw,
+            code: raw.code ? String(raw.code).trim().toUpperCase() : '',
+            isExpired: false,
+          }
+        : null;
     });
     builder.addCase(fetchActiveCouponAction.rejected, (state, action) => {
       state.loading = false;

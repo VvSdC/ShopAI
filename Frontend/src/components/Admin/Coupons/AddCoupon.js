@@ -6,12 +6,13 @@ import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import SuccessMsg from "../../SuccessMsg/SuccessMsg";
 import { createCouponAction } from "../../../redux/slices/coupons/couponsSlice";
 import { useDispatch, useSelector } from "react-redux";
+import { serializeCouponDates, startOfDay } from "../../../utils/couponDates";
 
 export default function AddCoupon() {
-  //dispatch
   const dispatch = useDispatch();
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
+  const today = startOfDay(new Date());
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
   const [formData, setFormData] = useState({
     code: "",
@@ -25,12 +26,12 @@ export default function AddCoupon() {
   //---onHandleSubmit---
   const onHandleSubmit = (e) => {
     e.preventDefault();
+    const dates = serializeCouponDates(startDate, endDate);
     dispatch(
       createCouponAction({
         discount: formData?.discount,
         code: formData?.code,
-        startDate,
-        endDate,
+        ...dates,
       })
     );
     //reset form
@@ -100,8 +101,13 @@ export default function AddCoupon() {
               <div className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                 <DatePicker
                   selected={startDate}
-                  onChange={(date) => setStartDate(date)}
+                  onChange={(date) => setStartDate(startOfDay(date))}
+                  minDate={today}
+                  dateFormat="dd/MM/yyyy"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Starts at the beginning of the selected day (today is allowed).
+                </p>
               </div>
             </div>
 
@@ -114,7 +120,12 @@ export default function AddCoupon() {
                 <DatePicker
                   selected={endDate}
                   onChange={(date) => setEndDate(date)}
+                  minDate={startDate}
+                  dateFormat="dd/MM/yyyy"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Valid through the end of the selected day.
+                </p>
               </div>
             </div>
             <div>

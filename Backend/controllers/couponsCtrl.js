@@ -1,32 +1,42 @@
 import asyncHandler from 'express-async-handler'
 import Coupon from '../model/Coupon.js'
+import {
+  normalizeCouponDates,
+  assertCouponDateRange,
+  isCouponLive,
+  isCouponNotStarted,
+  isCouponExpired,
+  daysLeftLabel,
+} from '../utils/couponDates.js'
+
 // @desc    Create new Coupon
 // @route   POST /api/v1/coupons
 // @access  Private/Admin
 
 export const createCouponCtrl = asyncHandler(async (req, res) => {
   const { code, startDate, endDate, discount } = req.body
-  //check if admin
-  //check if coupon already exists
+
   const couponsExists = await Coupon.findOne({
-    code,
+    code: String(code || '').toUpperCase().trim(),
   })
   if (couponsExists) {
     throw new Error('Coupon already exists')
   }
-  //check if discount is a number
   if (isNaN(discount)) {
     throw new Error('Discount value must be a number')
   }
-  //create coupon
+
+  const dates = normalizeCouponDates({ startDate, endDate })
+  assertCouponDateRange(dates.startDate, dates.endDate)
+
   const coupon = await Coupon.create({
-    code: code,
-    startDate,
-    endDate,
+    code: String(code).toUpperCase().trim(),
+    startDate: dates.startDate,
+    endDate: dates.endDate,
     discount,
     user: req.userAuthId,
   })
-  //send the response
+
   res.status(201).json({
     status: 'success',
     message: 'Coupon created successfully',
@@ -34,18 +44,24 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
   })
 })
 
-// @desc    Get active coupon for public display (no code exposed)
+// @desc    Get currently active coupon for storefront
 // @route   GET /api/v1/coupons/active
 // @access  Public
 
 export const getActiveCouponCtrl = asyncHandler(async (req, res) => {
-  const coupon = await Coupon.findOne({ endDate: { $gte: new Date() } })
-    .sort({ createdAt: -1 })
-    .select('discount startDate endDate')
+  const coupons = await Coupon.find().sort({ createdAt: -1 }).select('code discount startDate endDate')
+
+  const coupon = coupons.find((c) => isCouponLive(c))
+
   res.status(200).json({
     status: 'success',
     coupon: coupon
-      ? { discount: coupon.discount, daysLeft: coupon.daysLeft, isExpired: coupon.isExpired }
+      ? {
+          code: coupon.code,
+          discount: coupon.discount,
+          daysLeft: daysLeftLabel(coupon.endDate),
+          isExpired: false,
+        }
       : null,
   })
 })
@@ -55,25 +71,31 @@ export const getActiveCouponCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 
 export const getAllCouponsCtrl = asyncHandler(async (req, res) => {
-  const coupons = await Coupon.find()
+  const coupons = await Coupon.find().sort({ createdAt: -1 })
   res.status(200).json({
     status: 'success',
     message: 'All coupons',
     coupons,
   })
 })
-// @desc    Get single coupon
-// @route   GET /api/v1/coupons/:id
-// @access  Private/Admin
+
+// @desc    Get single coupon (apply at checkout)
+// @route   GET /api/v1/coupons/single
+// @access  Private
 
 export const getCouponCtrl = asyncHandler(async (req, res) => {
-  const coupon = await Coupon.findOne({ code: req.query.code })
+  const code = String(req.query.code || '').toUpperCase().trim()
+  const coupon = await Coupon.findOne({ code })
   if (!coupon) {
     throw new Error('Coupon not found')
   }
-  if (coupon.isExpired) {
-    throw new Error('Coupon Expired')
+  if (isCouponNotStarted(coupon)) {
+    throw new Error('This coupon is not active yet')
   }
+  if (isCouponExpired(coupon)) {
+    throw new Error('This coupon has expired')
+  }
+
   res.json({
     status: 'success',
     message: 'Coupon fetched',
@@ -83,17 +105,18 @@ export const getCouponCtrl = asyncHandler(async (req, res) => {
 
 export const updateCouponCtrl = asyncHandler(async (req, res) => {
   const { code, startDate, endDate, discount } = req.body
+  const dates = normalizeCouponDates({ startDate, endDate })
+  assertCouponDateRange(dates.startDate, dates.endDate, { allowPastStart: true })
+
   const coupon = await Coupon.findByIdAndUpdate(
     req.params.id,
     {
-      code: code?.toUpperCase(),
+      code: code?.toUpperCase().trim(),
       discount,
-      startDate,
-      endDate,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
     },
-    {
-      new: true,
-    }
+    { new: true, runValidators: true }
   )
   res.json({
     status: 'success',

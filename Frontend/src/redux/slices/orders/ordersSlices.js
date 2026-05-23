@@ -23,10 +23,12 @@ export const placeOrderAction = createAsyncThunk(
   'order/place-order',
   async (payload, { rejectWithValue, getState, dispatch }) => {
     try {
-      const { orderItems, shippingAddress, totalPrice } = payload
-      //request
+      const { orderItems, shippingAddress, totalPrice, couponCode } = payload
+      const query = couponCode
+        ? `?coupon=${encodeURIComponent(String(couponCode).toUpperCase().trim())}`
+        : ''
       const { data } = await axiosInstance.post(
-        `/orders`,
+        `/orders${query}`,
         {
           orderItems,
           shippingAddress,

@@ -109,7 +109,8 @@ export default function OrderPayment() {
   }, [dispatch])
 
   const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
-  const { coupon } = useSelector((state) => state?.coupons)
+  const { coupon: appliedCoupon } = useSelector((state) => state?.coupons)
+  const couponCode = appliedCoupon?.coupon?.code
   const { loading: orderLoading, error: orderErr } = useSelector((state) => state?.orders)
 
   const availableItems = cartItems?.filter((item) => !item.unavailable) || []
@@ -120,7 +121,7 @@ export default function OrderPayment() {
     [availableItems]
   )
 
-  const discountPercent = coupon?.coupon?.discount || 0
+  const discountPercent = appliedCoupon?.coupon?.discount || 0
   const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : 0
   const total = subtotal - discountAmount
   const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
@@ -317,7 +318,7 @@ export default function OrderPayment() {
                         </div>
                         {discountAmount > 0 && (
                           <div className="flex justify-between text-emerald-700">
-                            <dt>Coupon ({coupon?.coupon?.code})</dt>
+                            <dt>Coupon ({appliedCoupon?.coupon?.code})</dt>
                             <dd className="font-medium">−{formatPrice(discountAmount)}</dd>
                           </div>
                         )}

@@ -9,6 +9,7 @@ import {
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
+import { getCouponDisplayStatus } from "../../../utils/couponDates";
 
 export default function ManageCoupons() {
   //dispatch
@@ -115,15 +116,21 @@ export default function ManageCoupons() {
                             {coupon?.discount}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                            {coupon?.isExpired ? (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-700 text-gray-300">
-                                Expired
-                              </span>
-                            ) : (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                Active
-                              </span>
-                            )}
+                            {(() => {
+                              const status = getCouponDisplayStatus(coupon);
+                              const styles = {
+                                active: "bg-green-100 text-green-800",
+                                scheduled: "bg-amber-100 text-amber-900",
+                                expired: "bg-red-100 text-red-800",
+                              };
+                              return (
+                                <span
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-5 ${styles[status.key]}`}
+                                >
+                                  {status.label}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                             {new Date(coupon.startDate)?.toLocaleDateString()}

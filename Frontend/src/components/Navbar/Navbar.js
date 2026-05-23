@@ -14,6 +14,7 @@ import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesS
 import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
 import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
+import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
 
 export default function Navbar() {
   //dispatch
@@ -49,11 +50,11 @@ export default function Navbar() {
       window.location.href = '/'
     })
   }
-  //active coupon (public, safe — no code exposed)
   useEffect(() => {
     dispatch(fetchActiveCouponAction())
   }, [dispatch])
   const { activeCoupon: currentCoupon } = useSelector((state) => state?.coupons)
+  const showPromoBar = isPromoActive(currentCoupon)
 
   const navRef = useRef(null)
   const [navHeight, setNavHeight] = useState(0)
@@ -75,7 +76,7 @@ export default function Navbar() {
       observer.disconnect()
       document.documentElement.style.removeProperty('--shopai-navbar-height')
     }
-  }, [isLoggedIn, currentCoupon?.isExpired])
+  }, [isLoggedIn, showPromoBar, currentCoupon?.code])
 
   return (
     <>
@@ -393,16 +394,12 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* Coupon bar — sticks with navbar */}
-      {!currentCoupon?.isExpired && (
-        <div className="border-t border-slate-700 bg-slate-800">
-          <div className="mx-auto flex h-10 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
-            <p className="w-full text-center text-sm font-medium text-white">
-              {currentCoupon
-                ? `Flash Sale — ${currentCoupon?.discount}% OFF, ${currentCoupon?.daysLeft}`
-                : 'No Flash sale at the moment'}
+      {showPromoBar && (
+        <div className="border-t border-indigo-800 bg-indigo-700">
+          <div className="mx-auto flex h-10 max-w-7xl items-center justify-center px-4 sm:px-6 lg:px-8">
+            <p className="truncate text-center text-sm font-medium text-white">
+              {navbarPromoText(currentCoupon)}
             </p>
-
           </div>
         </div>
       )}
