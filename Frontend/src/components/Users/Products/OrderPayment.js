@@ -1,232 +1,385 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { useLocation } from 'react-router-dom'
 import {
-  getCartItemsFromLocalStorageAction,
-  validateCartAction,
-} from '../../../redux/slices/cart/cartSlices'
+  ExclamationTriangleIcon,
+  ArrowLeftIcon,
+  ShieldCheckIcon,
+  LockClosedIcon,
+} from '@heroicons/react/24/outline'
+import { validateCartAction } from '../../../redux/slices/cart/cartSlices'
 import { placeOrderAction } from '../../../redux/slices/orders/ordersSlices'
 import { getUserProfileAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
-import formatApiError from '../../../utils/formatApiError'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import AddShippingAddress from '../Forms/AddShippingAddress'
+import {
+  formatPrice,
+  DeliveryProgress,
+  StockStatusBadge,
+  CheckoutTableHeader,
+  CheckoutProductMeta,
+} from './cartDisplay'
+
+function CheckoutLineItem({ product }) {
+  const productPath = `/products/${product._id}`
+
+  return (
+    <li className="border-b border-stone-200 last:border-0">
+      {/* Mobile */}
+      <div className="px-4 py-5 sm:px-6 lg:hidden">
+        <div className="flex gap-4">
+          <Link to={productPath} className="shrink-0">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-24 w-24 rounded-lg border border-stone-200 object-cover sm:h-28 sm:w-28"
+            />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <CheckoutProductMeta
+              product={product}
+              productPath={productPath}
+              showDescription={false}
+            />
+            <div className="mt-3">
+              <StockStatusBadge product={product} />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-4 text-sm">
+              <div>
+                <p className="text-xs text-stone-500">Price</p>
+                <p className="font-semibold text-stone-900">{formatPrice(product.price)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500">Qty</p>
+                <p className="font-semibold text-stone-900">{product.qty}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-stone-500">Subtotal</p>
+                <p className="text-base font-bold text-stone-900">
+                  {formatPrice(product.totalPrice)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden px-6 py-5 lg:grid lg:grid-cols-12 lg:items-center lg:gap-4">
+        <div className="col-span-6 flex gap-4">
+          <Link to={productPath} className="shrink-0">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-28 w-28 rounded-lg border border-stone-200 object-cover"
+            />
+          </Link>
+          <div className="min-w-0 flex-1 py-1">
+            <CheckoutProductMeta
+              product={product}
+              productPath={productPath}
+              showDescription={false}
+            />
+            <div className="mt-3">
+              <StockStatusBadge product={product} />
+            </div>
+          </div>
+        </div>
+        <div className="col-span-2 text-right text-base text-stone-900">
+          {formatPrice(product.price)}
+        </div>
+        <div className="col-span-2 text-center text-base font-medium text-stone-900">
+          {product.qty}
+        </div>
+        <div className="col-span-2 text-right text-lg font-bold text-stone-900">
+          {formatPrice(product.totalPrice)}
+        </div>
+      </div>
+    </li>
+  )
+}
+
 export default function OrderPayment() {
-  //get data from location
-  const location = useLocation()
-  const { sumTotalPrice: originalTotal } = location.state
-  //dispatch
   const dispatch = useDispatch()
+
   useEffect(() => {
     dispatch(validateCartAction())
-  }, [dispatch])
-  //get cart items from store
-  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
-
-  // Filter only available items for the order
-  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
-
-  // Recalculate total based on available items
-  const sumTotalPrice = availableItems.reduce(
-    (acc, item) => acc + (item?.totalPrice || 0),
-    0
-  )
-
-  //user profile
-  useEffect(() => {
     dispatch(getUserProfileAction())
   }, [dispatch])
-  const { error } = useSelector((state) => state?.users)
 
-  //selected shipping address from child
+  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
+  const { coupon } = useSelector((state) => state?.coupons)
+  const { loading: orderLoading, error: orderErr } = useSelector((state) => state?.orders)
+
+  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const unavailableCount = (cartItems?.length || 0) - availableItems.length
+
+  const subtotal = useMemo(
+    () => availableItems.reduce((acc, item) => acc + (item?.totalPrice || 0), 0),
+    [availableItems]
+  )
+
+  const discountPercent = coupon?.coupon?.discount || 0
+  const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : 0
+  const total = subtotal - discountAmount
+  const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
+
   const [selectedAddress, setSelectedAddress] = useState(null)
   const [addressError, setAddressError] = useState('')
+
   const handleAddressSelect = useCallback((addr) => {
     setSelectedAddress(addr)
     setAddressError('')
   }, [])
 
-  //place order action
   const placeOrderHandler = () => {
     if (!selectedAddress) {
-      setAddressError('Please select a shipping address to proceed')
+      setAddressError('Please select a delivery address to continue')
       return
     }
-
     if (availableItems.length === 0) {
-      setAddressError('No available items to order')
+      setAddressError('No available items to order. Update your cart first.')
       return
     }
-
     setAddressError('')
     dispatch(
       placeOrderAction({
         shippingAddress: selectedAddress,
         orderItems: availableItems,
-        totalPrice: sumTotalPrice,
+        totalPrice: total,
       })
     )
   }
 
-  const { loading: orderLoading, error: orderErr } = useSelector(
-    (state) => state?.orders
-  )
-
   return (
     <>
-      {orderErr && <ErrorMsg message={orderErr} />}      {/* Address error modal */}
+      {orderErr && <ErrorMsg message={orderErr} />}
+
       {addressError && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="fixed inset-0 bg-black bg-opacity-40" onClick={() => setAddressError('')} />
+          <div
+            className="fixed inset-0 bg-stone-900/40"
+            onClick={() => setAddressError('')}
+            aria-hidden
+          />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl p-6 text-center">
+            <div className="relative w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-2xl">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
               </div>
-              <h3 className="mt-4 text-lg font-semibold text-gray-900">Required</h3>
-              <p className="mt-2 text-sm text-gray-600">{addressError}</p>
+              <h3 className="mt-4 text-lg font-semibold text-stone-900">Required</h3>
+              <p className="mt-2 text-sm text-stone-600">{addressError}</p>
               <button
+                type="button"
                 onClick={() => setAddressError('')}
-                className="mt-5 w-full rounded-md bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="mt-5 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
               >
                 OK
               </button>
             </div>
           </div>
         </div>
-      )}      <div className="bg-gray-50">
-        <main className="mx-auto max-w-7xl px-4 pt-16 pb-24 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl lg:max-w-none">
-            <h1 className="sr-only">Checkout</h1>
+      )}
 
-            <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
+      <div className="bg-white pb-28 lg:pb-10">
+        <div className="border-b border-stone-200 bg-stone-50">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            <nav className="text-xs text-stone-500">
+              <Link to="/" className="hover:text-indigo-600">
+                Home
+              </Link>
+              <span className="mx-2">›</span>
+              <Link to="/shopping-cart" className="hover:text-indigo-600">
+                Cart
+              </Link>
+              <span className="mx-2">›</span>
+              <span className="font-medium text-stone-800">Checkout</span>
+            </nav>
+            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <div className="mt-10 border-t border-gray-200 pt-10">
-                  {/* shipping Address */}
-                  <AddShippingAddress onAddressSelect={handleAddressSelect} />
-                </div>
+                <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Checkout</h1>
+                <p className="mt-1 text-sm text-stone-600">
+                  Review your order and choose a delivery address
+                </p>
               </div>
-
-              {/* Order summary */}
-              <div className="mt-10 lg:mt-0">
-                <h2
-                  className="text-lg font-medium text-gray-900"
-                  style={{ fontSize: '30px', marginBottom: '20px' }}
-                >
-                  Order summary
-                </h2>
-
-                <div className="mt-4 rounded-lg border border-gray-200 bg-white shadow-sm">
-                  <h3 className="sr-only">Items in your cart</h3>
-                  {stockWarnings?.length > 0 && (
-                    <div className="mx-4 mt-4 rounded-md bg-yellow-50 border border-yellow-200 p-3">
-                      <p className="text-sm font-medium text-yellow-800">
-                        Some items were adjusted or removed due to stock changes.
-                      </p>
-                    </div>
-                  )}
-                  {validating ? (
-                    <div className="py-6"><LoadingComponent /></div>
-                  ) : (
-                  <ul role="list" className="divide-y divide-gray-200">
-                    {availableItems?.map((product) => (
-                      <li key={product._id} className="flex py-6 px-4 sm:px-6">
-                        <div className="flex-shrink-0">
-                          <img
-                            src={product.image}
-                            alt={product._id}
-                            className="w-20 rounded-md"
-                          />
-                        </div>
-
-                        <div className="ml-6 flex flex-1 flex-col">
-                          <div className="flex">
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className="mt-1 text-sm text-gray-500"
-                                style={{
-                                  fontSize: '20px',
-                                  textTransform: 'capitalize',
-                                }}
-                              >
-                                {product.name}
-                              </p>
-                              <p
-                                className="mt-1 text-sm text-gray-500"
-                                style={{ fontSize: '20px' }}
-                              >
-                                {product.size}
-                              </p>
-                              <p
-                                className="mt-1 text-sm text-gray-500"
-                                style={{ fontSize: '20px' }}
-                              >
-                                {product.color}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-1 items-end justify-between pt-2">
-                            <p
-                              className="mt-1 text-sm font-medium text-gray-900"
-                              style={{ fontSize: '20px' }}
-                            >
-                              ₹ {product?.price} X {product?.qty} = ₹
-                              {product?.totalPrice}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  )}
-                  <dl className="space-y-6 border-t border-gray-200 py-6 px-4 sm:px-6">
-                    <div className="flex items-center justify-between">
-                      <dt className="text-sm" style={{ fontSize: '25px' }}>
-                        Taxes
-                      </dt>
-                      <dd
-                        className="text-sm font-medium text-gray-900"
-                        style={{ fontSize: '20px' }}
-                      >
-                        ₹0.00
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-6">
-                      <dt
-                        className="text-base font-medium"
-                        style={{ fontSize: '25px' }}
-                      >
-                        Sub Total
-                      </dt>
-                      <dd
-                        className="text-base font-medium text-gray-900"
-                        style={{ fontSize: '25px' }}
-                      >
-                        ₹ {sumTotalPrice}.00
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
-                    {orderLoading ? (
-                      <LoadingComponent />
-                    ) : (
-                      <button
-                        onClick={placeOrderHandler}
-                        className="w-full rounded-md border border-transparent bg-indigo-600 py-3 px-4 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50"
-                      >
-                        Confirm Payment - ₹{sumTotalPrice}
-                      </button>
-                    )}
-                  </div>
-                </div>
+              <div className="hidden text-right lg:block">
+                <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                  Order total
+                </p>
+                <p className="text-2xl font-bold text-indigo-700">{formatPrice(total)}</p>
               </div>
             </div>
           </div>
-        </main>
+        </div>
+
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <Link
+            to="/shopping-cart"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back to cart
+          </Link>
+
+          {unavailableCount > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">
+                {unavailableCount} {unavailableCount === 1 ? 'item' : 'items'} in your cart are not
+                available and will not be included in this order.{' '}
+                <Link to="/shopping-cart" className="underline hover:no-underline">
+                  Update cart
+                </Link>
+              </p>
+            </div>
+          )}
+
+          {stockWarnings?.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <div className="flex gap-3">
+                <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-amber-600" />
+                <ul className="list-disc space-y-1 pl-4 text-sm text-amber-900">
+                  {stockWarnings.map((w, i) => (
+                    <li key={i}>
+                      <span className="font-medium capitalize">{w.name}</span> — {w.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {validating ? (
+            <div className="py-20">
+              <LoadingComponent />
+            </div>
+          ) : (
+            <div className="mt-6 lg:mt-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
+              {/* Delivery address */}
+              <section className="lg:col-span-5">
+                <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+                  <div className="border-b border-stone-200 bg-stone-50 px-5 py-4">
+                    <h2 className="text-lg font-bold text-stone-900">Delivery address</h2>
+                    <p className="mt-0.5 text-sm text-stone-500">
+                      Select where you want your order delivered
+                    </p>
+                  </div>
+                  <div className="p-5 sm:p-6">
+                    <AddShippingAddress onAddressSelect={handleAddressSelect} />
+                  </div>
+                </div>
+              </section>
+
+              {/* Order summary */}
+              <aside className="mt-8 lg:col-span-7 lg:mt-0">
+                <div
+                  className="lg:sticky"
+                  style={{ top: 'calc(var(--shopai-navbar-height, 5rem) + 1rem)' }}
+                >
+                  <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+                    <div className="border-b border-stone-200 bg-stone-50 px-5 py-4">
+                      <h2 className="text-lg font-bold text-stone-900">Order summary</h2>
+                      <p className="mt-0.5 text-sm text-stone-500">
+                        {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                      </p>
+                    </div>
+
+                    <div className="border-b border-stone-200">
+                      <CheckoutTableHeader />
+                      {availableItems.length === 0 ? (
+                        <p className="px-5 py-8 text-center text-sm text-stone-500">
+                          No items available.{' '}
+                          <Link to="/shopping-cart" className="font-medium text-indigo-600">
+                            Return to cart
+                          </Link>
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-stone-200">
+                          {availableItems.map((product) => (
+                            <CheckoutLineItem
+                              key={`${product._id}-${product.color}-${product.size}`}
+                              product={product}
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="space-y-4 p-5">
+                      <DeliveryProgress subtotal={subtotal} />
+
+                      <dl className="space-y-2 text-sm">
+                        <div className="flex justify-between text-stone-600">
+                          <dt>
+                            Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+                          </dt>
+                          <dd className="font-medium text-stone-900">{formatPrice(subtotal)}</dd>
+                        </div>
+                        {discountAmount > 0 && (
+                          <div className="flex justify-between text-emerald-700">
+                            <dt>Coupon ({coupon?.coupon?.code})</dt>
+                            <dd className="font-medium">−{formatPrice(discountAmount)}</dd>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-stone-200 pt-3">
+                          <dt className="text-base font-bold text-stone-900">Order total</dt>
+                          <dd className="text-xl font-bold text-stone-900">{formatPrice(total)}</dd>
+                        </div>
+                      </dl>
+
+                      {orderLoading ? (
+                        <LoadingComponent />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={placeOrderHandler}
+                          disabled={availableItems.length === 0}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3.5 text-base font-bold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-stone-300"
+                        >
+                          <LockClosedIcon className="h-5 w-5" />
+                          Pay {formatPrice(total)}
+                        </button>
+                      )}
+
+                      <Link
+                        to="/shopping-cart"
+                        className="block text-center text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                      >
+                        Edit cart
+                      </Link>
+
+                      <ul className="space-y-2 border-t border-stone-200 pt-4 text-xs text-stone-600">
+                        <li className="flex items-start gap-2">
+                          <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                          Secure payment via Stripe
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          )}
+        </div>
+
+        {!validating && availableItems.length > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] lg:hidden">
+            <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-stone-500">Total</p>
+                <p className="text-xl font-bold text-stone-900">{formatPrice(total)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={placeOrderHandler}
+                disabled={orderLoading}
+                className="shrink-0 rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Pay now
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   )

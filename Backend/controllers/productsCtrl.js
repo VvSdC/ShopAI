@@ -228,13 +228,22 @@ export const validateCartCtrl = asyncHandler(async (req, res) => {
     if (!product) {
       return { ...item, unavailable: true, reason: 'Product no longer exists' }
     }
+
+    const description = item.description || product.description || ''
     const qtyLeft = product.totalQty - product.totalSold
     if (qtyLeft <= 0) {
-      return { ...item, unavailable: true, qtyLeft: 0, reason: 'Out of stock' }
+      return {
+        ...item,
+        description,
+        unavailable: true,
+        qtyLeft: 0,
+        reason: 'Out of stock',
+      }
     }
     if (item.qty > qtyLeft) {
       return {
         ...item,
+        description,
         qty: qtyLeft,
         totalPrice: item.price * qtyLeft,
         qtyLeft,
@@ -243,7 +252,7 @@ export const validateCartCtrl = asyncHandler(async (req, res) => {
         reason: `Only ${qtyLeft} left in stock`,
       }
     }
-    return { ...item, qtyLeft, unavailable: false, adjusted: false }
+    return { ...item, description, qtyLeft, unavailable: false, adjusted: false }
   })
 
   res.json({ status: 'success', items: validated })

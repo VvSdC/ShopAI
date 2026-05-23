@@ -7,6 +7,8 @@ import {
   ArrowLeftIcon,
   ShieldCheckIcon,
   TruckIcon,
+  LockClosedIcon,
+  ShoppingBagIcon,
 } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
@@ -20,16 +22,25 @@ import { fetchCouponAction } from '../../../redux/slices/coupons/couponsSlice'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import SuccessMsg from '../../SuccessMsg/SuccessMsg'
+import {
+  formatPrice,
+  DeliveryProgress,
+  ProductDescriptionSnippet,
+  StockStatusBadge,
+  CheckoutTableHeader,
+  CheckoutProductMeta,
+} from './cartDisplay'
 
-const formatPrice = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`
-
-function QtyStepper({ value, max, onChange, disabled }) {
+function QtyStepper({ value, max, onChange, disabled, compact = false }) {
   const qty = Number(value) || 1
   const limit = Math.max(1, Number(max) || 1)
+  const btnClass = compact
+    ? 'flex h-8 w-8 items-center justify-center'
+    : 'flex h-9 w-9 items-center justify-center'
 
   return (
     <div
-      className={`inline-flex items-center rounded-lg border border-stone-200 bg-white ${
+      className={`inline-flex items-center rounded-md border border-stone-300 bg-white shadow-sm ${
         disabled ? 'opacity-50' : ''
       }`}
     >
@@ -37,22 +48,41 @@ function QtyStepper({ value, max, onChange, disabled }) {
         type="button"
         disabled={disabled || qty <= 1}
         onClick={() => onChange(qty - 1)}
-        className="flex h-9 w-9 items-center justify-center text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${btnClass} rounded-l-md text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label="Decrease quantity"
       >
-        <MinusIcon className="h-4 w-4" />
+        <MinusIcon className="h-3.5 w-3.5" />
       </button>
-      <span className="min-w-[2rem] px-1 text-center text-sm font-semibold text-stone-900">
+      <span
+        className={`border-x border-stone-300 bg-stone-50 text-center font-medium text-stone-900 ${
+          compact ? 'min-w-[2.25rem] px-1 text-sm' : 'min-w-[2.5rem] px-2 text-sm'
+        }`}
+      >
         {qty}
       </span>
       <button
         type="button"
         disabled={disabled || qty >= limit}
         onClick={() => onChange(qty + 1)}
-        className="flex h-9 w-9 items-center justify-center text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`${btnClass} rounded-r-md text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label="Increase quantity"
       >
-        <PlusIcon className="h-4 w-4" />
+        <PlusIcon className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function CartItemActions({ product, onRemove }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <StockStatusBadge product={product} />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+      >
+        Delete
       </button>
     </div>
   )
@@ -62,87 +92,119 @@ function CartLineItem({ product, onQtyChange, onRemove }) {
   const isUnavailable = product.unavailable
   const productPath = `/products/${product._id}`
 
-  return (
-    <li
-      className={`flex gap-4 border-b border-stone-100 py-4 last:border-0 sm:gap-5 sm:py-5 ${
-        isUnavailable ? 'opacity-60' : ''
-      }`}
-    >
-      <Link to={productPath} className="relative shrink-0">
-        <img
-          src={product.image}
-          alt={product.name}
-          className={`h-20 w-20 rounded-xl border border-stone-200 object-cover sm:h-24 sm:w-24 ${
-            isUnavailable ? 'grayscale' : ''
-          }`}
-        />
-        {isUnavailable && (
-          <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-stone-900/60 px-1 text-center text-[10px] font-bold uppercase text-white">
-            Unavailable
-          </span>
-        )}
-      </Link>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <Link
-              to={productPath}
-              className="line-clamp-2 text-sm font-semibold capitalize text-stone-900 hover:text-indigo-700 sm:text-base"
-            >
-              {product.name}
-            </Link>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {product.color && (
-                <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs capitalize text-stone-600">
-                  {product.color}
-                </span>
-              )}
-              {product.size && (
-                <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
-                  Size {product.size}
-                </span>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="-mr-1 rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-            aria-label="Remove item"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        {isUnavailable ? (
-          <div className="mt-3">
-            <p className="text-sm font-medium text-red-600">{product.reason}</p>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="mt-2 text-sm font-semibold text-red-600 hover:text-red-700"
-            >
-              Remove from cart
-            </button>
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-            <QtyStepper
-              value={product.qty}
-              max={product.qtyLeft || product.qty}
-              onChange={(qty) => onQtyChange(qty)}
+  if (isUnavailable) {
+    return (
+      <li className="border-b border-stone-200 bg-stone-50/80 px-4 py-5 last:border-0 sm:px-6">
+        <div className="flex gap-4 opacity-70">
+          <div className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-full w-full rounded-lg border border-stone-200 object-cover grayscale"
             />
-            <div className="text-right">
-              <p className="text-sm font-bold text-stone-900">{formatPrice(product.totalPrice)}</p>
-              {product.qty > 1 && (
-                <p className="text-xs text-stone-500">
-                  {formatPrice(product.price)} each
-                </p>
-              )}
-            </div>
+            <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-stone-900/55 text-center text-[10px] font-bold uppercase tracking-wide text-white">
+              Unavailable
+            </span>
           </div>
-        )}
+          <div className="min-w-0 flex-1">
+            <p className="font-medium capitalize text-stone-900">{product.name}</p>
+            {product.reason && (
+              <p className="mt-2 text-sm text-red-700">{product.reason}</p>
+            )}
+            <CartItemActions product={product} onRemove={onRemove} />
+          </div>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <li className="border-b border-stone-200 last:border-0">
+      {/* Mobile / tablet card */}
+      <div className="px-4 py-5 sm:px-6 lg:hidden">
+        <div className="flex gap-4">
+          <Link to={productPath} className="shrink-0">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-24 w-24 rounded-lg border border-stone-200 object-cover sm:h-28 sm:w-28"
+            />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <CheckoutProductMeta product={product} productPath={productPath} />
+              </div>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="shrink-0 rounded p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+                aria-label="Remove"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <ProductDescriptionSnippet
+              description={product.description}
+              productPath={productPath}
+              className="mt-2 sm:hidden"
+            />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-4">
+              <div>
+                <p className="text-xs text-stone-500">Price</p>
+                <p className="text-sm font-semibold text-stone-900">{formatPrice(product.price)}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-stone-500">Qty</p>
+                <QtyStepper
+                  value={product.qty}
+                  max={product.qtyLeft || product.qty}
+                  onChange={onQtyChange}
+                  compact
+                />
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-stone-500">Subtotal</p>
+                <p className="text-base font-bold text-stone-900">
+                  {formatPrice(product.totalPrice)}
+                </p>
+              </div>
+            </div>
+            <CartItemActions product={product} onRemove={onRemove} />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop table row */}
+      <div className="hidden px-6 py-5 lg:grid lg:grid-cols-12 lg:items-center lg:gap-4">
+        <div className="col-span-6 flex gap-4">
+          <Link to={productPath} className="shrink-0">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-28 w-28 rounded-lg border border-stone-200 object-cover"
+            />
+          </Link>
+          <div className="min-w-0 flex-1 py-1">
+            <CheckoutProductMeta product={product} productPath={productPath} />
+            <CartItemActions product={product} onRemove={onRemove} />
+          </div>
+        </div>
+        <div className="col-span-2 text-right">
+          <span className="text-base text-stone-900">{formatPrice(product.price)}</span>
+        </div>
+        <div className="col-span-2 flex justify-center">
+          <QtyStepper
+            value={product.qty}
+            max={product.qtyLeft || product.qty}
+            onChange={onQtyChange}
+          />
+        </div>
+        <div className="col-span-2 text-right">
+          <span className="text-lg font-bold text-stone-900">
+            {formatPrice(product.totalPrice)}
+          </span>
+        </div>
       </div>
     </li>
   )
@@ -161,87 +223,107 @@ function OrderSummary({
   couponSuccess,
   canCheckout,
   showCheckout = true,
+  idPrefix = 'cart',
 }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="text-lg font-bold text-stone-900">Order summary</h2>
-      <p className="mt-0.5 text-sm text-stone-500">
-        {itemCount} {itemCount === 1 ? 'item' : 'items'}
-      </p>
+    <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+      <div className="border-b border-stone-200 bg-stone-50 px-5 py-4">
+        <h2 className="text-lg font-bold text-stone-900">Order summary</h2>
+      </div>
 
-      <dl className="mt-5 space-y-3 text-sm">
-        <div className="flex justify-between text-stone-600">
-          <dt>Subtotal</dt>
-          <dd className="font-medium text-stone-900">{formatPrice(subtotal)}</dd>
-        </div>
-        {discountAmount > 0 && (
-          <div className="flex justify-between text-green-700">
-            <dt>Coupon discount</dt>
-            <dd className="font-medium">−{formatPrice(discountAmount)}</dd>
+      <div className="space-y-4 p-5">
+        <DeliveryProgress subtotal={subtotal} />
+
+        <dl className="space-y-2 text-sm">
+          <div className="flex justify-between text-stone-600">
+            <dt>
+              Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+            </dt>
+            <dd className="font-medium text-stone-900">{formatPrice(subtotal)}</dd>
           </div>
-        )}
-        <div className="flex justify-between border-t border-stone-100 pt-3 text-base">
-          <dt className="font-semibold text-stone-900">Total</dt>
-          <dd className="font-bold text-stone-900">{formatPrice(total)}</dd>
-        </div>
-      </dl>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <dt>Promotional discount</dt>
+              <dd className="font-medium">−{formatPrice(discountAmount)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-stone-200 pt-3">
+            <dt className="text-base font-bold text-stone-900">Order total</dt>
+            <dd className="text-xl font-bold text-stone-900">{formatPrice(total)}</dd>
+          </div>
+        </dl>
 
-      <form onSubmit={onApplyCoupon} className="mt-5 border-t border-stone-100 pt-5">
-        <label htmlFor="coupon-code" className="text-sm font-medium text-stone-700">
-          Coupon code
-        </label>
-        <div className="mt-2 flex gap-2">
-          <input
-            id="coupon-code"
-            value={couponCode}
-            onChange={(e) => setCouponCode(e.target.value)}
-            type="text"
-            placeholder="Enter code"
-            className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <button
-            type="submit"
-            disabled={couponLoading}
-            className="shrink-0 rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-100 disabled:opacity-50"
+        {showCheckout && (
+          <Link
+            to="/order-payment"
+            state={{ sumTotalPrice: total }}
+            className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
+              canCheckout
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'pointer-events-none bg-stone-300 text-stone-500'
+            }`}
           >
-            Apply
-          </button>
-        </div>
-        {couponError && (
-          <div className="mt-2">
-            <ErrorMsg message={couponError?.message} />
-          </div>
+            <LockClosedIcon className="h-5 w-5" />
+            Proceed to checkout
+          </Link>
         )}
-        {couponSuccess && (
-          <div className="mt-2">
-            <SuccessMsg message={couponSuccess} />
-          </div>
-        )}
-      </form>
 
-      {showCheckout && (
         <Link
-          to="/order-payment"
-          state={{ sumTotalPrice: total }}
-          className={`mt-6 flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-semibold text-white transition ${
-            canCheckout
-              ? 'bg-indigo-600 hover:bg-indigo-700'
-              : 'pointer-events-none bg-stone-300'
-          }`}
+          to="/products-filters"
+          className="block text-center text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
         >
-          Proceed to checkout
+          Continue shopping
         </Link>
-      )}
 
-      <div className="mt-4 flex flex-col gap-2 border-t border-stone-100 pt-4 text-xs text-stone-500">
-        <p className="flex items-center gap-2">
-          <ShieldCheckIcon className="h-4 w-4 shrink-0 text-indigo-600" />
-          Secure checkout
-        </p>
-        <p className="flex items-center gap-2">
-          <TruckIcon className="h-4 w-4 shrink-0 text-indigo-600" />
-          Fast dispatch on confirmed orders
-        </p>
+        <form
+          onSubmit={onApplyCoupon}
+          className="border-t border-stone-200 pt-4"
+        >
+          <label
+            htmlFor={`${idPrefix}-coupon`}
+            className="text-sm font-semibold text-stone-800"
+          >
+            Have a coupon?
+          </label>
+          <div className="mt-2 flex gap-2">
+            <input
+              id={`${idPrefix}-coupon`}
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value)}
+              type="text"
+              placeholder="Enter code"
+              className="min-w-0 flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <button
+              type="submit"
+              disabled={couponLoading}
+              className="shrink-0 rounded-md border border-stone-300 bg-stone-100 px-4 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-200 disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+          {couponError && (
+            <div className="mt-2">
+              <ErrorMsg message={couponError?.message} />
+            </div>
+          )}
+          {couponSuccess && (
+            <div className="mt-2">
+              <SuccessMsg message={couponSuccess} />
+            </div>
+          )}
+        </form>
+
+        <ul className="space-y-2 border-t border-stone-200 pt-4 text-xs text-stone-600">
+          <li className="flex items-start gap-2">
+            <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+            Safe and secure payments
+          </li>
+          <li className="flex items-start gap-2">
+            <TruckIcon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+            Fast dispatch after order confirmation
+          </li>
+        </ul>
       </div>
     </div>
   )
@@ -270,6 +352,7 @@ export default function ShoppingCart() {
   const availableItems = cartItems?.filter((item) => !item.unavailable) || []
   const hasUnavailable = cartItems?.some((item) => item.unavailable)
   const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
+  const lineCount = cartItems?.length || 0
 
   const subtotal = useMemo(
     () => availableItems.reduce((acc, item) => acc + (item.totalPrice || 0), 0),
@@ -306,20 +389,21 @@ export default function ShoppingCart() {
 
   if (!cartItems || cartItems.length === 0) {
     return (
-      <div className="bg-stone-50">
-        <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6 sm:py-20">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
-            <TruckIcon className="h-8 w-8 text-indigo-600" />
+      <div className="min-h-[60vh] bg-white">
+        <div className="mx-auto max-w-lg px-4 py-20 text-center sm:px-6">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-stone-100">
+            <ShoppingBagIcon className="h-10 w-10 text-stone-400" />
           </div>
-          <h1 className="mt-6 text-2xl font-bold text-stone-900 sm:text-3xl">Your cart is empty</h1>
+          <h1 className="mt-2 text-2xl font-bold text-stone-900">Your cart is empty</h1>
           <p className="mt-2 text-stone-600">
-            Add items from the store to see them here.
+            Looks like you haven&apos;t added anything yet. Explore our store and find something you
+            love.
           </p>
           <Link
             to="/products-filters"
-            className="mt-8 inline-flex rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="mt-8 inline-flex rounded-lg bg-indigo-600 px-8 py-3 text-sm font-bold text-white shadow hover:bg-indigo-700"
           >
-            Start shopping
+            Continue shopping
           </Link>
         </div>
       </div>
@@ -327,37 +411,59 @@ export default function ShoppingCart() {
   }
 
   return (
-    <div className="bg-stone-50 pb-28 lg:pb-12">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="bg-white pb-28 lg:pb-10">
+      {/* Top bar — breadcrumb + title (Flipkart / Amazon style) */}
+      <div className="border-b border-stone-200 bg-stone-50">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <nav className="text-xs text-stone-500">
+            <Link to="/" className="hover:text-indigo-600">
+              Home
+            </Link>
+            <span className="mx-2">›</span>
+            <span className="font-medium text-stone-800">Shopping Cart</span>
+          </nav>
+          <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">Shopping Cart</h1>
+              <p className="mt-1 text-sm text-stone-600">
+                {lineCount} {lineCount === 1 ? 'product' : 'products'} in your cart
+                {itemCount > 0 && (
+                  <span className="text-stone-400">
+                    {' '}
+                    · {itemCount} {itemCount === 1 ? 'unit' : 'units'} available
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="hidden text-right lg:block">
+              <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                Cart subtotal
+              </p>
+              <p className="text-2xl font-bold text-indigo-700">{formatPrice(total)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Link
           to="/products-filters"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 lg:hidden"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           Continue shopping
         </Link>
 
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
-              Your cart
-            </h1>
-            <p className="mt-1 text-sm text-stone-600">
-              {itemCount} {itemCount === 1 ? 'item' : 'items'} ready for checkout
-            </p>
-          </div>
-        </div>
-
         {stockWarnings?.length > 0 && (
-          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 lg:mt-0">
             <div className="flex gap-3">
               <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-amber-600" />
               <div className="flex-1 text-sm">
-                <p className="font-semibold text-amber-900">Cart updated for stock</p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-800">
+                <p className="font-semibold text-amber-900">Some items were updated</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-900/90">
                   {stockWarnings.map((w, i) => (
                     <li key={i}>
-                      <span className="capitalize font-medium">{w.name}</span> — {w.reason}
+                      <span className="font-medium capitalize">{w.name}</span> — {w.reason}
                     </li>
                   ))}
                 </ul>
@@ -376,14 +482,22 @@ export default function ShoppingCart() {
         )}
 
         {validating ? (
-          <div className="mt-12 py-16">
+          <div className="py-20">
             <LoadingComponent />
           </div>
         ) : (
-          <div className="mt-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8 xl:gap-10">
-            <section aria-labelledby="cart-items" className="lg:col-span-7">
-              <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-                <ul id="cart-items" className="divide-y divide-stone-100 px-4 sm:px-5">
+          <div className="mt-6 lg:mt-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-8">
+            {/* Cart items — left column */}
+            <section aria-labelledby="cart-heading" className="lg:col-span-8">
+              <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3 sm:px-6">
+                  <h2 id="cart-heading" className="text-base font-bold text-stone-900">
+                    Cart items
+                  </h2>
+                  <span className="text-sm text-stone-500">Price</span>
+                </div>
+                <CheckoutTableHeader />
+                <ul className="divide-y divide-stone-200">
                   {cartItems.map((product) => (
                     <CartLineItem
                       key={`${product._id}-${product.color}-${product.size}`}
@@ -403,9 +517,15 @@ export default function ShoppingCart() {
                   ))}
                 </ul>
               </div>
+
+              <p className="mt-4 hidden text-xs text-stone-500 lg:block">
+                The price and availability of items at ShopAI are subject to change. The cart is a
+                temporary place to store a list of your items.
+              </p>
             </section>
 
-            <aside className="mt-8 hidden lg:col-span-5 lg:mt-0 lg:block">
+            {/* Order summary — right sticky column */}
+            <aside className="mt-8 lg:col-span-4 lg:mt-0">
               <div
                 className="lg:sticky"
                 style={{ top: 'calc(var(--shopai-navbar-height, 5rem) + 1rem)' }}
@@ -423,57 +543,40 @@ export default function ShoppingCart() {
                   couponSuccess={couponSuccessMessage}
                   canCheckout={availableItems.length > 0}
                   showCheckout
+                  idPrefix="desktop"
                 />
               </div>
             </aside>
           </div>
         )}
 
-        {!validating && (
-          <div className="mt-6 lg:hidden">
-            <OrderSummary
-              subtotal={subtotal}
-              discountAmount={discountAmount}
-              total={total}
-              itemCount={itemCount}
-              couponCode={couponInput}
-              setCouponCode={setCouponInput}
-              onApplyCoupon={applyCouponSubmit}
-              couponLoading={couponLoading}
-              couponError={couponError}
-              couponSuccess={couponSuccessMessage}
-              canCheckout={availableItems.length > 0}
-              showCheckout={false}
-            />
-          </div>
-        )}
-
         {availableItems.length === 0 && !validating && (
-          <p className="mt-6 text-center text-sm font-medium text-red-600">
-            No available items to checkout. Remove or replace unavailable products.
+          <p className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-700">
+            No items available for checkout. Remove or replace unavailable products above.
           </p>
         )}
       </div>
 
-      {/* Mobile sticky checkout bar — quick-commerce pattern */}
+      {/* Mobile sticky checkout */}
       {!validating && availableItems.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-            <div>
-              <p className="text-xs text-stone-500">Total</p>
-              <p className="text-lg font-bold text-stone-900">{formatPrice(total)}</p>
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-300 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] lg:hidden">
+          <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-stone-500">
+                Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+              </p>
+              <p className="text-xl font-bold text-stone-900">{formatPrice(total)}</p>
             </div>
             <Link
               to="/order-payment"
               state={{ sumTotalPrice: total }}
-              className="flex-1 max-w-[12rem] rounded-xl bg-indigo-600 py-3 text-center text-sm font-semibold text-white hover:bg-indigo-700"
+              className="shrink-0 rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow hover:bg-indigo-700"
             >
               Checkout
             </Link>
           </div>
         </div>
       )}
-
     </div>
   )
 }
