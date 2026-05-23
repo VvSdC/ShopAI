@@ -6,6 +6,11 @@ import Order from '../model/Order.js'
 import Product from '../model/Product.js'
 import User from '../model/User.js'
 import Coupon from '../model/Coupon.js'
+import {
+  processPaidOrder,
+  resendOrderConfirmation,
+  parseOrderId,
+} from '../services/orderFulfillment.js'
 //@desc create orders
 //@route POST /api/v1/orders
 //@access private
@@ -157,10 +162,13 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
   if (!session) {
     throw new Error('Session not found')
   }
-  const { orderId } = session.metadata
+  const orderId = parseOrderId(session.metadata?.orderId)
   if (!orderId) {
     throw new Error('No order associated with this session')
   }
+
+  const receiptEmail =
+    session.customer_details?.email || session.customer_email || null
 
   const existingOrder = await Order.findById(orderId)
   if (!existingOrder) {
@@ -170,7 +178,6 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     res.status(403)
     throw new Error('Not authorised to verify this payment')
   }
-  const alreadyVerified = existingOrder?.paymentStatus === 'paid'
 
   const updatedOrder = await Order.findByIdAndUpdate(
     orderId,
@@ -183,25 +190,69 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     { new: true }
   )
 
-  //Update product stock only if payment succeeded and not already processed
-  if (session.payment_status === 'paid' && updatedOrder && !alreadyVerified) {
-    const orderItems = updatedOrder.orderItems || []
-    const products = await Product.find({ _id: { $in: orderItems.map((i) => i._id) } })
-    for (const item of orderItems) {
-      const product = products.find(
-        (p) => p._id.toString() === item._id?.toString()
-      )
-      if (product) {
-        product.totalSold += item.qty || 1
-        await product.save()
-      }
-    }
+  let fulfillment = null
+  if (session.payment_status === 'paid' && updatedOrder) {
+    fulfillment = await processPaidOrder(orderId, { receiptEmail })
   }
+
+  const refreshedOrder = await Order.findById(orderId).select(
+    'confirmationEmailSent postPaymentProcessed paymentStatus orderNumber'
+  )
 
   res.json({
     success: true,
     message: 'Payment verified',
     order: updatedOrder,
+    confirmationEmailSent: refreshedOrder?.confirmationEmailSent === true,
+    emailTo: fulfillment?.emailTo || receiptEmail,
+    emailError: fulfillment?.emailError,
+    alreadyProcessed: existingOrder.postPaymentProcessed === true,
+  })
+})
+
+//@desc resend order confirmation email (paid orders only)
+//@route POST /api/v1/orders/resend-confirmation/:session_id
+//@access private
+
+export const resendConfirmationCtrl = asyncHandler(async (req, res) => {
+  const session = await stripe.checkout.sessions.retrieve(req.params.session_id)
+  if (!session) {
+    throw new Error('Session not found')
+  }
+  const orderId = parseOrderId(session.metadata?.orderId)
+  if (!orderId) {
+    throw new Error('No order associated with this session')
+  }
+
+  const order = await Order.findById(orderId)
+  if (!order) {
+    throw new Error('Order not found')
+  }
+  if (order.user.toString() !== req.userAuthId.toString()) {
+    res.status(403)
+    throw new Error('Not authorised')
+  }
+
+  const receiptEmail =
+    session.customer_details?.email || session.customer_email || null
+
+  const result = await resendOrderConfirmation(orderId, {
+    receiptEmail,
+    force: true,
+  })
+
+  if (!result.success) {
+    res.status(result.error?.includes('Maximum') ? 429 : 502)
+    throw new Error(result.error || 'Failed to send confirmation email')
+  }
+
+  res.json({
+    success: true,
+    message: 'Confirmation email sent',
+    confirmationEmailSent: true,
+    emailTo: result.to,
+    provider: result.provider,
+    messageId: result.messageId,
   })
 })
 

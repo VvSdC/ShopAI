@@ -367,7 +367,7 @@ export const forgotPasswordCtrl = asyncHandler(async (req, res) => {
   const otp = user.createPasswordResetOTP();
   await user.save({ validateBeforeSave: false });
 
-  sendPasswordResetOTPEmail(user.email, user.fullname, otp);
+  await sendPasswordResetOTPEmail(user.email, user.fullname, otp);
 
   res.json({
     status: "success",

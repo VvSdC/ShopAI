@@ -1,61 +1,139 @@
 import { Resend } from 'resend'
 
-const FROM_DEFAULT = process.env.EMAIL_FROM || 'ShopAI <onboarding@resend.dev>'
+/** Read at send time — dotenv loads after ES module imports, so a top-level const would stay wrong. */
+function getFromAddress() {
+  return process.env.EMAIL_FROM || 'ShopAI <onboarding@resend.dev>'
+}
 
-const providers = [
-  {
+function normalizeEmail(to) {
+  return String(to || '')
+    .trim()
+    .toLowerCase()
+}
+
+function parseFromAddress(from) {
+  const raw = String(from || FROM_DEFAULT).trim()
+  const bracketMatch = raw.match(/^(.+?)\s*<([^>]+)>$/)
+  if (bracketMatch) {
+    return { name: bracketMatch[1].trim(), email: bracketMatch[2].trim() }
+  }
+  return { name: 'ShopAI', email: raw }
+}
+
+function orderProviders() {
+  const pref = (process.env.EMAIL_PROVIDER || '').toLowerCase()
+  const resend = {
     name: 'Resend',
     key: () => process.env.RESEND_API_KEY,
-    send: async ({ to, subject, html, from }) => {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const { error } = await resend.emails.send({ from, to, subject, html })
+    send: async ({ to, subject, html, text, from }) => {
+      const resendClient = new Resend(process.env.RESEND_API_KEY)
+      const { error } = await resendClient.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        text: text || undefined,
+      })
       if (error) throw new Error(error.message)
     },
-  },
-  {
+  }
+  const brevo = {
     name: 'Brevo',
     key: () => process.env.BREVO_API_KEY,
-    send: async ({ to, subject, html, from }) => {
+    send: async ({ to, subject, html, text, from, tags }) => {
+      const sender = parseFromAddress(from)
+      if (sender.email.includes('resend.dev')) {
+        console.warn(
+          'Brevo: EMAIL_FROM uses resend.dev — set EMAIL_FROM to your Brevo-verified sender (e.g. you@yourdomain.com)'
+        )
+      }
+
+      const payload = {
+        sender,
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text || stripHtmlToText(html),
+      }
+      if (tags?.length) payload.tags = tags
+
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'api-key': process.env.BREVO_API_KEY,
         },
-        body: JSON.stringify({
-          sender: { email: from.match(/<(.+)>/)?.[1] || from, name: from.match(/^(.+?)\s*</)?.[1] || 'ShopAI' },
-          to: [{ email: to }],
-          subject,
-          htmlContent: html,
-        }),
+        body: JSON.stringify(payload),
       })
-      if (!response.ok) {
-        const text = await response.text().catch(() => 'Unknown error')
-        throw new Error(`Brevo error (${response.status}): ${text}`)
-      }
-    },
-  },
-]
 
-export async function sendEmail({ to, subject, html }) {
-  const from = FROM_DEFAULT
+      const bodyText = await response.text()
+      let body = {}
+      try {
+        body = bodyText ? JSON.parse(bodyText) : {}
+      } catch {
+        body = { raw: bodyText }
+      }
+
+      if (!response.ok) {
+        throw new Error(`Brevo error (${response.status}): ${bodyText || 'Unknown error'}`)
+      }
+
+      return { messageId: body.messageId }
+    },
+  }
+
+  const hasBrevo = !!process.env.BREVO_API_KEY
+  const hasResend = !!process.env.RESEND_API_KEY
+
+  if (pref === 'brevo' || (hasBrevo && !hasResend)) return [brevo, resend]
+  if (pref === 'resend' || (hasResend && !hasBrevo)) return [resend, brevo]
+  // Both keys set: default to Brevo first (common when Resend is leftover in .env)
+  return [brevo, resend]
+}
+
+function stripHtmlToText(html) {
+  return String(html || '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export async function sendEmail({ to, subject, html, text, tags }) {
+  const from = getFromAddress()
+  const recipient = normalizeEmail(to)
+  if (!recipient) {
+    return { success: false, error: 'Missing recipient email' }
+  }
+
   let lastError = null
 
-  for (const provider of providers) {
+  for (const provider of orderProviders()) {
     try {
       if (!provider.key()) continue
-      await provider.send({ to, subject, html, from })
-      console.log(`Email sent via ${provider.name} to ${to}`)
-      return { success: true, provider: provider.name }
+      const extra = await provider.send({
+        to: recipient,
+        subject,
+        html,
+        text,
+        from,
+        tags,
+      })
+      console.log(`Email sent via ${provider.name} to ${recipient}`, extra?.messageId || '')
+      return {
+        success: true,
+        provider: provider.name,
+        messageId: extra?.messageId,
+        to: recipient,
+      }
     } catch (err) {
       lastError = err
-      console.error(`${provider.name} failed:`, err.message)
-      continue
+      console.error(`${provider.name} failed for ${recipient}:`, err.message)
     }
   }
 
   console.error('All email providers failed:', lastError?.message)
-  return { success: false, error: lastError?.message }
+  return { success: false, error: lastError?.message, to: recipient }
 }
 
 // --- Template Helpers ---
@@ -135,25 +213,227 @@ export function sendPasswordResetOTPEmail(to, name, otp) {
         This OTP is valid for <strong>10 minutes</strong>. If you didn't request this, you can safely ignore this email.
       </p>
     `),
+    text: `Hi ${name},\n\nYour ShopAI password reset OTP is: ${otp}\n\nValid for 10 minutes.`,
   })
 }
 
+function formatInr(amount) {
+  const value = Number(amount || 0)
+  return `Rs. ${value.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+}
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function formatOrderDate(date) {
+  try {
+    return new Date(date).toLocaleString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return new Date().toLocaleString('en-IN')
+  }
+}
+
+function buildLineItemsRows(orderItems) {
+  return orderItems
+    .map((item) => {
+      const qty = Number(item.qty) || 1
+      const lineTotal = Number(item.totalPrice) || Number(item.price) * qty || 0
+      const variant = [item.color, item.size ? `Size ${item.size}` : null]
+        .filter(Boolean)
+        .join(' · ')
+      const variantHtml = variant
+        ? `<br><span style="color:#6b7280;font-size:13px;">${escapeHtml(variant)}</span>`
+        : ''
+
+      return `
+        <tr>
+          <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;color:#111827;">
+            <strong>${escapeHtml(item.name)}</strong>${variantHtml}
+          </td>
+          <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:center;color:#374151;">${qty}</td>
+          <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right;color:#111827;font-weight:600;">${formatInr(lineTotal)}</td>
+        </tr>`
+    })
+    .join('')
+}
+
+function buildShippingBlock(address) {
+  if (!address) return '<p style="color:#6b7280;margin:0;">Shipping address on file</p>'
+  const name = [address.firstName, address.lastName].filter(Boolean).join(' ')
+  const lines = [
+    name,
+    address.address,
+    [address.city, address.province, address.postalCode].filter(Boolean).join(', '),
+    address.country,
+    address.phone ? `Phone: ${address.phone}` : null,
+  ].filter(Boolean)
+
+  return lines
+    .map((line) => `<p style="margin:0 0 4px;color:#374151;">${escapeHtml(line)}</p>`)
+    .join('')
+}
+
+function buildOrderConfirmationText(name, order) {
+  const orderItems = order?.orderItems || []
+  const itemsSubtotal = orderItems.reduce(
+    (sum, item) => sum + (Number(item.totalPrice) || Number(item.price) * (Number(item.qty) || 1) || 0),
+    0
+  )
+  const orderTotal = Number(order.totalPrice) || 0
+  const discount = Math.max(0, itemsSubtotal - orderTotal)
+  const orderNumber = order.orderNumber || order._id
+  const profileUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/customer-profile`
+
+  const lines = orderItems.map((item) => {
+    const qty = Number(item.qty) || 1
+    const lineTotal = Number(item.totalPrice) || Number(item.price) * qty || 0
+    const variant = [item.color, item.size ? `Size ${item.size}` : null].filter(Boolean).join(', ')
+    return `- ${item.name}${variant ? ` (${variant})` : ''} x ${qty} = ${formatInr(lineTotal)}`
+  })
+
+  const address = order.shippingAddress
+  const shipName = [address?.firstName, address?.lastName].filter(Boolean).join(' ')
+  const shipLines = address
+    ? [
+        shipName,
+        address.address,
+        [address.city, address.province, address.postalCode].filter(Boolean).join(', '),
+        address.country,
+        address.phone,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : 'On file'
+
+  return [
+    `Hi ${name},`,
+    '',
+    `Thanks for your order at ShopAI! Order #${orderNumber} is confirmed.`,
+    '',
+    'ORDER SUMMARY',
+    '-------------',
+    ...lines,
+    '',
+    `Subtotal: ${formatInr(itemsSubtotal)}`,
+    discount > 0.01 ? `Discount: -${formatInr(discount)}` : null,
+    `Order total: ${formatInr(orderTotal)}`,
+    '',
+    'SHIPPING TO',
+    '-------------',
+    shipLines,
+    '',
+    `View your order: ${profileUrl}`,
+    '',
+    'You will receive another email when your order ships.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+/**
+ * Order confirmation email — line items, totals, shipping (Amazon / Flipkart style).
+ */
 export function sendOrderConfirmationEmail(to, name, order) {
-  const total = typeof order.total === 'number' ? `$${order.total.toFixed(2)}` : order.total
+  const orderItems = order?.orderItems || []
+  const itemsSubtotal = orderItems.reduce(
+    (sum, item) => sum + (Number(item.totalPrice) || Number(item.price) * (Number(item.qty) || 1) || 0),
+    0
+  )
+  const orderTotal = Number(order.totalPrice) || 0
+  const discount = Math.max(0, itemsSubtotal - orderTotal)
+  const orderNumber = order.orderNumber || order._id
+  const orderDate = formatOrderDate(order.createdAt)
+  const profileUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/customer-profile`
+  const paymentLabel =
+    order.paymentMethod && order.paymentMethod !== 'Not specified'
+      ? order.paymentMethod.charAt(0).toUpperCase() + order.paymentMethod.slice(1)
+      : 'Online payment'
+
+  const discountRow =
+    discount > 0.01
+      ? `<tr>
+          <td colspan="2" style="padding:8px 8px 4px;text-align:right;color:#059669;">Discount${order.coupon ? ` (${escapeHtml(order.coupon)})` : ''}</td>
+          <td style="padding:8px 8px 4px;text-align:right;color:#059669;font-weight:600;">-${formatInr(discount)}</td>
+        </tr>`
+      : ''
+
+  const safeName = escapeHtml(name)
+  const subject = `Your ShopAI order #${orderNumber} is confirmed`
+  const text = buildOrderConfirmationText(name, order)
+
   return sendEmail({
     to,
-    subject: `Order Confirmed — #${order.orderNumber}`,
+    subject,
+    text,
+    tags: ['order-confirmation'],
     html: wrap(`
-      <h2 style="color:#1f2937;margin-top:0;">Order Confirmed!</h2>
-      <p style="color:#4b5563;line-height:1.6;">
-        Hi ${name}, thanks for your purchase! Your order has been placed successfully.
+      <h2 style="color:#1f2937;margin-top:0;font-size:22px;">Thanks for your order, ${safeName}!</h2>
+      <p style="color:#4b5563;line-height:1.6;margin:8px 0 20px;">
+        We've received your payment and started processing your order. You'll get another email when it ships.
       </p>
-      <div style="background:#f9fafb;border-radius:6px;padding:16px;margin:20px 0;">
-        <p style="margin:0 0 8px;color:#374151;font-weight:600;">Order #${order.orderNumber}</p>
-        <p style="margin:0;color:#4b5563;">Total: <strong style="color:#4f46e5;">${total}</strong></p>
+
+      <div style="background:#f9fafb;border-radius:8px;padding:16px 18px;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="color:#6b7280;font-size:13px;padding-bottom:4px;">Order number</td>
+            <td style="text-align:right;font-weight:700;color:#4f46e5;padding-bottom:4px;">#${escapeHtml(orderNumber)}</td>
+          </tr>
+          <tr>
+            <td style="color:#6b7280;font-size:13px;">Order placed</td>
+            <td style="text-align:right;color:#374151;">${escapeHtml(orderDate)}</td>
+          </tr>
+          <tr>
+            <td style="color:#6b7280;font-size:13px;">Payment</td>
+            <td style="text-align:right;color:#374151;">${escapeHtml(paymentLabel)} - Paid</td>
+          </tr>
+        </table>
       </div>
-      <p style="color:#4b5563;line-height:1.6;">
-        We'll notify you when your order ships. You can track your order status in your account.
+
+      <h3 style="color:#111827;font-size:16px;margin:0 0 12px;">Order summary</h3>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e5e7eb;">Item</th>
+            <th style="text-align:center;padding:8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e5e7eb;">Qty</th>
+            <th style="text-align:right;padding:8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e5e7eb;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${buildLineItemsRows(orderItems)}
+          <tr>
+            <td colspan="2" style="padding:14px 8px 4px;text-align:right;color:#6b7280;">Subtotal</td>
+            <td style="padding:14px 8px 4px;text-align:right;color:#374151;">${formatInr(itemsSubtotal)}</td>
+          </tr>
+          ${discountRow}
+          <tr>
+            <td colspan="2" style="padding:10px 8px 0;text-align:right;font-weight:700;color:#111827;font-size:16px;">Order total</td>
+            <td style="padding:10px 8px 0;text-align:right;font-weight:700;color:#4f46e5;font-size:16px;">${formatInr(orderTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="color:#111827;font-size:16px;margin:28px 0 10px;">Shipping to</h3>
+      <div style="background:#f9fafb;border-radius:8px;padding:14px 16px;margin-bottom:28px;">
+        ${buildShippingBlock(order.shippingAddress)}
+      </div>
+
+      <div style="text-align:center;margin:28px 0 8px;">
+        <a href="${profileUrl}" style="${buttonStyle}">View order in your account</a>
+      </div>
+
+      <p style="color:#6b7280;font-size:13px;line-height:1.5;margin-top:24px;text-align:center;">
+        Questions about your order? Reply to this email or visit your account for order status updates.
       </p>
     `),
   })
@@ -162,7 +442,7 @@ export function sendOrderConfirmationEmail(to, name, order) {
 export function sendOrderStatusEmail(to, name, orderNumber, status) {
   return sendEmail({
     to,
-    subject: `Order #${orderNumber} — ${status}`,
+    subject: `Order #${orderNumber} - ${status}`,
     html: wrap(`
       <h2 style="color:#1f2937;margin-top:0;">Order Update</h2>
       <p style="color:#4b5563;line-height:1.6;">

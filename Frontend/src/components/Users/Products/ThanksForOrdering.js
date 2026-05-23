@@ -8,16 +8,45 @@ export default function ThanksForOrdering() {
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const [verified, setVerified] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resendError, setResendError] = useState('')
 
-  // Verify payment with backend using the Stripe session ID
+  // Verify payment; backend ensures confirmation email is sent once (idempotent)
   useEffect(() => {
-    if (sessionId) {
-      axiosInstance
-        .get(`/orders/verify-payment/${sessionId}`)
-        .then(() => setVerified(true))
-        .catch((err) => console.error('Payment verification failed:', err))
-    }
+    if (!sessionId) return
+
+    axiosInstance
+      .get(`/orders/verify-payment/${sessionId}`)
+      .then((res) => {
+        setVerified(true)
+        setEmailSent(res.data?.confirmationEmailSent === true)
+        if (res.data?.emailTo) setEmailTo(res.data.emailTo)
+      })
+      .catch((err) => console.error('Payment verification failed:', err))
   }, [sessionId])
+
+  const handleResendEmail = async () => {
+    if (!sessionId || resending) return
+    setResending(true)
+    setResendError('')
+    try {
+      const res = await axiosInstance.post(
+        `/orders/resend-confirmation/${sessionId}`
+      )
+      setEmailSent(true)
+      if (res.data?.emailTo) setEmailTo(res.data.emailTo)
+    } catch (err) {
+      setResendError(
+        err.response?.data?.message ||
+          err.message ||
+          'Could not resend email. Try again in a few minutes.'
+      )
+    } finally {
+      setResending(false)
+    }
+  }
 
   return (
     <>
@@ -286,13 +315,36 @@ export default function ThanksForOrdering() {
                 </div>
                 <div>
                   <h4 className="font-bold text-gray-900 mb-1">
-                    Confirmation Email Sent
+                    {emailSent ? 'Confirmation email sent' : 'Order confirmed'}
                   </h4>
                   <p className="text-sm text-gray-600 leading-relaxed">
-                    We&apos;ve sent a confirmation to your email. You&apos;ll
-                    receive tracking details once your order is shipped. Hang
-                    tight!
+                    {emailSent
+                      ? `We've emailed your order summary${emailTo ? ` to ${emailTo}` : ''}. You'll get tracking info when your order ships.`
+                      : 'Your payment is confirmed. We could not confirm the email was sent — use resend below or check spam.'}
                   </p>
+                  {!emailSent && sessionId && (
+                    <button
+                      type="button"
+                      onClick={handleResendEmail}
+                      disabled={resending}
+                      className="mt-3 text-sm font-semibold text-emerald-700 hover:text-emerald-800 underline disabled:opacity-50"
+                    >
+                      {resending ? 'Sending…' : 'Resend confirmation email'}
+                    </button>
+                  )}
+                  {emailSent && sessionId && (
+                    <button
+                      type="button"
+                      onClick={handleResendEmail}
+                      disabled={resending}
+                      className="mt-3 block text-sm text-gray-500 hover:text-emerald-700 underline disabled:opacity-50"
+                    >
+                      {resending ? 'Sending…' : "Didn't get it? Resend email"}
+                    </button>
+                  )}
+                  {resendError && (
+                    <p className="mt-2 text-sm text-red-600">{resendError}</p>
+                  )}
                 </div>
               </div>
             </div>

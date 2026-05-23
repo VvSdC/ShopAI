@@ -53,6 +53,21 @@ const OrderSchema = new Schema(
     deliveredAt: {
       type: Date,
     },
+    postPaymentProcessed: {
+      type: Boolean,
+      default: false,
+    },
+    confirmationEmailSent: {
+      type: Boolean,
+      default: false,
+    },
+    confirmationEmailAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lastConfirmationEmailAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

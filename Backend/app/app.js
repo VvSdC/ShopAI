@@ -20,6 +20,7 @@ import userRoutes from '../routes/usersRoute.js'
 import Order from '../model/Order.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
+import { processPaidOrder } from '../services/orderFulfillment.js'
 
 dbConnect()
 const app = express()
@@ -125,6 +126,16 @@ app.post(
 
         if (updatedOrder) {
           console.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
+          if (paymentStatus === 'paid') {
+            const receiptEmail =
+              session.customer_details?.email || session.customer_email || null
+            const fulfillment = await processPaidOrder(parsedOrderId, { receiptEmail })
+            if (fulfillment.emailSent) {
+              console.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
+            } else if (fulfillment.processed && !fulfillment.emailSent) {
+              console.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
+            }
+          }
         } else {
           console.error('❌ Order not found for ID:', parsedOrderId)
         }
