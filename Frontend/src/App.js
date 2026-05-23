@@ -36,13 +36,16 @@ import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
 import ForgotPassword from "./components/Users/Forms/ForgotPassword";
+import SiteFooter from "./components/Layout/SiteFooter";
 
 
 const App = () => {
   return (
     <BrowserRouter>
+      <div className="flex min-h-screen flex-col">
       <Navbar />
 
+      <main className="flex-1">
       <Routes>
         {/* admin route */}
         <Route
@@ -217,7 +220,10 @@ const App = () => {
           }
         ></Route>
       </Routes>
+      </main>
+      <SiteFooter />
       <ChatWidget />
+      </div>
     </BrowserRouter>
   );
 };
