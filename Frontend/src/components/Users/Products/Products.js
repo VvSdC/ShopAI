@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { StarIcon } from '@heroicons/react/20/solid'
 
+const DESCRIPTION_PREVIEW_LENGTH = 110
+
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
 }
@@ -15,23 +17,60 @@ function productThumbUrl(url) {
 
 const formatPrice = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`
 
+function plainDescription(text) {
+  if (!text) return ''
+  return String(text)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function ProductDescriptionSnippet({ description, productPath }) {
+  const plain = plainDescription(description)
+  const displayText = plain || 'No description available.'
+  const isLong = displayText.length > DESCRIPTION_PREVIEW_LENGTH
+  const preview = isLong
+    ? `${displayText.slice(0, DESCRIPTION_PREVIEW_LENGTH).trim()}…`
+    : displayText
+
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-stone-600">
+      {preview}
+      {isLong && (
+        <>
+          {' '}
+          <Link
+            to={productPath}
+            className="font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+          >
+            Show more
+          </Link>
+        </>
+      )}
+    </p>
+  )
+}
+
 export default function Products({ products }) {
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {products?.map((product) => {
         const id = product?._id || product?.id
+        const productPath = `/products/${id}`
         const image = product?.images?.[0]
         const rating = Number(product?.averageRating || 0)
         const outOfStock = (product?.qtyLeft ?? 0) <= 0
         const lowStock = !outOfStock && product.qtyLeft <= 5
 
         return (
-          <Link
+          <article
             key={id}
-            to={`/products/${id}`}
             className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
           >
-            <div className="relative flex aspect-[4/5] items-center justify-center bg-gradient-to-b from-stone-50 to-white p-5">
+            <Link
+              to={productPath}
+              className="relative flex aspect-[4/5] items-center justify-center bg-gradient-to-b from-stone-50 to-white p-5"
+            >
               {image ? (
                 <img
                   src={productThumbUrl(image)}
@@ -53,7 +92,7 @@ export default function Products({ products }) {
                   {product.qtyLeft} left
                 </span>
               )}
-            </div>
+            </Link>
 
             <div className="flex flex-1 flex-col p-4 pt-3">
               {product?.brand && (
@@ -61,9 +100,12 @@ export default function Products({ products }) {
                   {product.brand}
                 </p>
               )}
-              <h3 className="mt-1 line-clamp-2 text-base font-semibold capitalize leading-snug text-stone-900 group-hover:text-indigo-700">
+              <Link
+                to={productPath}
+                className="mt-1 line-clamp-2 text-base font-semibold capitalize leading-snug text-stone-900 hover:text-indigo-700"
+              >
                 {product?.name}
-              </h3>
+              </Link>
 
               {rating > 0 && (
                 <div className="mt-2 flex items-center gap-1">
@@ -82,14 +124,22 @@ export default function Products({ products }) {
                 </div>
               )}
 
+              <ProductDescriptionSnippet
+                description={product?.description}
+                productPath={productPath}
+              />
+
               <div className="mt-auto flex items-center justify-between pt-3">
                 <p className="text-lg font-bold text-stone-900">{formatPrice(product?.price)}</p>
-                <span className="text-xs font-medium text-indigo-600 opacity-0 transition group-hover:opacity-100">
+                <Link
+                  to={productPath}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                >
                   View →
-                </span>
+                </Link>
               </div>
             </div>
-          </Link>
+          </article>
         )
       })}
     </div>

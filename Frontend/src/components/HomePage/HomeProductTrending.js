@@ -168,8 +168,6 @@ export default function HomeProductTrending() {
     )
   }, [productList])
 
-  const [spotlight, ...rest] = sorted
-
   return (
     <section className="bg-white py-10 sm:py-12 lg:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -203,21 +201,15 @@ export default function HomeProductTrending() {
           <p className="mt-10 text-center text-stone-500">No products yet — check back soon.</p>
         ) : (
           <>
-            <div className="mt-8 hidden items-stretch lg:grid lg:grid-cols-12 lg:gap-4">
-              {spotlight && (
-                <div className="lg:col-span-4">
-                  <TrendingProductCard product={spotlight} rank={1} featured />
-                </div>
-              )}
-              <div className="grid auto-rows-fr grid-cols-2 gap-3 lg:col-span-8">
-                {rest.slice(0, 6).map((product, index) => (
-                  <TrendingProductCard
-                    key={product._id || product.id}
-                    product={product}
-                    rank={index + 2}
-                  />
-                ))}
-              </div>
+            <div className="mt-8 hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+              {sorted.slice(0, 6).map((product, index) => (
+                <TrendingProductCard
+                  key={product._id || product.id}
+                  product={product}
+                  rank={index + 1}
+                  featured={index === 0}
+                />
+              ))}
             </div>
 
             <div className="mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 lg:hidden">
