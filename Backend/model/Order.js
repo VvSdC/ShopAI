@@ -1,13 +1,11 @@
-import mongoose from "mongoose";
-const Schema = mongoose.Schema;
-//Generate random numbers for order
-const randomTxt = Math.random().toString(36).substring(7).toLocaleUpperCase();
-const randomNumbers = Math.floor(1000 + Math.random() * 90000);
+import mongoose from 'mongoose'
+const Schema = mongoose.Schema
+// Generate a new random order number per document (do not compute once at module load)
 const OrderSchema = new Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
     },
     orderItems: [
@@ -22,7 +20,9 @@ const OrderSchema = new Schema(
     },
     orderNumber: {
       type: String,
-      default: randomTxt + randomNumbers,
+      default: () =>
+        Math.random().toString(36).substring(7).toUpperCase() +
+        Math.floor(1000 + Math.random() * 90000),
     },
     coupon: {
       type: String,
@@ -30,11 +30,11 @@ const OrderSchema = new Schema(
     },
     paymentStatus: {
       type: String,
-      default: "Not paid",
+      default: 'Not paid',
     },
     paymentMethod: {
       type: String,
-      default: "Not specified",
+      default: 'Not specified',
     },
     totalPrice: {
       type: Number,
@@ -42,13 +42,13 @@ const OrderSchema = new Schema(
     },
     currency: {
       type: String,
-      default: "Not specified",
+      default: 'Not specified',
     },
     //For admin
     status: {
       type: String,
-      default: "pending",
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      default: 'pending',
+      enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
     },
     deliveredAt: {
       type: Date,
@@ -56,13 +56,13 @@ const OrderSchema = new Schema(
   },
   {
     timestamps: true,
-  }
-);
+  },
+)
 
 OrderSchema.index({ user: 1, createdAt: -1 })
 OrderSchema.index({ orderNumber: 1 }, { unique: true })
 OrderSchema.index({ status: 1 })
 
-const Order = mongoose.model("Order", OrderSchema);
+const Order = mongoose.model('Order', OrderSchema)
 
-export default Order;
+export default Order
