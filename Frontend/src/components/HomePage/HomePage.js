@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
   TruckIcon,
   SparklesIcon,
   ShieldCheckIcon,
@@ -18,25 +19,6 @@ const trustItems = [
   { name: 'Quality picks', icon: SparklesIcon },
 ]
 
-const perks = [
-  {
-    name: 'Hassle-free returns',
-    description: 'Damaged or wrong item? We make returns simple so you can shop with confidence.',
-  },
-  {
-    name: 'Quick delivery',
-    description: 'Orders are packed and shipped fast — get what you love without the long wait.',
-  },
-  {
-    name: 'Best-value deals',
-    description: 'Watch for flash sales and seasonal offers on trending products across categories.',
-  },
-  {
-    name: 'Curated for you',
-    description: 'Fresh products added regularly. Discover something new every time you visit.',
-  },
-]
-
 export default function HomePage() {
   const dispatch = useDispatch()
   useEffect(() => {
@@ -47,9 +29,9 @@ export default function HomePage() {
   const showCoupon = coupon && !coupon.isExpired
 
   return (
-    <div className="bg-stone-50">
+    <div className="flex min-h-full flex-col bg-stone-50">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-stone-900">
+      <section className="relative shrink-0 overflow-hidden bg-stone-900">
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80"
@@ -124,89 +106,67 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Categories */}
-      <section className="relative overflow-hidden bg-stone-50 py-14 sm:py-16 lg:py-20">
-        <div className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-indigo-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 bottom-0 h-48 w-48 rounded-full bg-violet-200/30 blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">
-              Collections
-            </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl lg:text-4xl">
-              Shop by category
-            </h2>
-            <p className="mt-2 max-w-md text-stone-600">
-              Our most popular collections — pick a category and start browsing.
-            </p>
+      {/* Categories — soft bg only, no divider lines (flows into trending below) */}
+      <section className="bg-stone-50 py-10 sm:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-xl">
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-indigo-700">
+                Collections
+              </span>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+                Shop by category
+              </h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-stone-600 sm:text-base">
+                Jump into our most-shopped collections — curated and ready to browse.
+              </p>
+            </div>
+            <Link
+              to="/all-categories"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700"
+            >
+              View all categories
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
           </div>
-          <Link
-            to="/all-categories"
-            className="hidden text-sm font-semibold text-indigo-600 hover:text-indigo-500 sm:inline-flex sm:items-center sm:gap-1"
-          >
-            View all
-            <span aria-hidden="true">→</span>
-          </Link>
-        </div>
-        <HomeCategories />
-        <Link
-          to="/all-categories"
-          className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-stone-900 py-3.5 text-sm font-semibold text-white hover:bg-stone-800 sm:hidden"
-        >
-          View all categories
-        </Link>
+
+          <div className="mt-6">
+            <HomeCategories />
+          </div>
         </div>
       </section>
 
       {/* Trending products */}
       <HomeProductTrending />
 
-      {/* Why ShopAI */}
-      <section className="border-t border-stone-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-stone-900 sm:text-3xl">Why shop with us</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-stone-600">
-              Everything you expect from a modern store — clear pricing, easy browsing, and support
-              you can trust.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {perks.map((perk, i) => {
-              const Icon = trustItems[i]?.icon || SparklesIcon
-              return (
-                <div
-                  key={perk.name}
-                  className="rounded-2xl border border-stone-200/80 bg-stone-50 p-6 text-center sm:text-left"
-                >
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 sm:mx-0">
-                    <Icon className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <h3 className="mt-4 font-semibold text-stone-900">{perk.name}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-stone-600">{perk.description}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* Bottom CTA */}
-      <section className="bg-stone-900">
+      <section className="mt-auto shrink-0 bg-stone-900">
         <div className="mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-white sm:text-3xl">Ready to find your next favorite?</h2>
           <p className="mx-auto mt-3 max-w-lg text-stone-400">
             Explore the full catalog — new arrivals and customer favorites are waiting.
           </p>
-          <Link
-            to="/products-filters"
-            className="mt-8 inline-flex rounded-xl bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-indigo-500"
-          >
-            Start shopping
-          </Link>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/products-filters"
+              className="inline-flex rounded-xl bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              Start shopping
+            </Link>
+            <Link
+              to="/about"
+              className="inline-flex rounded-xl border border-white/25 px-8 py-3.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
+              About ShopAI
+            </Link>
+          </div>
         </div>
+        <footer className="border-t border-stone-800 bg-stone-950 px-4 py-5 text-center text-sm text-stone-500 sm:px-6 lg:px-8">
+          <p>© {new Date().getFullYear()} ShopAI. All rights reserved.</p>
+          <Link to="/about" className="mt-2 inline-block font-medium text-stone-400 hover:text-white">
+            Learn more about us
+          </Link>
+        </footer>
       </section>
     </div>
   )

@@ -7,6 +7,7 @@ import Login from "./components/Users/Forms/Login";
 import AddProduct from "./components/Admin/Products/AddProduct";
 import RegisterForm from "./components/Users/Forms/RegisterForm";
 import HomePage from "./components/HomePage/HomePage";
+import AboutPage from "./components/HomePage/AboutPage";
 import Navbar from "./components/Navbar/Navbar";
 import OrderPayment from "./components/Users/Products/OrderPayment";
 import ManageCategories from "./components/Admin/Categories/ManageCategories";
@@ -180,6 +181,7 @@ const App = () => {
         {/* public links */}
         {/* Products */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/products-filters" element={<ProductsFilters />} />
         <Route path="/products/:id" element={<Product />} />
         <Route path="/all-categories" element={<AllCategories />} />

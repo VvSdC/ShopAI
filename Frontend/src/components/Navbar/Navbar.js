@@ -178,6 +178,12 @@ export default function Navbar() {
                       <Link to="/all-categories" className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800">ALL CATEGORIES</Link>
                     </>
                   )}
+                  <Link
+                    to="/about"
+                    className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800"
+                  >
+                    ABOUT
+                  </Link>
                 </div>
 
                 {/* mobile links register/login */}
@@ -319,6 +325,12 @@ export default function Navbar() {
                       )}
                     </Popover>
                   </Popover.Group>
+                  <Link
+                    to="/about"
+                    className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                  >
+                    About
+                  </Link>
                 </div>
 
                 {/* Right: admin, profile, cart */}

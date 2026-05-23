@@ -4,6 +4,10 @@ import { Link } from 'react-router-dom'
 import { ArrowRightIcon } from '@heroicons/react/24/outline'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 
+/** Image frame — same size on every card (your +25% sizing) */
+const CATEGORY_IMAGE_CLASS =
+  'relative aspect-[4/3] w-full max-h-[9.375rem] overflow-hidden bg-stone-100 sm:max-h-[10.625rem]'
+
 export default function HomeCategories() {
   const dispatch = useDispatch()
   useEffect(() => {
@@ -21,46 +25,43 @@ export default function HomeCategories() {
 
   if (categoriesToShow.length === 0) {
     return (
-      <p className="mt-8 text-center text-sm text-stone-500">Categories loading…</p>
+      <p className="py-6 text-center text-sm text-stone-500">Categories loading…</p>
     )
   }
 
   return (
-    <div className="mt-8">
+    <>
       <div className="relative sm:hidden">
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-stone-50 to-transparent" />
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pl-1 pr-6">
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-stone-50 to-transparent" />
+        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
           {categoriesToShow.map((category) => (
             <CategoryCard
               key={category._id || category.name}
               category={category}
-              variant="carousel"
+              className="w-44 shrink-0 snap-center sm:w-48"
             />
           ))}
         </div>
       </div>
 
-      <div className="hidden gap-4 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:gap-4">
+      <div className="hidden gap-4 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         {categoriesToShow.map((category) => (
-          <CategoryCard key={category._id || category.name} category={category} variant="grid" />
+          <CategoryCard key={category._id || category.name} category={category} />
         ))}
       </div>
-    </div>
+    </>
   )
 }
 
-function CategoryCard({ category, variant = 'grid' }) {
+function CategoryCard({ category, className = '' }) {
   const count = category?.products?.length ?? 0
-  const isCarousel = variant === 'carousel'
 
   return (
     <Link
       to={`/products-filters?category=${category.name}`}
-      className={`group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md ${
-        isCarousel ? 'w-44 shrink-0 snap-center sm:w-48' : ''
-      }`}
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md ${className}`}
     >
-      <div className="relative aspect-[4/3] w-full max-h-[9.375rem] overflow-hidden bg-stone-100 sm:max-h-[10.625rem]">
+      <div className={CATEGORY_IMAGE_CLASS}>
         {category.image ? (
           <img
             src={category.image}
@@ -68,7 +69,7 @@ function CategoryCard({ category, variant = 'grid' }) {
             className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200 text-indigo-600">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200 text-xl font-bold text-indigo-600">
             {category.name?.charAt(0)}
           </div>
         )}
