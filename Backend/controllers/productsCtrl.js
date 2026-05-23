@@ -206,20 +206,25 @@ export const deleteProductCtrl = asyncHandler(async (req, res) => {
 // @desc    Validate cart items against current stock
 // @route   POST /api/products/validate-cart
 // @access  Public
+function productIdKey(id) {
+  if (id == null) return ''
+  return String(id)
+}
+
 export const validateCartCtrl = asyncHandler(async (req, res) => {
   const { items } = req.body
   if (!items || !Array.isArray(items)) {
     throw new Error('Items array is required')
   }
-  const productIds = [...new Set(items.map((i) => i._id).filter(Boolean))]
+  const productIds = [...new Set(items.map((i) => productIdKey(i._id)).filter(Boolean))]
   const products = await Product.find({ _id: { $in: productIds } })
   const productMap = {}
   products.forEach((p) => {
-    productMap[p._id.toString()] = p
+    productMap[productIdKey(p._id)] = p
   })
 
   const validated = items.map((item) => {
-    const product = productMap[item._id]
+    const product = productMap[productIdKey(item._id)]
     if (!product) {
       return { ...item, unavailable: true, reason: 'Product no longer exists' }
     }

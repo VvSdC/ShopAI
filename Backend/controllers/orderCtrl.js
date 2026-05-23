@@ -13,6 +13,11 @@ import Coupon from '../model/Coupon.js'
 //stripe instance
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
+function productIdKey(id) {
+  if (id == null) return ''
+  return String(id)
+}
+
 export const createOrderCtrl = asyncHandler(async (req, res) => {
   const couponCode = req?.query?.coupon
   let couponFound = null
@@ -43,17 +48,17 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
   }
 
   //Validate each order item against current stock
-  const orderProductIds = orderItems.map((item) => item._id).filter(Boolean)
+  const orderProductIds = orderItems.map((item) => productIdKey(item._id)).filter(Boolean)
   const orderProducts = await Product.find({ _id: { $in: orderProductIds } })
   const orderProductMap = {}
   orderProducts.forEach((p) => {
-    orderProductMap[p._id.toString()] = p
+    orderProductMap[productIdKey(p._id)] = p
   })
 
   const validatedItems = []
   let recalculatedTotal = 0
   for (const item of orderItems) {
-    const product = orderProductMap[item._id]
+    const product = orderProductMap[productIdKey(item._id)]
     if (!product) continue // skip deleted products
     const qtyLeft = product.totalQty - product.totalSold
     if (qtyLeft <= 0) continue // skip out of stock

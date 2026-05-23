@@ -8,6 +8,7 @@ import {
 import { placeOrderAction } from '../../../redux/slices/orders/ordersSlices'
 import { getUserProfileAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import formatApiError from '../../../utils/formatApiError'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import AddShippingAddress from '../Forms/AddShippingAddress'
 export default function OrderPayment() {
@@ -73,7 +74,7 @@ export default function OrderPayment() {
 
   return (
     <>
-      {orderErr && <ErrorMsg message={orderErr?.message} />}      {/* Address error modal */}
+      {orderErr && <ErrorMsg message={orderErr} />}      {/* Address error modal */}
       {addressError && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black bg-opacity-40" onClick={() => setAddressError('')} />
