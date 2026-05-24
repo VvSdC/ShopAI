@@ -7,6 +7,7 @@ import Product from '../model/Product.js'
 import User from '../model/User.js'
 import Coupon from '../model/Coupon.js'
 import { isCouponLive, isCouponNotStarted, isCouponExpired } from '../utils/couponDates.js'
+import { findLiveCouponByCode } from '../utils/couponQueries.js'
 import {
   processPaidOrder,
   resendOrderConfirmation,
@@ -30,9 +31,9 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
   let discountRate = 0
 
   if (couponCode) {
-    couponFound = await Coupon.findOne({ code: String(couponCode).toUpperCase().trim() })
+    couponFound = await findLiveCouponByCode(couponCode)
     if (!couponFound) {
-      throw new Error('Coupon does not exist')
+      throw new Error('Coupon does not exist or is not valid')
     }
     if (isCouponNotStarted(couponFound)) {
       throw new Error('This coupon is not active yet')

@@ -8,6 +8,12 @@ import {
   isCouponExpired,
   daysLeftLabel,
 } from '../utils/couponDates.js'
+import {
+  assertCouponCodeAvailable,
+  findCouponsByCode,
+  findLiveCouponByCode,
+  normalizeCouponCode,
+} from '../utils/couponQueries.js'
 
 // @desc    Create new Coupon
 // @route   POST /api/v1/coupons
@@ -16,12 +22,8 @@ import {
 export const createCouponCtrl = asyncHandler(async (req, res) => {
   const { code, startDate, endDate, discount } = req.body
 
-  const couponsExists = await Coupon.findOne({
-    code: String(code || '').toUpperCase().trim(),
-  })
-  if (couponsExists) {
-    throw new Error('Coupon already exists')
-  }
+  await assertCouponCodeAvailable(code)
+
   if (isNaN(discount)) {
     throw new Error('Discount value must be a number')
   }
@@ -30,7 +32,7 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
   assertCouponDateRange(dates.startDate, dates.endDate)
 
   const coupon = await Coupon.create({
-    code: String(code).toUpperCase().trim(),
+    code: normalizeCouponCode(code),
     startDate: dates.startDate,
     endDate: dates.endDate,
     discount,
@@ -84,16 +86,17 @@ export const getAllCouponsCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 
 export const getCouponCtrl = asyncHandler(async (req, res) => {
-  const code = String(req.query.code || '').toUpperCase().trim()
-  const coupon = await Coupon.findOne({ code })
+  const code = normalizeCouponCode(req.query.code)
+  const coupon = await findLiveCouponByCode(code)
   if (!coupon) {
+    const all = await findCouponsByCode(code)
+    if (all.some((c) => isCouponNotStarted(c))) {
+      throw new Error('This coupon is not active yet')
+    }
+    if (all.some((c) => isCouponExpired(c))) {
+      throw new Error('This coupon has expired')
+    }
     throw new Error('Coupon not found')
-  }
-  if (isCouponNotStarted(coupon)) {
-    throw new Error('This coupon is not active yet')
-  }
-  if (isCouponExpired(coupon)) {
-    throw new Error('This coupon has expired')
   }
 
   res.json({
@@ -107,6 +110,10 @@ export const updateCouponCtrl = asyncHandler(async (req, res) => {
   const { code, startDate, endDate, discount } = req.body
   const dates = normalizeCouponDates({ startDate, endDate })
   assertCouponDateRange(dates.startDate, dates.endDate, { allowPastStart: true })
+
+  if (code) {
+    await assertCouponCodeAvailable(code, { excludeId: req.params.id })
+  }
 
   const coupon = await Coupon.findByIdAndUpdate(
     req.params.id,
