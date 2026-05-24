@@ -412,7 +412,7 @@ export default function ShoppingCart() {
 
   return (
     <div className="bg-white pb-28 lg:pb-10">
-      {/* Top bar — breadcrumb + title (Flipkart / Amazon style) */}
+      {/* Top bar — breadcrumb + title */}
       <div className="border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <nav className="text-xs text-stone-500">

@@ -6,7 +6,7 @@ export function isPromoActive(coupon) {
   return code.length > 0 && Number.isFinite(discount) && discount > 0
 }
 
-/** Top announcement bar (Amazon / Flipkart style) */
+/** Top announcement bar copy */
 export function navbarPromoText(coupon) {
   return `Extra ${coupon.discount}% off your order — use code ${coupon.code} at checkout · ${coupon.daysLeft}`
 }
