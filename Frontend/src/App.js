@@ -8,6 +8,8 @@ import AddProduct from "./components/Admin/Products/AddProduct";
 import RegisterForm from "./components/Users/Forms/RegisterForm";
 import HomePage from "./components/HomePage/HomePage";
 import AboutPage from "./components/HomePage/AboutPage";
+import CancellationPolicyPage from "./components/HomePage/CancellationPolicyPage";
+import ReturnRefundPolicyPage from "./components/HomePage/ReturnRefundPolicyPage";
 import Navbar from "./components/Navbar/Navbar";
 import OrderPayment from "./components/Users/Products/OrderPayment";
 import ManageCategories from "./components/Admin/Categories/ManageCategories";
@@ -33,6 +35,7 @@ import AdminRoutes from "./components/AuthRoute/AdminRoutes";
 import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
 import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
+import ManageReturns from "./components/Admin/Orders/ManageReturns";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
 import AssistantPage from "./components/ChatBot/AssistantPage";
@@ -71,6 +74,14 @@ function AppShell() {
             element={
               <AdminRoutes>
                 <AllOrders />
+              </AdminRoutes>
+            }
+          />
+          <Route
+            path="return-requests"
+            element={
+              <AdminRoutes>
+                <ManageReturns />
               </AdminRoutes>
             }
           />
@@ -184,6 +195,8 @@ function AppShell() {
         {/* Products */}
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicyPage />} />
+        <Route path="/return-refund-policy" element={<ReturnRefundPolicyPage />} />
         <Route path="/products-filters" element={<ProductsFilters />} />
         <Route path="/products/:id" element={<Product />} />
         <Route path="/all-categories" element={<AllCategories />} />

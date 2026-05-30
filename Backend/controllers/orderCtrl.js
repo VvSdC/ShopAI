@@ -3,7 +3,6 @@ import dotenv from 'dotenv'
 dotenv.config()
 import Stripe from 'stripe'
 import Order from '../model/Order.js'
-import Product from '../model/Product.js'
 import User from '../model/User.js'
 import {
   processPaidOrder,
@@ -11,6 +10,8 @@ import {
   parseOrderId,
 } from '../services/orderFulfillment.js'
 import { createCheckoutSession } from '../services/orderCheckout.js'
+import { cancelOrderForUser } from '../services/cancelService.js'
+import { persistPaymentReferences } from '../services/orderRefund.js'
 //@desc create orders
 //@route POST /api/v1/orders
 //@access private
@@ -65,6 +66,8 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
     throw new Error('Not authorised to verify this payment')
   }
 
+  const paymentRefs = await persistPaymentReferences(orderId, session)
+
   const updatedOrder = await Order.findByIdAndUpdate(
     orderId,
     {
@@ -72,6 +75,7 @@ export const verifyPaymentCtrl = asyncHandler(async (req, res) => {
       currency: session.currency,
       paymentMethod: session.payment_method_types?.[0] || 'card',
       paymentStatus: session.payment_status,
+      ...paymentRefs,
     },
     { new: true }
   )
@@ -211,18 +215,19 @@ export const getSingleOrderCtrl = asyncHandler(async (req, res) => {
 //@access private/admin
 
 export const updateOrderCtrl = asyncHandler(async (req, res) => {
-  //get the id from params
   const id = req.params.id
-  //update
-  const updatedOrder = await Order.findByIdAndUpdate(
-    id,
-    {
-      status: req.body.status,
-    },
-    {
-      new: true,
-    }
-  )
+  const { status } = req.body
+
+  const update = { status }
+  if (status === 'delivered') {
+    update.deliveredAt = new Date()
+  }
+
+  const updatedOrder = await Order.findByIdAndUpdate(id, update, { new: true })
+  if (!updatedOrder) {
+    throw new Error('Order not found')
+  }
+
   res.status(200).json({
     success: true,
     message: 'Order updated',
@@ -289,31 +294,11 @@ export const getOrderStatsCtrl = asyncHandler(async (req, res) => {
 //@access private
 
 export const cancelOrderCtrl = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id)
-  if (!order) {
-    throw new Error('Order not found')
-  }
-  // Only the order owner can cancel
-  if (order.user.toString() !== req.userAuthId.toString()) {
-    throw new Error('Not authorised to cancel this order')
-  }
-  // Can only cancel pending or processing orders
-  if (!['pending', 'processing'].includes(order.status)) {
-    throw new Error('Only pending or processing orders can be cancelled')
-  }
-  order.status = 'cancelled'
-  await order.save()
-  // Restore product stock
-  for (const item of order.orderItems) {
-    const product = await Product.findById(item._id)
-    if (product) {
-      product.totalSold = Math.max(0, product.totalSold - (item.qty || 1))
-      await product.save()
-    }
-  }
+  const result = await cancelOrderForUser(req.userAuthId, req.params.id)
   res.json({
     success: true,
-    message: 'Order cancelled successfully',
-    order,
+    message: result.message,
+    order: result.order,
+    refundAmount: result.refundAmount,
   })
 })

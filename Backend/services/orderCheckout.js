@@ -11,6 +11,7 @@ import {
 } from '../utils/couponDates.js'
 import { findLiveCouponByCode } from '../utils/couponQueries.js'
 import { productIdKey } from './cartService.js'
+import { enrichNewOrderItem } from './orderLineItems.js'
 
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
@@ -100,9 +101,13 @@ export async function createCheckoutSession({
 
   const order = await Order.create({
     user: user._id,
-    orderItems: validatedItems,
+    orderItems: validatedItems.map(enrichNewOrderItem),
     shippingAddress,
     totalPrice: finalTotal,
+    subtotalBeforeDiscount: recalculatedTotal,
+    discountAmount:
+      discountRate > 0 ? Math.round((recalculatedTotal - finalTotal) * 100) / 100 : 0,
+    discountRate,
     ...(couponFound && { coupon: couponFound.code }),
   })
 
@@ -158,6 +163,9 @@ export async function createCheckoutSession({
     success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/cancel`,
   })
+
+  order.stripeSessionId = session.id
+  await order.save()
 
   return {
     url: session.url,

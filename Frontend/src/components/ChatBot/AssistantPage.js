@@ -16,6 +16,8 @@ import {
   AI_CHATBOT_LABEL,
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
+import CheckoutPaymentCard from './CheckoutPaymentCard'
+import ConfirmDialog from '../common/ConfirmDialog'
 import {
   useShopAIChatActions,
   formatSessionDate,
@@ -51,6 +53,7 @@ export default function AssistantPage() {
   const [loadingSessions, setLoadingSessions] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [cartHint, setCartHint] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -74,6 +77,7 @@ export default function AssistantPage() {
       (data.session.messages || []).map((m) => ({
         role: m.role,
         content: m.content,
+        checkout: m.checkout || null,
       }))
     )
   }, [])
@@ -92,7 +96,11 @@ export default function AssistantPage() {
     ])
     setActiveSessionId(session.id)
     setMessages(
-      (session.messages || []).map((m) => ({ role: m.role, content: m.content }))
+      (session.messages || []).map((m) => ({
+        role: m.role,
+        content: m.content,
+        checkout: m.checkout || null,
+      }))
     )
     setSidebarOpen(false)
     inputRef.current?.focus()
@@ -120,9 +128,10 @@ export default function AssistantPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const deleteSession = async (sessionId, e) => {
-    e.stopPropagation()
-    if (!window.confirm('Delete this conversation?')) return
+  const confirmDeleteSession = async () => {
+    if (!deleteTarget) return
+    const sessionId = deleteTarget
+    setDeleteTarget(null)
     await axiosInstance.delete(`/chat/sessions/${sessionId}`)
     const remaining = sessions.filter((s) => s.id !== sessionId)
     setSessions(remaining)
@@ -145,14 +154,21 @@ export default function AssistantPage() {
 
     try {
       const data = await sendMessage({ text, sessionId: activeSessionId })
-      const summary = handleClientActions(data)
-      if (summary?.itemCount > 0) {
+      const { cartSummary } = handleClientActions(data)
+      if (cartSummary?.itemCount > 0) {
         setCartHint(
-          `${summary.itemCount} in cart — ₹${Number(summary.total).toLocaleString('en-IN')}`
+          `${cartSummary.itemCount} in cart — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
         )
       }
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.reply,
+          checkout: data.checkout || null,
+        },
+      ])
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -217,7 +233,10 @@ export default function AssistantPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => deleteSession(session.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteTarget(session.id)
+                    }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 shrink-0"
                     aria-label="Delete conversation"
                   >
@@ -347,7 +366,7 @@ export default function AssistantPage() {
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
                   className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[80%] ${
@@ -360,6 +379,15 @@ export default function AssistantPage() {
                     ? formatMessage(msg.content)
                     : msg.content}
                 </div>
+                {msg.checkout?.checkoutUrl && (
+                  <div className="max-w-[90%] sm:max-w-[80%]">
+                    <CheckoutPaymentCard
+                      checkoutUrl={msg.checkout.checkoutUrl}
+                      orderNumber={msg.checkout.orderNumber}
+                      totalPrice={msg.checkout.totalPrice}
+                    />
+                  </div>
+                )}
               </div>
             ))}
 
@@ -404,6 +432,16 @@ export default function AssistantPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete conversation?"
+        message="This chat will be permanently removed from your history. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        onConfirm={confirmDeleteSession}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

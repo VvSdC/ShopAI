@@ -5,6 +5,7 @@ import {
   getSessionForUser,
   createSession,
   deleteSession,
+  mapSessionMessageForClient,
 } from '../services/chatSessionService.js'
 
 export const listChatSessionsCtrl = asyncHandler(async (req, res) => {
@@ -26,11 +27,7 @@ export const getChatSessionCtrl = asyncHandler(async (req, res) => {
       title: session.title,
       updatedAt: session.updatedAt,
       createdAt: session.createdAt,
-      messages: session.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-      })),
+      messages: session.messages.map(mapSessionMessageForClient),
     },
   })
 })
@@ -46,11 +43,7 @@ export const createChatSessionCtrl = asyncHandler(async (req, res) => {
       title: session.title,
       updatedAt: session.updatedAt,
       createdAt: session.createdAt,
-      messages: session.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-        createdAt: m.createdAt,
-      })),
+      messages: session.messages.map(mapSessionMessageForClient),
     },
   })
 })

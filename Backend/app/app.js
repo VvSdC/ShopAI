@@ -21,7 +21,10 @@ import Order from '../model/Order.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
 import cartRouter from '../routes/cartRouter.js'
+import policyRouter from '../routes/policyRouter.js'
+import returnsRouter from '../routes/returnsRouter.js'
 import { processPaidOrder } from '../services/orderFulfillment.js'
+import { persistPaymentReferences } from '../services/orderRefund.js'
 
 dbConnect().catch((err) => {
   console.error(err.message)
@@ -117,7 +120,8 @@ app.post(
       }
 
       try {
-        //find the order and update payment status
+        const paymentRefs = await persistPaymentReferences(parsedOrderId, session)
+
         const updatedOrder = await Order.findByIdAndUpdate(
           parsedOrderId,
           {
@@ -125,6 +129,7 @@ app.post(
             currency,
             paymentMethod,
             paymentStatus,
+            ...paymentRefs,
           },
           { new: true }
         )
@@ -176,6 +181,8 @@ app.use('/shopai/reviews/', apiLimiter, reviewRouter)
 app.use('/shopai/orders/', apiLimiter, orderRouter)
 app.use('/shopai/coupons/', apiLimiter, couponsRouter)
 app.use('/shopai/cart/', apiLimiter, cartRouter)
+app.use('/shopai/policy/', apiLimiter, policyRouter)
+app.use('/shopai/returns/', apiLimiter, returnsRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)
 //err middleware
 app.use(notFound)

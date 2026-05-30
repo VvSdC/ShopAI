@@ -58,7 +58,7 @@ export async function deleteSession(userId, sessionId) {
   return result.deletedCount > 0
 }
 
-export async function appendMessages(session, userContent, assistantContent) {
+export async function appendMessages(session, userContent, assistantContent, checkout = null) {
   if (!session.messages?.length) {
     session.title = deriveSessionTitle(userContent)
   } else if (session.title === 'New conversation') {
@@ -66,7 +66,17 @@ export async function appendMessages(session, userContent, assistantContent) {
   }
 
   session.messages.push({ role: 'user', content: userContent })
-  session.messages.push({ role: 'assistant', content: assistantContent })
+
+  const assistantEntry = { role: 'assistant', content: assistantContent }
+  if (checkout?.checkoutUrl) {
+    assistantEntry.checkout = {
+      checkoutUrl: checkout.checkoutUrl,
+      orderNumber: checkout.orderNumber,
+      orderId: checkout.orderId,
+      totalPrice: checkout.totalPrice,
+    }
+  }
+  session.messages.push(assistantEntry)
 
   if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
     session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION)
@@ -74,6 +84,23 @@ export async function appendMessages(session, userContent, assistantContent) {
 
   await session.save()
   return session
+}
+
+export function mapSessionMessageForClient(message) {
+  const out = {
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+  }
+  if (message.checkout?.checkoutUrl) {
+    out.checkout = {
+      checkoutUrl: message.checkout.checkoutUrl,
+      orderNumber: message.checkout.orderNumber,
+      orderId: message.checkout.orderId,
+      totalPrice: message.checkout.totalPrice,
+    }
+  }
+  return out
 }
 
 export async function trimOldSessions(userId) {

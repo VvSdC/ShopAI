@@ -13,11 +13,11 @@ export function useShopAIChatActions() {
         if (action.type === 'sync_cart') {
           dispatch(getCartFromServerAction())
         }
-        if (action.type === 'open_checkout' && action.url) {
-          window.open(action.url)
-        }
       }
-      return data?.cartSummary || null
+      return {
+        cartSummary: data?.cartSummary || null,
+        checkout: data?.checkout || null,
+      }
     },
     [dispatch]
   )

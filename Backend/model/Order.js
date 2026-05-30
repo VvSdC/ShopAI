@@ -53,6 +53,39 @@ const OrderSchema = new Schema(
     deliveredAt: {
       type: Date,
     },
+    stripeSessionId: {
+      type: String,
+      default: null,
+    },
+    stripePaymentIntentId: {
+      type: String,
+      default: null,
+    },
+    subtotalBeforeDiscount: {
+      type: Number,
+      default: 0,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+    discountRate: {
+      type: Number,
+      default: 0,
+    },
+    totalRefunded: {
+      type: Number,
+      default: 0,
+    },
+    refundStatus: {
+      type: String,
+      enum: ['none', 'partial', 'full'],
+      default: 'none',
+    },
+    stripeRefundIds: {
+      type: [String],
+      default: [],
+    },
     postPaymentProcessed: {
       type: Boolean,
       default: false,

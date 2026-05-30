@@ -8,6 +8,7 @@ import {
   trimOldSessions,
   sessionHistoryForApi,
 } from '../services/chatSessionService.js'
+import { previewCheckout, checkoutFromCart } from '../services/checkoutFromCart.js'
 
 const MAX_TOOL_ROUNDS = 7
 
@@ -156,17 +157,19 @@ HARD BOUNDARIES — You MUST refuse these:
 4. WRITE OPERATIONS — ALLOWED (with care):
    - You CAN add/update the cart, apply/remove coupons on the cart, add/update shipping addresses, and start checkout via tools.
    - Before add_to_cart: confirm product name, size, color, and qty unless the user gave them clearly in one message. Map user color words to the closest catalog color (e.g. "pink" → "Light Pink") using get_product_details — do not loop asking for exact casing.
-   - NEVER call add_to_cart again when the user says "yes", "confirm", or wants checkout — call get_cart instead. add_to_cart only once per variant per purchase flow.
+   - NEVER call add_to_cart again when the user confirms checkout — use preview_checkout then create_checkout_session instead. add_to_cart only once per variant per purchase flow.
    - When the user wants a new delivery address: call add_shipping_address with parsed fields (city, state/province, pincode). Use their profile name and phone if not provided. Then use the returned addressIndex (or omit address_index to use the newest address) for preview_checkout / create_checkout_session.
    - Before create_checkout_session: call preview_checkout, summarize cart total and shipping address, and get explicit confirmation ("yes", "confirm", "checkout").
-   - You CANNOT cancel, modify, or refund existing orders. Direct those requests to support or the website.
+   - When the user confirms checkout ("yes", "proceed", "pay", etc.), you MUST call create_checkout_session in that same turn. Never say payment is processing or provide a checkout link without calling that tool first.
+   - You CANNOT cancel, modify, or refund existing orders through chat. Direct users to My Profile for cancellations (before ship) and return requests (after delivery). Share links: /cancellation-policy and /return-refund-policy.
    - If size or color is missing, call get_product_details first — never guess invalid variants.
 
 5. PAYMENT & ORDER STATUS — CRITICAL:
-   - NEVER claim payment succeeded, failed, or that an order is "on the way" unless get_order_details or get_my_orders shows paymentStatus and status from the database.
+   - NEVER claim payment succeeded, failed, or is "being processed" unless get_order_details or get_my_orders shows paymentStatus and status from the database.
+   - NEVER invent checkout links, Stripe URLs, or "Pay ₹…" links in your text. After create_checkout_session, the app shows a **Pay on Stripe** button — tell the user to tap that button only.
    - When the user says "payment done" or asks about payment: call get_my_orders (or get_order_details with the order number from create_checkout_session) and report ONLY what the tool returns.
    - NEVER invent delivery dates, tracking numbers, or shipping ETAs.
-   - After create_checkout_session, tell the user to complete payment in the Stripe tab. Only confirm payment after checking order status via tools.
+   - After create_checkout_session, tell the user to tap the **Pay on Stripe** button shown in chat. Do NOT paste payment URLs, success URLs, or session IDs in your reply — the app provides the secure checkout link.
 
 ═══════════════════════════════════════
 TONE & BEHAVIOR:
@@ -194,6 +197,84 @@ DATA & FORMATTING:
 - For coupon codes: use apply_coupon_to_cart when the user wants a code applied; otherwise list active coupons with get_active_coupons.`
 }
 
+function buildCheckoutBackedReply(checkout) {
+  return `Your Stripe checkout is ready for order **#${checkout.orderNumber}** (total ${formatInr(checkout.totalPrice)}).
+
+Tap **Pay on Stripe** below to complete payment. Payment is **not** finished until you pay on Stripe.
+
+Your cart has been cleared for this checkout.`
+}
+
+function isCheckoutConfirmation(text) {
+  const normalized = String(text || '').trim().toLowerCase()
+  return /^(yes|yeah|yep|yup|confirm|confirmed|proceed|ok|okay|sure|go ahead|pay|checkout)([.!?\s]|$)/.test(
+    normalized
+  )
+}
+
+function conversationMentionsCheckoutPending(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role === 'user') continue
+    if (m.role === 'assistant') {
+      return /checkout|proceed with payment|pay now|payment|stripe|ready for checkout|would you like to proceed/i.test(
+        m.content || ''
+      )
+    }
+  }
+  return false
+}
+
+async function ensureCheckoutOnConfirm(userId, userText, messages, toolResults) {
+  if (extractCheckoutInfo(toolResults)) return toolResults
+  if (!isCheckoutConfirmation(userText)) return toolResults
+  if (!conversationMentionsCheckoutPending(messages)) return toolResults
+
+  try {
+    const preview = await previewCheckout(userId, {})
+    if (!preview.ready) return toolResults
+
+    const session = await checkoutFromCart(userId, {})
+    return [
+      ...toolResults,
+      {
+        success: true,
+        orderId: session.orderId,
+        orderNumber: session.orderNumber,
+        totalPrice: session.totalPrice,
+        checkoutUrl: session.url,
+        clientAction: 'open_checkout',
+      },
+    ]
+  } catch (err) {
+    console.error('Auto checkout on confirm failed:', err.message)
+    return toolResults
+  }
+}
+
+function applyCheckoutReply(reply, toolResults) {
+  const checkout = extractCheckoutInfo(toolResults)
+  if (checkout) {
+    return buildCheckoutBackedReply(checkout)
+  }
+  return reply
+}
+
+function extractCheckoutInfo(toolResults) {
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const r = toolResults[i]
+    if (r?.checkoutUrl) {
+      return {
+        checkoutUrl: r.checkoutUrl,
+        orderNumber: r.orderNumber,
+        orderId: r.orderId,
+        totalPrice: r.totalPrice,
+      }
+    }
+  }
+  return null
+}
+
 function buildChatResponse(reply, toolResults) {
   const payload = { success: true, reply }
   const clientActions = collectClientActions(toolResults)
@@ -203,6 +284,10 @@ function buildChatResponse(reply, toolResults) {
   const cartSummary = extractCartSummary(toolResults)
   if (cartSummary) {
     payload.cartSummary = cartSummary
+  }
+  const checkout = extractCheckoutInfo(toolResults)
+  if (checkout) {
+    payload.checkout = checkout
   }
   return payload
 }
@@ -298,7 +383,14 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
     }
 
     return res.json(
-      await persistAndRespond(session, userText, reply, toolResults, req.userAuthId)
+      await persistAndRespond(
+        session,
+        userText,
+        reply,
+        toolResults,
+        req.userAuthId,
+        messages
+      )
     )
   }
 
@@ -313,7 +405,14 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
   }
 
   res.json(
-    await persistAndRespond(session, userText, reply, toolResults, req.userAuthId)
+    await persistAndRespond(
+      session,
+      userText,
+      reply,
+      toolResults,
+      req.userAuthId,
+      messages
+    )
   )
 })
 
@@ -322,11 +421,19 @@ async function persistAndRespond(
   userText,
   reply,
   toolResults,
-  userId
+  userId,
+  messages = []
 ) {
-  const payload = buildChatResponse(reply, toolResults)
+  const finalToolResults = await ensureCheckoutOnConfirm(
+    userId,
+    userText,
+    messages,
+    toolResults
+  )
+  reply = applyCheckoutReply(reply, finalToolResults)
+  const payload = buildChatResponse(reply, finalToolResults)
   if (session) {
-    await appendMessages(session, userText, reply)
+    await appendMessages(session, userText, reply, payload.checkout || null)
     await trimOldSessions(userId)
     payload.sessionId = String(session._id)
     payload.sessionTitle = session.title

@@ -68,7 +68,7 @@ export function formatMessage(text) {
 function renderTextSegment(segment, keyPrefix) {
   const parts = []
   const regex =
-    /(\[([^\]]+)\]\((\/products\/[a-f0-9]{24}|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})/gi
+    /(\[([^\]]+)\]\((\/products\/[a-f0-9]{24}|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})|(https:\/\/checkout\.stripe\.com\/[^\s)]+)/gi
   let lastIndex = 0
   let match
 
@@ -122,6 +122,18 @@ function renderTextSegment(segment, keyPrefix) {
         >
           View product
         </Link>
+      )
+    } else if (match[11]) {
+      parts.push(
+        <a
+          key={`${keyPrefix}-stripe-${match.index}`}
+          href={match[11]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-600 hover:text-indigo-800 font-medium underline break-all"
+        >
+          Stripe checkout
+        </a>
       )
     }
     lastIndex = regex.lastIndex

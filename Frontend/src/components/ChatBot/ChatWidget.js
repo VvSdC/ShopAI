@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
 import { formatMessage, TypingDots, buildClientWelcomeMessage } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
+import CheckoutPaymentCard from './CheckoutPaymentCard'
 import { useShopAIChatActions } from './useShopAIChat'
 
 
@@ -128,28 +129,21 @@ export default function ChatWidget() {
 
       const data = await sendMessage({ text, history: historyForApi })
 
-      const summary = handleClientActions(data)
+      const { cartSummary } = handleClientActions(data)
 
-
-
-      if (summary?.itemCount > 0) {
-
+      if (cartSummary?.itemCount > 0) {
         setCartHint(
-
-          `${summary.itemCount} item(s) in cart — ₹${Number(summary.total).toLocaleString('en-IN')}`
-
+          `${cartSummary.itemCount} item(s) in cart — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
         )
-
       }
 
-
-
       setMessages((prev) => [
-
         ...prev,
-
-        { role: 'assistant', content: data.reply },
-
+        {
+          role: 'assistant',
+          content: data.reply,
+          checkout: data.checkout || null,
+        },
       ])
 
     } catch (err) {
@@ -341,35 +335,29 @@ export default function ChatWidget() {
             <AiDisclosureBanner compact />
 
             {messages.map((msg, i) => (
-
               <div
-
                 key={i}
-
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-
+                className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
               >
-
                 <div
-
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-
                     msg.role === 'user'
-
                       ? 'bg-blue-800 text-white rounded-br-md whitespace-pre-wrap'
-
                       : 'bg-white text-gray-800 rounded-bl-md border border-gray-200'
-
                   }`}
-
                 >
-
                   {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
-
                 </div>
-
+                {msg.checkout?.checkoutUrl && (
+                  <div className="max-w-[85%]">
+                    <CheckoutPaymentCard
+                      checkoutUrl={msg.checkout.checkoutUrl}
+                      orderNumber={msg.checkout.orderNumber}
+                      totalPrice={msg.checkout.totalPrice}
+                    />
+                  </div>
+                )}
               </div>
-
             ))}
 
             {isLoading && (

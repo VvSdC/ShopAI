@@ -1,8 +1,11 @@
-import { useEffect, useState, Fragment } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { getUserProfileAction, deleteAccountAction } from '../../../redux/slices/users/usersSlice'
 import { fetchUserOrdersAction, cancelOrderAction } from '../../../redux/slices/orders/ordersSlices'
+import { fetchMyReturnsAction } from '../../../redux/slices/returns/returnsSlice'
 import CustomerDetails from './CustomerDetails'
+import ReturnRequestModal from './ReturnRequestModal'
 
 const statusColor = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -17,7 +20,7 @@ const paymentStatusColor = {
   'Not paid': 'bg-red-100 text-red-800',
 }
 
-function OrderDetailsModal({ order, onClose, onCancel }) {
+function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
   if (!order) return null
   const addr = order.shippingAddress
 
@@ -117,6 +120,14 @@ function OrderDetailsModal({ order, onClose, onCancel }) {
                 Cancel Order
               </button>
             )}
+            {order.status === 'delivered' && (
+              <button
+                onClick={() => onReturn(order)}
+                className="mt-4 w-full rounded-md bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                Request Return
+              </button>
+            )}
             {order.status === 'cancelled' && (
               <p className="mt-4 text-center text-sm font-medium text-red-600">
                 This order has been cancelled
@@ -167,6 +178,8 @@ export default function CustomerProfile() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [confirmCancel, setConfirmCancel] = useState(null)
+  const [returnOrder, setReturnOrder] = useState(null)
+  const [toast, setToast] = useState('')
   const ORDERS_PER_PAGE = 5
 
   useEffect(() => {
@@ -175,6 +188,7 @@ export default function CustomerProfile() {
 
   useEffect(() => {
     dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
+    dispatch(fetchMyReturnsAction())
   }, [dispatch, currentPage])
 
   const { error: profileError, loading: profileLoading, profile } = useSelector(
@@ -183,6 +197,7 @@ export default function CustomerProfile() {
   const { userOrders, pagination, loading: ordersLoading, error: ordersError } = useSelector(
     (state) => state?.orders
   )
+  const { myReturns } = useSelector((state) => state?.returns)
 
   const loading = profileLoading || ordersLoading
   const error = profileError || ordersError
@@ -244,6 +259,34 @@ export default function CustomerProfile() {
 
       {/* Orders table */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {toast && (
+          <div className="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
+            {toast}
+          </div>
+        )}
+
+        {myReturns?.length > 0 && (
+          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent return requests</h3>
+            <ul className="space-y-2 text-sm text-gray-600">
+              {myReturns.slice(0, 5).map((r) => (
+                <li key={r._id} className="flex justify-between gap-2">
+                  <span>
+                    Order #{r.orderNumber} · {r.items?.length} item(s)
+                  </span>
+                  <span className="capitalize font-medium text-gray-800">{r.status}</span>
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/return-refund-policy"
+              className="mt-2 inline-block text-xs text-indigo-600 hover:text-indigo-500"
+            >
+              Return policy
+            </Link>
+          </div>
+        )}
+
         <h2 className="text-xl font-bold text-gray-900 mb-6">My Orders</h2>
 
         {loading ? (
@@ -353,6 +396,14 @@ export default function CustomerProfile() {
                               Cancel
                             </button>
                           )}
+                          {order.status === 'delivered' && (
+                            <button
+                              onClick={() => setReturnOrder(order)}
+                              className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                            >
+                              Return
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -409,13 +460,30 @@ export default function CustomerProfile() {
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onCancel={handleCancelOrder}
+        onReturn={(order) => {
+          setSelectedOrder(null)
+          setReturnOrder(order)
+        }}
       />
+
+      {returnOrder && (
+        <ReturnRequestModal
+          order={returnOrder}
+          onClose={() => setReturnOrder(null)}
+          onSuccess={(msg) => {
+            setToast(msg || 'Return request submitted.')
+            dispatch(fetchMyReturnsAction())
+            dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
+            setTimeout(() => setToast(''), 5000)
+          }}
+        />
+      )}
 
       {/* Cancel confirmation modal */}
       {confirmCancel && (
         <ConfirmModal
           title="Cancel Order"
-          message="Are you sure you want to cancel this order? This action cannot be undone."
+          message="Are you sure you want to cancel this order? If you already paid, a refund will be issued to your original payment method within 5–7 business days."
           onConfirm={confirmCancelOrder}
           onCancel={() => setConfirmCancel(null)}
         />

@@ -11,6 +11,12 @@ const chatMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    checkout: {
+      checkoutUrl: { type: String },
+      orderNumber: { type: String },
+      orderId: { type: String },
+      totalPrice: { type: Number },
+    },
   },
   { timestamps: true }
 )
