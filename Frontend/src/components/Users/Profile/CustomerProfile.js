@@ -6,6 +6,12 @@ import { fetchUserOrdersAction, cancelOrderAction } from '../../../redux/slices/
 import { fetchMyReturnsAction } from '../../../redux/slices/returns/returnsSlice'
 import CustomerDetails from './CustomerDetails'
 import ReturnRequestModal from './ReturnRequestModal'
+import {
+  getPaymentStatusLabel,
+  getPaymentStatusColor,
+  getRefundSummary,
+  REFUND_TIMELINE,
+} from '../../../utils/orderDisplay'
 
 const statusColor = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -18,6 +24,39 @@ const statusColor = {
 const paymentStatusColor = {
   paid: 'bg-green-100 text-green-800',
   'Not paid': 'bg-red-100 text-red-800',
+}
+
+function CancelledOrderNotice({ order }) {
+  const refund = getRefundSummary(order)
+
+  return (
+    <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-4 text-center">
+      <p className="text-sm font-medium text-red-800">This order has been cancelled</p>
+      {refund ? (
+        <div className="mt-2 space-y-1">
+          <p className="text-sm text-amber-900">
+            {refund.amountLabel ? (
+              <>
+                A refund of <span className="font-semibold">{refund.amountLabel}</span> is in
+                progress to your original payment method.
+              </>
+            ) : (
+              <>Your refund is in progress to your original payment method.</>
+            )}
+          </p>
+          <p className="text-xs text-stone-600">
+            It typically appears within {refund.timeline || REFUND_TIMELINE}.
+          </p>
+        </div>
+      ) : order.paymentStatus === 'paid' ? (
+        <p className="mt-2 text-xs text-stone-600">
+          Refund details will appear here once processed. Contact support if you have questions.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-stone-600">No payment was taken for this order.</p>
+      )}
+    </div>
+  )
 }
 
 function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
@@ -128,11 +167,7 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
                 Request Return
               </button>
             )}
-            {order.status === 'cancelled' && (
-              <p className="mt-4 text-center text-sm font-medium text-red-600">
-                This order has been cancelled
-              </p>
-            )}
+            {order.status === 'cancelled' && <CancelledOrderNotice order={order} />}
           </div>
         </div>
       </div>
@@ -207,9 +242,13 @@ export default function CustomerProfile() {
   }
 
   const confirmCancelOrder = () => {
-    dispatch(cancelOrderAction(confirmCancel)).then(() => {
+    dispatch(cancelOrderAction(confirmCancel)).then((result) => {
       setConfirmCancel(null)
       setSelectedOrder(null)
+      if (cancelOrderAction.fulfilled.match(result)) {
+        setToast(result.payload?.message || 'Order cancelled.')
+        setTimeout(() => setToast(''), 6000)
+      }
       dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
     })
   }
@@ -350,12 +389,12 @@ export default function CustomerProfile() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                            paymentStatusColor[order.paymentStatus] ||
-                            'bg-gray-100 text-gray-800'
-                          }`}
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getPaymentStatusColor(
+                            order,
+                            paymentStatusColor
+                          )}`}
                         >
-                          {order.paymentStatus}
+                          {getPaymentStatusLabel(order)}
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">

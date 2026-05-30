@@ -1,5 +1,12 @@
 import { Link } from 'react-router-dom'
 
+const INTERNAL_PATH =
+  /^\/(products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant)(?:[?#]|$)/
+
+function isAppRoute(href) {
+  return typeof href === 'string' && INTERNAL_PATH.test(href)
+}
+
 export function formatMessage(text) {
   if (!text) return text
 
@@ -68,7 +75,7 @@ export function formatMessage(text) {
 function renderTextSegment(segment, keyPrefix) {
   const parts = []
   const regex =
-    /(\[([^\]]+)\]\((\/products\/[a-f0-9]{24}|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})|(https:\/\/checkout\.stripe\.com\/[^\s)]+)/gi
+    /(\[([^\]]+)\]\((\/(?:products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant)[^)]*|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})|(https:\/\/checkout\.stripe\.com\/[^\s)]+)/gi
   let lastIndex = 0
   let match
 
@@ -80,10 +87,10 @@ function renderTextSegment(segment, keyPrefix) {
       const href = match[3]
       const label = match[2]
       parts.push(
-        href.startsWith('/products/') ? (
+        isAppRoute(href) ? (
           <Link
             key={`${keyPrefix}-lnk-${match.index}`}
-            to={href}
+            to={href.split(/[?#]/)[0]}
             className="text-indigo-600 hover:text-indigo-800 font-medium underline"
           >
             {label}

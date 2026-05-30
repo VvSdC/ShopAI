@@ -218,15 +218,28 @@ export const updateOrderCtrl = asyncHandler(async (req, res) => {
   const id = req.params.id
   const { status } = req.body
 
+  const order = await Order.findById(id)
+  if (!order) {
+    throw new Error('Order not found')
+  }
+
+  if (order.status === 'cancelled') {
+    res.status(400)
+    throw new Error('Cancelled orders cannot be updated')
+  }
+
+  const allowedStatuses = ['pending', 'processing', 'shipped', 'delivered']
+  if (!allowedStatuses.includes(status)) {
+    res.status(400)
+    throw new Error('Invalid order status')
+  }
+
   const update = { status }
   if (status === 'delivered') {
-    update.deliveredAt = new Date()
+    update.deliveredAt = order.deliveredAt || new Date()
   }
 
   const updatedOrder = await Order.findByIdAndUpdate(id, update, { new: true })
-  if (!updatedOrder) {
-    throw new Error('Order not found')
-  }
 
   res.status(200).json({
     success: true,

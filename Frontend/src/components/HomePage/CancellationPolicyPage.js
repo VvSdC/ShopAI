@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import {
+  TruckIcon,
+  XCircleIcon,
+  CreditCardIcon,
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentListIcon,
+} from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
-import PolicyPageLayout from './PolicyPageLayout'
+import PolicyPageLayout, {
+  PolicySection,
+  PolicySteps,
+  PolicyList,
+  PolicyLink,
+  PolicyCta,
+} from './PolicyPageLayout'
 
 export default function CancellationPolicyPage() {
   const [windowNote, setWindowNote] = useState('pending or processing')
@@ -11,62 +23,75 @@ export default function CancellationPolicyPage() {
       .get('/policy')
       .then(({ data }) => {
         const statuses = data?.policy?.cancellation?.allowedStatuses || []
-        if (statuses.length) {
-          setWindowNote(statuses.join(' or '))
-        }
+        if (statuses.length) setWindowNote(statuses.join(' or '))
       })
       .catch(() => {})
   }, [])
 
   return (
     <PolicyPageLayout
+      badge="ShopAI Policy"
       title="Cancellation Policy"
-      subtitle="When and how you can cancel an order before it ships."
+      subtitle="Cancel an order before it ships — we'll refund paid orders automatically through Stripe."
     >
-      <h2>Before your order ships</h2>
-      <p>
-        You may cancel an order while it is still <strong>{windowNote}</strong> — that is,
-        before it has been shipped. Once an order is shipped or delivered, cancellation is no
-        longer available; you may be eligible for a return instead (see our{' '}
-        <Link to="/return-refund-policy">Return &amp; Refund Policy</Link>).
-      </p>
+      <PolicySection icon={TruckIcon} title="Before your order ships">
+        <p>
+          You may cancel while your order is still <strong className="text-stone-800">{windowNote}</strong> —
+          that is, before it has been shipped. Once shipped or delivered, cancellation is not available;
+          you may qualify for a return instead.
+        </p>
+        <p className="text-sm">
+          See our <PolicyLink to="/return-refund-policy">Return &amp; Refund Policy</PolicyLink> for
+          delivered orders.
+        </p>
+      </PolicySection>
 
-      <h2>How to cancel</h2>
-      <ol>
-        <li>Sign in to your ShopAI account.</li>
-        <li>
-          Go to <Link to="/customer-profile">My Profile</Link> and open your order details.
-        </li>
-        <li>
-          If the order is eligible, tap <strong>Cancel Order</strong> and confirm.
-        </li>
-      </ol>
-      <p>
-        You can also ask our{' '}
-        <Link to="/assistant">AI shopping assistant</Link> about order status — use the website
-        for cancellations.
-      </p>
+      <PolicySection icon={ClipboardDocumentListIcon} title="How to cancel">
+        <PolicySteps
+          steps={[
+            <>Sign in to your ShopAI account.</>,
+            <>
+              Open <PolicyLink to="/customer-profile">My Profile</PolicyLink> and find your order.
+            </>,
+            <>Tap <strong className="text-stone-800">Cancel Order</strong> and confirm.</>,
+            <>
+              Or ask <PolicyLink to="/assistant">Shop with AI</PolicyLink> — the assistant can cancel
+              eligible orders in chat.
+            </>,
+          ]}
+        />
+      </PolicySection>
 
-      <h2>Refunds for cancelled orders</h2>
-      <p>
-        If you already paid and cancel before shipment, we process a full refund to your original
-        payment method (via Stripe). Refunds typically appear within{' '}
-        <strong>5–7 business days</strong>, depending on your bank or card issuer.
-      </p>
-      <p>
-        Unpaid orders are simply cancelled — no charge is made.
-      </p>
+      <PolicySection icon={CreditCardIcon} title="Refunds for cancelled orders">
+        <p>
+          If you already paid and cancel before shipment, we issue a full refund to your original payment
+          method via Stripe. Refunds typically appear within{' '}
+          <strong className="text-stone-800">5–7 business days</strong>, depending on your bank.
+        </p>
+        <p>Unpaid orders are simply cancelled — no charge is made.</p>
+      </PolicySection>
 
-      <h2>What we cannot cancel</h2>
-      <ul>
-        <li>Orders that have already been shipped or marked delivered.</li>
-        <li>Orders that have already been cancelled or fully refunded.</li>
-      </ul>
+      <PolicySection icon={XCircleIcon} title="What we cannot cancel">
+        <PolicyList
+          items={[
+            'Orders that have already been shipped or marked delivered.',
+            'Orders that are already cancelled or fully refunded.',
+          ]}
+        />
+      </PolicySection>
 
-      <h2>Need help?</h2>
-      <p>
-        If you cannot cancel in your account or believe there is an error, contact us through the
-        assistant or your order confirmation email.
+      <PolicyCta
+        title="Need help with an order?"
+        description="Check your orders, cancel before ship, or ask the assistant for order status."
+        links={[
+          { to: '/customer-profile', label: 'My Profile' },
+          { to: '/assistant', label: 'Shop with AI' },
+        ]}
+      />
+
+      <p className="text-center text-xs text-stone-500 flex items-center justify-center gap-1.5">
+        <ChatBubbleLeftRightIcon className="h-4 w-4" aria-hidden="true" />
+        Questions? Use the assistant or your order confirmation email.
       </p>
     </PolicyPageLayout>
   )

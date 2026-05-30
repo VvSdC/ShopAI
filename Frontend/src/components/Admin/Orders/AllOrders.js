@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersAction, updateOrderAction } from "../../../redux/slices/orders/ordersSlices";
+import { isAdminOrderStatusLocked, adminOrderStatusLockReason } from "../../../utils/orderDisplay";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
@@ -125,8 +126,13 @@ export default function AllOrders() {
                     <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">{order?.status}</td>
                     <td className="px-3 py-4 text-sm text-gray-500">{order?.totalPrice}</td>
                     <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      {order?.paymentStatus === "Not paid" ? (
-                        <span className="text-gray-300 cursor-not-allowed">Edit</span>
+                      {isAdminOrderStatusLocked(order) ? (
+                        <span
+                          className="text-gray-300 cursor-not-allowed"
+                          title={adminOrderStatusLockReason(order)}
+                        >
+                          Edit
+                        </span>
                       ) : editingOrderId === order?._id ? (
                         <select
                           autoFocus

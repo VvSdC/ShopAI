@@ -27,6 +27,12 @@ import {
   addShippingAddress,
   updateShippingAddress,
 } from './addressService.js'
+import {
+  getOrderCancelReturnStatus,
+  cancelOrderByReference,
+  submitReturnByReference,
+  resolveOrderForUser,
+} from './orderActionsService.js'
 
 export const toolDefinitions = [
   {
@@ -329,6 +335,82 @@ export const toolDefinitions = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_order_cancel_return_status',
+      description:
+        'Check whether an order can be cancelled (pending/processing) or returned (delivered within return window). Use when user wants to cancel, delete, or return an order. Returns availableAction: cancel | return | none.',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_number: {
+            type: 'string',
+            description: 'Order number e.g. ABC12345',
+          },
+          order_id: { type: 'string', description: 'Order MongoDB ID' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_order',
+      description:
+        'Cancel an order before it ships (pending/processing only). If already cancelled, reports that. Refunds paid orders automatically. Get confirmation from user first unless they clearly asked to cancel.',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_number: { type: 'string' },
+          order_id: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'submit_return_request',
+      description:
+        'Submit a return request for a delivered order within the return window (3 days from delivery). Requires reason_code from returnReasons list. Default return_all=true returns all eligible items. Admin must approve before refund.',
+      parameters: {
+        type: 'object',
+        properties: {
+          order_number: { type: 'string' },
+          order_id: { type: 'string' },
+          reason_code: {
+            type: 'string',
+            description:
+              'One of: wrong_item, damaged, size_fit, not_as_described, poor_quality, late_delivery, ordered_by_mistake, better_price, missing_parts, changed_mind, other',
+          },
+          reason_comment: {
+            type: 'string',
+            description: 'Required when reason_code is other',
+          },
+          return_all: {
+            type: 'boolean',
+            description: 'Return all eligible items (default true)',
+          },
+          items: {
+            type: 'array',
+            description: 'Optional partial return lines',
+            items: {
+              type: 'object',
+              properties: {
+                line_id: { type: 'string' },
+                qty: { type: 'number' },
+                reason_code: { type: 'string' },
+                reason_comment: { type: 'string' },
+              },
+              required: ['line_id', 'qty'],
+            },
+          },
+        },
+        required: ['reason_code'],
+      },
+    },
+  },
 ]
 
 const toolExecutors = {
@@ -341,6 +423,7 @@ const toolExecutors = {
     if (!orders.length) return { message: 'You have no orders yet.' }
 
     return orders.map((o) => ({
+      orderId: String(o._id),
       orderNumber: o.orderNumber,
       status: o.status,
       paymentStatus: o.paymentStatus,
@@ -354,6 +437,7 @@ const toolExecutors = {
       })),
       coupon: o.coupon || null,
       orderedOn: o.createdAt,
+      deliveredAt: o.deliveredAt || null,
     }))
   },
 
@@ -368,6 +452,7 @@ const toolExecutors = {
     if (!order) return { error: 'Order not found. Make sure the order number is correct.' }
 
     return {
+      orderId: String(order._id),
       orderNumber: order.orderNumber,
       status: order.status,
       paymentStatus: order.paymentStatus,
@@ -375,6 +460,7 @@ const toolExecutors = {
       totalPrice: order.totalPrice,
       currency: order.currency || 'INR',
       coupon: order.coupon || null,
+      deliveredAt: order.deliveredAt || null,
       items: order.orderItems?.map((i) => ({
         name: i.name,
         qty: i.qty,
@@ -594,6 +680,22 @@ const toolExecutors = {
       ? args.address_index
       : undefined
     return previewCheckout(userId, { addressIndex })
+  },
+
+  async get_order_cancel_return_status(userId, args) {
+    const order = await resolveOrderForUser(userId, {
+      order_id: args.order_id,
+      order_number: args.order_number,
+    })
+    return getOrderCancelReturnStatus(order)
+  },
+
+  async cancel_order(userId, args) {
+    return cancelOrderByReference(userId, args)
+  },
+
+  async submit_return_request(userId, args) {
+    return submitReturnByReference(userId, args)
   },
 
   async create_checkout_session(userId, args) {
