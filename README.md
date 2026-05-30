@@ -382,4 +382,5 @@ For major features, create a branch and include clear testing steps.
 
 <p align="center">
   Built by <a href="https://github.com/VvSdC"><strong>VVSD Charan</strong></a>
+  , <a href="https://github.com/pavankumar130"><strong>Pavan Meravath</strong></a>
 </p>
