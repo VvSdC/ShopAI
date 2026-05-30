@@ -20,9 +20,14 @@ import userRoutes from '../routes/usersRoute.js'
 import Order from '../model/Order.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
+import cartRouter from '../routes/cartRouter.js'
 import { processPaidOrder } from '../services/orderFulfillment.js'
 
-dbConnect()
+dbConnect().catch((err) => {
+  console.error(err.message)
+  process.exit(1)
+})
+
 const app = express()
 
 app.set('trust proxy', 1)
@@ -170,6 +175,7 @@ app.use('/shopai/colors/', apiLimiter, colorRouter)
 app.use('/shopai/reviews/', apiLimiter, reviewRouter)
 app.use('/shopai/orders/', apiLimiter, orderRouter)
 app.use('/shopai/coupons/', apiLimiter, couponsRouter)
+app.use('/shopai/cart/', apiLimiter, cartRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)
 //err middleware
 app.use(notFound)

@@ -18,7 +18,7 @@ import {
   removeOrderItemQty,
   validateCartAction,
 } from '../../../redux/slices/cart/cartSlices'
-import { fetchCouponAction } from '../../../redux/slices/coupons/couponsSlice'
+import { applyCartCouponAction } from '../../../redux/slices/cart/cartSlices'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import SuccessMsg from '../../SuccessMsg/SuccessMsg'
@@ -340,7 +340,7 @@ export default function ShoppingCart() {
   const applyCouponSubmit = (e) => {
     e.preventDefault()
     if (!couponInput.trim()) return
-    dispatch(fetchCouponAction(couponInput.trim()))
+    dispatch(applyCartCouponAction(couponInput.trim()))
     setCouponInput('')
   }
 
@@ -365,12 +365,10 @@ export default function ShoppingCart() {
 
   const changeOrderItemQtyHandler = (productId, color, size, qty) => {
     dispatch(changeOrderItemQty({ productId, color, size, qty }))
-    dispatch(getCartItemsFromLocalStorageAction())
   }
 
   const removeOrderItemQtyHandler = (productId, color, size) => {
     dispatch(removeOrderItemQty({ productId, color, size }))
-    dispatch(getCartItemsFromLocalStorageAction())
   }
 
   const removeAllUnavailable = () => {

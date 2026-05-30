@@ -5,13 +5,14 @@ import {
   ShoppingCartIcon,
   UserIcon,
   XMarkIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon } from '@heroicons/react/24/solid'
 import { Link } from 'react-router-dom'
 import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
-import { getCartItemsFromLocalStorageAction } from '../../redux/slices/cart/cartSlices'
+import { syncAndLoadCartAction } from '../../redux/slices/cart/cartSlices'
 import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
@@ -33,17 +34,14 @@ export default function Navbar() {
   const categoriesToDisplay = sortedCategories.slice(0, 4)
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  //get data from store
-  useEffect(() => {
-    dispatch(getCartItemsFromLocalStorageAction())
-  }, [dispatch])
   const { cartItems } = useSelector((state) => state?.carts)
-  //get cart items from local storage
-  //get login user from redux store
   const { userAuth } = useSelector((state) => state?.users)
   const user = userAuth?.userInfo
-
   const isLoggedIn = userAuth?.isLoggedIn
+
+  useEffect(() => {
+    dispatch(syncAndLoadCartAction())
+  }, [dispatch, isLoggedIn])
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction()).then(() => {
@@ -185,6 +183,15 @@ export default function Navbar() {
                   >
                     ABOUT
                   </Link>
+                  {isLoggedIn && (
+                    <Link
+                      to="/assistant"
+                      className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                    >
+                      <SparklesIcon className="h-4 w-4" />
+                      SHOP WITH AI
+                    </Link>
+                  )}
                 </div>
 
                 {/* mobile links register/login */}
@@ -332,6 +339,23 @@ export default function Navbar() {
                   >
                     About
                   </Link>
+                  {isLoggedIn ? (
+                    <Link
+                      to="/assistant"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                    >
+                      <SparklesIcon className="h-4 w-4" />
+                      Shop with AI
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900"
+                    >
+                      <SparklesIcon className="h-4 w-4" />
+                      Shop with AI
+                    </Link>
+                  )}
                 </div>
 
                 {/* Right: admin, profile, cart */}

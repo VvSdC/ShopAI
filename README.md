@@ -46,7 +46,7 @@ Most e-commerce templates give you a storefront. **ShopAI gives you a brain.**
 
 | Feature | Description |
 |---------|-------------|
-| AI Shopping Assistant | Conversational chatbot with tool-calling — searches products, checks orders, finds coupons, retrieves shipping addresses |
+| AI Shopping Assistant | Full-page **Shop with AI** experience with saved conversation history, plus a quick floating widget while browsing |
 | Multi-Provider LLM Fallback | Cerebras → Hugging Face → OpenRouter — automatic failover on rate limits with configurable models |
 | AI Review Moderation | Async content moderation checking for toxicity, external URLs, PII, and injection attempts |
 | Semantic Review Tagging | Automatic extraction of tags like "good quality", "fast delivery", "value for money" from review text |
@@ -59,7 +59,7 @@ Most e-commerce templates give you a storefront. **ShopAI gives you a brain.**
 |---------|-------------|
 | Product Catalog | Filter by category, brand, color, size, price range with full-text search and pagination |
 | Multi-Image Products | Cloudinary-powered image uploads with multiple photos per product |
-| Persistent Cart | LocalStorage-backed cart with quantity management, stock validation, and unavailable item handling |
+| Persistent Cart | Server-synced cart for logged-in users (MongoDB) with localStorage fallback; quantity management, stock validation, and coupon on cart |
 | Stripe Checkout | Secure payment sessions with INR support, webhook verification, and automatic order updates |
 | Server-Side Price Enforcement | Prices always come from the database — never trust the client |
 | Coupon System | Percentage-based discounts with date validation, server-side enforcement, and public promotion banner (code hidden) |

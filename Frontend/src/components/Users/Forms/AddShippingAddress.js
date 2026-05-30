@@ -58,7 +58,7 @@ const AddShippingAddress = ({ onAddressSelect }) => {
 
   const startAdd = () => {
     setEditingId('new')
-    setFormData(emptyForm)
+    setFormData({ ...emptyForm, country: 'IN' })
   }
 
   const startEdit = (addr) => {
@@ -82,16 +82,39 @@ const AddShippingAddress = ({ onAddressSelect }) => {
 
   const onSubmit = (e) => {
     e.preventDefault()
+
+    const payload = {
+      ...formData,
+      country: formData.country || 'IN',
+    }
+
+    const required = [
+      ['firstName', 'First name'],
+      ['lastName', 'Last name'],
+      ['address', 'Address'],
+      ['city', 'City'],
+      ['province', 'State / Province'],
+      ['postalCode', 'Postal code'],
+      ['phone', 'Phone'],
+    ]
+    const missing = required.filter(([key]) => !String(payload[key] || '').trim())
+    if (missing.length) {
+      window.alert(`Please fill in: ${missing.map(([, label]) => label).join(', ')}`)
+      return
+    }
+
     if (editingId === 'new') {
-      dispatch(updateUserShippingAddressAction(formData)).then(() => {
+      dispatch(updateUserShippingAddressAction(payload)).then((result) => {
+        if (updateUserShippingAddressAction.rejected.match(result)) return
         setEditingId(null)
         setFormData(emptyForm)
         dispatch(getUserProfileAction())
       })
     } else {
       dispatch(
-        editShippingAddressAction({ addressId: editingId, ...formData })
-      ).then(() => {
+        editShippingAddressAction({ addressId: editingId, ...payload })
+      ).then((result) => {
+        if (editShippingAddressAction.rejected.match(result)) return
         setEditingId(null)
         setFormData(emptyForm)
         dispatch(getUserProfileAction())

@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 
 export default function SiteFooter() {
   const { pathname } = useLocation()
-  if (pathname.startsWith('/admin')) {
+  if (pathname.startsWith('/admin') || pathname === '/assistant') {
     return null
   }
 

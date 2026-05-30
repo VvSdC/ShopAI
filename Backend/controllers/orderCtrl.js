@@ -5,14 +5,12 @@ import Stripe from 'stripe'
 import Order from '../model/Order.js'
 import Product from '../model/Product.js'
 import User from '../model/User.js'
-import Coupon from '../model/Coupon.js'
-import { isCouponLive, isCouponNotStarted, isCouponExpired } from '../utils/couponDates.js'
-import { findLiveCouponByCode } from '../utils/couponQueries.js'
 import {
   processPaidOrder,
   resendOrderConfirmation,
   parseOrderId,
 } from '../services/orderFulfillment.js'
+import { createCheckoutSession } from '../services/orderCheckout.js'
 //@desc create orders
 //@route POST /api/v1/orders
 //@access private
@@ -20,145 +18,25 @@ import {
 //stripe instance
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
-function productIdKey(id) {
-  if (id == null) return ''
-  return String(id)
-}
-
 export const createOrderCtrl = asyncHandler(async (req, res) => {
   const couponCode = req?.query?.coupon
-  let couponFound = null
-  let discountRate = 0
-
-  if (couponCode) {
-    couponFound = await findLiveCouponByCode(couponCode)
-    if (!couponFound) {
-      throw new Error('Coupon does not exist or is not valid')
-    }
-    if (isCouponNotStarted(couponFound)) {
-      throw new Error('This coupon is not active yet')
-    }
-    if (isCouponExpired(couponFound)) {
-      throw new Error('This coupon has expired')
-    }
-    if (!isCouponLive(couponFound)) {
-      throw new Error('This coupon is not valid')
-    }
-    discountRate = couponFound.discount / 100
-  }
-
   const { orderItems, shippingAddress } = req.body
-  console.log(req.body)
-  //Find the user
+
   const user = await User.findById(req.userAuthId)
-  //Check if user has shipping address
-  if (!user?.hasShippingAddress) {
+  if (!user?.hasShippingAddress && !shippingAddress) {
     throw new Error('Please provide shipping address')
   }
-  //Check if order is not empty
   if (orderItems?.length <= 0) {
     throw new Error('No Order Items')
   }
 
-  //Validate each order item against current stock
-  const orderProductIds = orderItems.map((item) => productIdKey(item._id)).filter(Boolean)
-  const orderProducts = await Product.find({ _id: { $in: orderProductIds } })
-  const orderProductMap = {}
-  orderProducts.forEach((p) => {
-    orderProductMap[productIdKey(p._id)] = p
-  })
-
-  const validatedItems = []
-  let recalculatedTotal = 0
-  for (const item of orderItems) {
-    const product = orderProductMap[productIdKey(item._id)]
-    if (!product) continue // skip deleted products
-    const qtyLeft = product.totalQty - product.totalSold
-    if (qtyLeft <= 0) continue // skip out of stock
-    const finalQty = Math.min(item.qty, qtyLeft)
-    const trustedPrice = product.price
-    validatedItems.push({
-      ...item,
-      price: trustedPrice,
-      qty: finalQty,
-      totalPrice: trustedPrice * finalQty,
-    })
-    recalculatedTotal += trustedPrice * finalQty
-  }
-
-  if (validatedItems.length <= 0) {
-    throw new Error('All items in your cart are unavailable or out of stock')
-  }
-
-  const finalTotal = discountRate > 0
-    ? Math.round(recalculatedTotal * (1 - discountRate) * 100) / 100
-    : recalculatedTotal
-
-  const order = await Order.create({
-    user: user?._id,
-    orderItems: validatedItems,
+  const { url } = await createCheckoutSession({
+    userId: req.userAuthId,
+    orderItems,
     shippingAddress,
-    totalPrice: finalTotal,
-    ...(couponFound && { coupon: couponFound.code }),
+    couponCode,
   })
-
-  //push order into user
-  user.orders.push(order?._id)
-  await user.save()
-
-  //make payment (stripe)
-  //convert order items to have same structure that stripe need
-  const convertedOrders = validatedItems.map((item) => {
-    const discountedPrice = discountRate > 0
-      ? Math.round(item.price * (1 - discountRate) * 100)
-      : item.price * 100
-    return {
-      price_data: {
-        currency: 'inr',
-        product_data: {
-          name: item?.name,
-          description: item?.description,
-        },
-        unit_amount: discountedPrice,
-      },
-      quantity: item?.qty,
-    }
-  })
-
-  // Build address object from user's shipping address (Indian export compliance)
-  const addr = user?.shippingAddress || {}
-  const stripeAddress = {
-    line1: addr.address || 'N/A',
-    city: addr.city || '',
-    state: addr.province || '',
-    postal_code: addr.postalCode || '',
-    country: addr.country || 'IN',
-  }
-
-  // Create a Stripe Customer with name, email, billing & shipping address
-  // This satisfies Indian export regulations and pre-fills + locks email
-  const stripeCustomer = await stripe.customers.create({
-    name: user.fullname,
-    email: user.email,
-    address: stripeAddress,
-    shipping: {
-      name: `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
-      phone: addr.phone || '',
-      address: stripeAddress,
-    },
-  })
-
-  const session = await stripe.checkout.sessions.create({
-    line_items: convertedOrders,
-    customer: stripeCustomer.id,
-    metadata: {
-      orderId: order?._id.toString(),
-    },
-    mode: 'payment',
-    success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/cancel`,
-  })
-  res.send({ url: session.url })
+  res.send({ url })
 })
 
 //@desc verify payment by Stripe session ID and update order

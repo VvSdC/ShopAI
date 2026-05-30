@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import ManageCoupons from "./components/Admin/Coupons/ManageCoupons";
 import AddCoupon from "./components/Admin/Coupons/AddCoupon";
@@ -35,18 +35,19 @@ import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
+import AssistantPage from "./components/ChatBot/AssistantPage";
 import ForgotPassword from "./components/Users/Forms/ForgotPassword";
 import SiteFooter from "./components/Layout/SiteFooter";
 
+function AppShell() {
+  const location = useLocation();
+  const hideFloatingChat = location.pathname === "/assistant";
 
-const App = () => {
   return (
-    <BrowserRouter>
-      <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-
       <main className="flex-1">
-      <Routes>
+        <Routes>
         {/* admin route */}
         <Route
           path="admin"
@@ -187,6 +188,14 @@ const App = () => {
         <Route path="/products/:id" element={<Product />} />
         <Route path="/all-categories" element={<AllCategories />} />
         <Route path="/success" element={<ThanksForOrdering />} />
+        <Route
+          path="/assistant"
+          element={
+            <AuthRoute>
+              <AssistantPage />
+            </AuthRoute>
+          }
+        />
         {/* review */}
         <Route
           path="/add-review/:id"
@@ -222,10 +231,15 @@ const App = () => {
       </Routes>
       </main>
       <SiteFooter />
-      <ChatWidget />
-      </div>
-    </BrowserRouter>
+      {!hideFloatingChat && <ChatWidget />}
+    </div>
   );
-};
+}
+
+const App = () => (
+  <BrowserRouter>
+    <AppShell />
+  </BrowserRouter>
+);
 
 export default App;

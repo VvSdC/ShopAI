@@ -5,6 +5,28 @@ import Brand from '../model/Brand.js'
 import Coupon from '../model/Coupon.js'
 import User from '../model/User.js'
 import { isCouponLive } from '../utils/couponDates.js'
+import {
+  getCart,
+  addItem,
+  updateItemQty,
+  applyCoupon,
+  removeCoupon,
+  resolveOptionMatch,
+} from './cartService.js'
+import {
+  previewCheckout,
+  checkoutFromCart,
+} from './checkoutFromCart.js'
+import {
+  buildProductSearchFilter,
+  rankProductsByQuery,
+  mapProductSearchResult,
+} from './productSearch.js'
+import {
+  listShippingAddresses,
+  addShippingAddress,
+  updateShippingAddress,
+} from './addressService.js'
 
 export const toolDefinitions = [
   {
@@ -145,10 +167,165 @@ export const toolDefinitions = [
     function: {
       name: 'get_my_addresses',
       description:
-        "Get the current user's saved shipping addresses. Use when user asks about their addresses or delivery info.",
+        "Get the current user's saved shipping addresses with index numbers for checkout. Use when user asks about their addresses or delivery info.",
       parameters: {
         type: 'object',
         properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_shipping_address',
+      description:
+        'Save a new shipping address to the user account. Use when the user provides delivery address details during checkout or asks to add an address. Parse city, state/province, and pincode from free-text when possible. Use profile name if first/last name not given.',
+      parameters: {
+        type: 'object',
+        properties: {
+          first_name: { type: 'string', description: 'First name' },
+          last_name: { type: 'string', description: 'Last name' },
+          address: { type: 'string', description: 'Street address line' },
+          city: { type: 'string', description: 'City' },
+          province: { type: 'string', description: 'State or province (e.g. Telangana)' },
+          postal_code: { type: 'string', description: 'Postal / PIN code' },
+          country: { type: 'string', description: 'Country code or name (default India/IN)' },
+          phone: { type: 'string', description: 'Contact phone number' },
+        },
+        required: ['address', 'city', 'province', 'postal_code'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_shipping_address',
+      description:
+        'Update an existing saved shipping address by index (from get_my_addresses). Use when user wants to change their delivery address.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address_index: {
+            type: 'number',
+            description: 'Zero-based index of the address to update',
+          },
+          first_name: { type: 'string' },
+          last_name: { type: 'string' },
+          address: { type: 'string' },
+          city: { type: 'string' },
+          province: { type: 'string' },
+          postal_code: { type: 'string' },
+          country: { type: 'string' },
+          phone: { type: 'string' },
+        },
+        required: ['address_index'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_cart',
+      description:
+        "Get the current user's shopping cart with items, subtotal, coupon, and total. Use when user asks about their cart or before checkout.",
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_to_cart',
+      description:
+        'Add a product to the cart. Requires product_id, size, color, and qty. Call get_product_details first if size/color are unknown. If the same product+size+color is already in cart, this SETS the quantity (does not stack duplicates). Do NOT call again on checkout confirmation — use get_cart instead.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product MongoDB ID' },
+          size: { type: 'string', description: 'Size e.g. M, L' },
+          color: { type: 'string', description: 'Color name' },
+          qty: { type: 'number', description: 'Quantity (default 1)' },
+        },
+        required: ['product_id', 'size', 'color'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_cart_item',
+      description:
+        'Update quantity of a cart line or remove it (qty 0). Identified by product_id, color, and size.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string' },
+          color: { type: 'string' },
+          size: { type: 'string' },
+          qty: { type: 'number', description: 'New quantity; use 0 to remove' },
+        },
+        required: ['product_id', 'color', 'size', 'qty'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_coupon_to_cart',
+      description:
+        'Apply a coupon code to the server cart. Validates the code is live before applying.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', description: 'Coupon code' },
+        },
+        required: ['code'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_coupon_from_cart',
+      description: 'Remove the applied coupon from the cart.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'preview_checkout',
+      description:
+        'Preview checkout readiness: cart totals, shipping address, and missing requirements. Use before create_checkout_session.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address_index: {
+            type: 'number',
+            description:
+              'Index of saved shipping address (from get_my_addresses). Omit to use the most recently added address.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_checkout_session',
+      description:
+        'Create a Stripe checkout session from the server cart. Only after user explicitly confirms checkout and preview_checkout shows ready. Clears cart after order is created.',
+      parameters: {
+        type: 'object',
+        properties: {
+          address_index: {
+            type: 'number',
+            description:
+              'Index of saved shipping address (from get_my_addresses). Omit to use the most recently added address.',
+          },
+        },
       },
     },
   },
@@ -211,43 +388,19 @@ const toolExecutors = {
   },
 
   async search_products(_userId, args) {
-    const conditions = []
-
-    if (args.query) {
-      const words = args.query.trim().split(/\s+/).filter(Boolean)
-      if (words.length > 0) {
-        const wordConditions = words.map((w) => {
-          const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          return {
-            $or: [
-              { name: { $regex: escaped, $options: 'i' } },
-              { description: { $regex: escaped, $options: 'i' } },
-              { category: { $regex: escaped, $options: 'i' } },
-              { brand: { $regex: escaped, $options: 'i' } },
-              { tags: { $regex: escaped, $options: 'i' } },
-            ],
-          }
-        })
-        conditions.push({ $or: wordConditions })
-      }
-    }
-    if (args.category) conditions.push({ category: { $regex: args.category, $options: 'i' } })
-    if (args.brand) conditions.push({ brand: { $regex: args.brand, $options: 'i' } })
-    if (args.color) conditions.push({ colors: { $regex: args.color, $options: 'i' } })
-    if (args.min_price || args.max_price) {
-      const priceFilter = {}
-      if (args.min_price) priceFilter.$gte = args.min_price
-      if (args.max_price) priceFilter.$lte = args.max_price
-      conditions.push({ price: priceFilter })
-    }
-
-    const filter = conditions.length > 0 ? { $and: conditions } : {}
+    const filter = buildProductSearchFilter(args)
     const limit = Math.min(Math.max(args.limit || 8, 1), 15)
-    const products = await Product.find(filter).limit(limit).select(
-      'name brand category price totalQty totalSold colors sizes images description tags'
-    )
+    const fetchLimit = Math.min(Math.max(limit * 4, 24), 50)
 
-    if (!products.length) {
+    const products = await Product.find(filter)
+      .limit(fetchLimit)
+      .select(
+        'name brand category price totalQty totalSold colors sizes images description tags'
+      )
+
+    const ranked = rankProductsByQuery(products, args.query || '').slice(0, limit)
+
+    if (!ranked.length) {
       return {
         count: 0,
         products: [],
@@ -256,28 +409,13 @@ const toolExecutors = {
       }
     }
 
-    const mapped = products.map((p) => {
-      const id = String(p._id)
-      return {
-        id,
-        name: p.name,
-        brand: p.brand,
-        category: p.category,
-        price: p.price,
-        inStock: p.totalQty - p.totalSold > 0,
-        qtyLeft: p.totalQty - p.totalSold,
-        colors: p.colors,
-        sizes: p.sizes,
-        image: p.images?.[0] || null,
-        productUrl: `/products/${id}`,
-      }
-    })
+    const mapped = ranked.map(mapProductSearchResult)
 
     return {
       count: mapped.length,
       products: mapped,
       rule:
-        'List ONLY these products with EXACT names, prices, and stock from this response. Include each productUrl as a markdown link: [View product](productUrl). Never add products not in this list.',
+        'List products in the EXACT order returned (most relevant first). Use EXACT names, prices, and stock. Include each productUrl as a markdown link: [View product](productUrl). Never add products not in this list.',
     }
   },
 
@@ -340,21 +478,153 @@ const toolExecutors = {
   },
 
   async get_my_addresses(userId) {
-    const user = await User.findById(userId).select('shippingAddresses hasShippingAddress')
-    if (!user?.hasShippingAddress || !user.shippingAddresses?.length) {
-      return { message: 'You have no saved shipping addresses.' }
+    const result = await listShippingAddresses(userId)
+    if (result.message) return result
+    return result.addresses
+  },
+
+  async add_shipping_address(userId, args) {
+    return addShippingAddress(userId, args)
+  },
+
+  async update_shipping_address(userId, args) {
+    return updateShippingAddress(userId, args)
+  },
+
+  async get_cart(userId) {
+    const cart = await getCart(userId)
+    if (cart.isEmpty) {
+      return { message: 'Your cart is empty.', cart }
+    }
+    return {
+      ...cart,
+      summary: `${cart.lineCount} product line(s), ${cart.totalUnits} unit(s) total, ₹${cart.total}`,
+    }
+  },
+
+  async add_to_cart(userId, args) {
+    const qty = Math.max(1, Number(args.qty) || 1)
+    const productId = args.product_id
+
+    const product = await Product.findById(productId).select('colors sizes')
+    if (!product) {
+      return { error: 'Product not found.' }
     }
 
-    return user.shippingAddresses.map((a) => ({
-      id: a._id,
-      name: `${a.firstName || ''} ${a.lastName || ''}`.trim(),
-      address: a.address,
-      city: a.city,
-      province: a.province,
-      postalCode: a.postalCode,
-      country: a.country,
-      phone: a.phone,
-    }))
+    const matchedColor = resolveOptionMatch(args.color, product.colors)
+    const matchedSize = resolveOptionMatch(args.size, product.sizes)
+    if (!matchedColor || !matchedSize) {
+      return {
+        error: `Invalid variant. Colors: ${product.colors.join(', ')}. Sizes: ${product.sizes.join(', ')}.`,
+      }
+    }
+
+    const current = await getCart(userId)
+    const existing = current.items.find(
+      (item) =>
+        String(item._id) === String(productId) &&
+        item.color === matchedColor &&
+        item.size === matchedSize
+    )
+
+    let cart
+    if (existing) {
+      cart = await updateItemQty(userId, {
+        productId,
+        color: matchedColor,
+        size: matchedSize,
+        qty,
+      })
+    } else {
+      cart = await addItem(userId, {
+        productId,
+        color: matchedColor,
+        size: matchedSize,
+        qty,
+      })
+    }
+
+    return {
+      success: true,
+      message: existing
+        ? 'Cart quantity updated for this item'
+        : 'Item added to cart',
+      cart,
+      clientAction: 'sync_cart',
+    }
+  },
+
+  async update_cart_item(userId, args) {
+    const cart = await updateItemQty(userId, {
+      productId: args.product_id,
+      color: args.color,
+      size: args.size,
+      qty: args.qty,
+    })
+    return {
+      success: true,
+      message: args.qty === 0 ? 'Item removed from cart' : 'Cart updated',
+      cart,
+      clientAction: 'sync_cart',
+    }
+  },
+
+  async apply_coupon_to_cart(userId, args) {
+    const cart = await applyCoupon(userId, args.code)
+    return {
+      success: true,
+      message: `Coupon ${cart.couponCode} applied`,
+      cart,
+      clientAction: 'sync_cart',
+    }
+  },
+
+  async remove_coupon_from_cart(userId) {
+    const cart = await removeCoupon(userId)
+    return {
+      success: true,
+      message: 'Coupon removed from cart',
+      cart,
+      clientAction: 'sync_cart',
+    }
+  },
+
+  async preview_checkout(userId, args) {
+    const addressIndex = Number.isFinite(args.address_index)
+      ? args.address_index
+      : undefined
+    return previewCheckout(userId, { addressIndex })
+  },
+
+  async create_checkout_session(userId, args) {
+    const addressIndex = Number.isFinite(args.address_index)
+      ? args.address_index
+      : undefined
+    const preview = await previewCheckout(userId, { addressIndex })
+    if (!preview.ready) {
+      return {
+        error: 'Checkout not ready',
+        missing: preview.missing,
+        shippingAddressError: preview.shippingAddressError,
+        hint:
+          preview.missing?.includes('shipping_address')
+            ? 'Ask the user to add a shipping address in their profile, or use address index from get_my_addresses.'
+            : 'Cart may be empty — add items first.',
+      }
+    }
+
+    const session = await checkoutFromCart(userId, { addressIndex })
+
+    return {
+      success: true,
+      orderId: session.orderId,
+      orderNumber: session.orderNumber,
+      totalPrice: session.totalPrice,
+      checkoutUrl: session.url,
+      message:
+        'Checkout session created. Payment opens in a new tab. Cart has been cleared.',
+      clientAction: 'open_checkout',
+    }
   },
 }
 
@@ -366,6 +636,10 @@ export async function executeTool(toolName, userId, args) {
     return await executor(userId, args || {})
   } catch (err) {
     console.error(`Tool ${toolName} error:`, err.message)
-    return { error: 'Something went wrong while looking that up. Please try again.' }
+    return {
+      error:
+        err.message ||
+        'Something went wrong while looking that up. Please try again.',
+    }
   }
 }
