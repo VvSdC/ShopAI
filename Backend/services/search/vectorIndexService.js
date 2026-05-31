@@ -1,4 +1,5 @@
 import Product from '../../model/Product.js'
+import { config } from '../../config/env.js'
 import { buildProductSearchDocument } from './documentBuilder.js'
 import { embedText } from './embeddingService.js'
 
@@ -15,6 +16,7 @@ export async function indexProductEmbedding(productId) {
       embedding: vector,
       embeddingProvider: provider,
       embeddingModel: model,
+      embeddingVersion: config.search.embeddingVersion,
       embeddedAt: new Date(),
     }
   } catch (err) {

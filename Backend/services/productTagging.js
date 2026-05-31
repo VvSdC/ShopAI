@@ -71,14 +71,15 @@ export function tagProductInBackground(productId) {
 
       if (!content) return
 
-      const tags = parseTags(content)
+      const tags = content ? parseTags(content) : []
       if (tags.length > 0) {
         product.tags = tags
         await product.save()
-        indexProductEmbeddingInBackground(productId, 500)
       }
     } catch (err) {
       console.error(`Background tagging failed for product ${productId}:`, err.message)
+    } finally {
+      indexProductEmbeddingInBackground(productId, 500)
     }
   })()
 }

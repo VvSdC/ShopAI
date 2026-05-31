@@ -15,6 +15,7 @@ function buildMongoFilter(args) {
   if (args.category) filter.category = args.category
   if (args.brand) filter.brand = args.brand
   if (args.color) filter.colors = args.color
+  if (args.size) filter.sizes = args.size
   if (args.min_price || args.max_price) {
     filter.price = {}
     if (args.min_price) filter.price.$gte = args.min_price

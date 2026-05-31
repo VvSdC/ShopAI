@@ -40,6 +40,9 @@ export function buildProductSearchFilter(args) {
   if (args.color) {
     conditions.push({ colors: { $regex: args.color, $options: 'i' } })
   }
+  if (args.size) {
+    conditions.push({ sizes: args.size })
+  }
   if (args.min_price || args.max_price) {
     const priceFilter = {}
     if (args.min_price) priceFilter.$gte = args.min_price
@@ -96,17 +99,21 @@ export function rankProductsByQuery(products, query) {
 
 export function mapProductSearchResult(product) {
   const id = String(product._id)
+  const images = Array.isArray(product.images) ? product.images.filter(Boolean) : []
   return {
     id,
+    _id: product._id,
     name: product.name,
     brand: product.brand,
     category: product.category,
     price: product.price,
+    description: product.description,
     inStock: product.totalQty - product.totalSold > 0,
     qtyLeft: product.totalQty - product.totalSold,
     colors: product.colors,
     sizes: product.sizes,
-    image: product.images?.[0] || null,
+    images,
+    image: images[0] || null,
     productUrl: `/products/${id}`,
   }
 }

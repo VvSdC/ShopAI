@@ -1,10 +1,12 @@
 import app from './app/app.js'
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
+import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncService.js'
 
 async function startServer() {
   validateConfig({ strict: config.isProduction })
   await dbConnect()
+  scheduleEmbeddingSyncOnStartup()
 
   const server = app.listen(config.server.port, config.server.host, () => {
     console.log(

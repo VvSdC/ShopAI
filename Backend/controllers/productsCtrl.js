@@ -60,7 +60,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   await brandFound.save()
 
   tagProductInBackground(product._id)
-  indexProductEmbeddingInBackground(product._id, 8000)
+  indexProductEmbeddingInBackground(product._id, 2500)
 
   //send response
   res.json({
@@ -85,10 +85,14 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
       category: req.query.category,
       brand: req.query.brand,
       color: req.query.color,
-      min_price: req.query.minPrice ? Number(req.query.minPrice) : undefined,
-      max_price: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
+      size: req.query.size,
       inStock: req.query.inStock === 'true',
       limit,
+    }
+    if (req.query.price) {
+      const priceRange = req.query.price.split('-').map((n) => Number(n.trim()))
+      if (priceRange[0] >= 0) searchArgs.min_price = priceRange[0]
+      if (priceRange[1] >= 0) searchArgs.max_price = priceRange[1]
     }
 
     const { products, count, message } = await searchProducts(searchArgs)
@@ -199,10 +203,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     }
   )
 
-  if (product) {
-    tagProductInBackground(product._id)
-    indexProductEmbeddingInBackground(product._id, 8000)
-  }
+  if (product) tagProductInBackground(product._id)
 
   res.json({
     status: 'success',

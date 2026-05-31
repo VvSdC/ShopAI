@@ -79,6 +79,7 @@ const ProductSchema = new Schema(
     },
     embeddingProvider: String,
     embeddingModel: String,
+    embeddingVersion: Number,
     embeddedAt: Date,
   },
   {
