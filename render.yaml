@@ -1,0 +1,20 @@
+# Render Blueprint — use with branch: backend (app at repository root)
+services:
+  - type: web
+    name: shopai-api
+    runtime: node
+    branch: backend
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /health    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: true
+      - key: PORT
+        value: 2030
+      # Set these in the Render dashboard (or sync from env group):
+      # MONGO_URL, JWT_KEY, JWT_REFRESH_KEY, FRONTEND_URL,
+      # STRIPE_KEY, STRIPE_WEBHOOK_SECRET, OPENROUTER_API_KEY, etc.

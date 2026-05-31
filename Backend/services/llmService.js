@@ -1,5 +1,4 @@
-import dotenv from 'dotenv'
-dotenv.config()
+import { config } from '../config/env.js'
 
 /**
  * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace (router).
@@ -9,31 +8,30 @@ const providers = [
   {
     name: 'OpenRouter',
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    key: () => process.env.OPENROUTER_API_KEY,
-    model: () => process.env.OPENROUTER_MODEL || 'qwen/qwen3-8b',
+    key: () => config.llm.openRouter.apiKey,
+    model: () => config.llm.openRouter.model,
     headers: () => ({
-      'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:3000',
+      'HTTP-Referer': config.cors.origin,
       'X-Title': 'ShopAI',
     }),
   },
   {
     name: 'Gemini',
     url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    key: () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
-    model: () => process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    key: () => config.llm.gemini.apiKey,
+    model: () => config.llm.gemini.model,
   },
   {
     name: 'Mistral',
     url: 'https://api.mistral.ai/v1/chat/completions',
-    key: () => process.env.MISTRAL_API_KEY,
-    model: () => process.env.MISTRAL_MODEL || 'mistral-small-latest',
+    key: () => config.llm.mistral.apiKey,
+    model: () => config.llm.mistral.model,
   },
   {
     name: 'HuggingFace',
-    // Legacy api-inference.huggingface.co is decommissioned for chat; use the router.
     url: 'https://router.huggingface.co/v1/chat/completions',
-    key: () => process.env.HUGGINGFACE_API_KEY,
-    model: () => process.env.HUGGINGFACE_MODEL || 'Qwen/Qwen2.5-7B-Instruct',
+    key: () => config.llm.huggingFace.apiKey,
+    model: () => config.llm.huggingFace.model,
   },
 ]
 

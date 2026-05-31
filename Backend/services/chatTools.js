@@ -3,7 +3,6 @@ import Product from '../model/Product.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import Coupon from '../model/Coupon.js'
-import User from '../model/User.js'
 import { isCouponLive } from '../utils/couponDates.js'
 import {
   getCart,

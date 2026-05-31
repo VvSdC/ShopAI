@@ -1,0 +1,14 @@
+# Netlify — frontend (branch: frontend, base: Frontend/)
+[build]
+  base = "Frontend"
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  # Override in Netlify UI → Site settings → Environment variables
+  REACT_APP_API_URL = "https://YOUR-BACKEND.onrender.com/shopai"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

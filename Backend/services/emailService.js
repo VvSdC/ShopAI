@@ -12,7 +12,7 @@ function normalizeEmail(to) {
 }
 
 function parseFromAddress(from) {
-  const raw = String(from || FROM_DEFAULT).trim()
+  const raw = String(from || getFromAddress()).trim()
   const bracketMatch = raw.match(/^(.+?)\s*<([^>]+)>$/)
   if (bracketMatch) {
     return { name: bracketMatch[1].trim(), email: bracketMatch[2].trim() }

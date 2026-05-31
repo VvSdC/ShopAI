@@ -1,10 +1,29 @@
-import dotenv from "dotenv";
-dotenv.config();
+import app from './app/app.js'
+import dbConnect from './config/dbConnect.js'
+import { config, validateConfig } from './config/env.js'
 
-import http from "http";
-import app from "./app/app.js";
+async function startServer() {
+  validateConfig({ strict: config.isProduction })
+  await dbConnect()
 
-//create the server
-const PORT = process.env.PORT || 2030;
-const server = http.createServer(app);
-server.listen(PORT, console.log(`Server is up and running on port ${PORT}`));
+  const server = app.listen(config.server.port, config.server.host, () => {
+    console.log(
+      `Server is up on ${config.server.host}:${config.server.port} (${config.nodeEnv})`
+    )
+  })
+
+  function shutdown(signal) {
+    console.log(`${signal} received — shutting down`)
+    server.close(() => process.exit(0))
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+
+  return server
+}
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err.message)
+  process.exit(1)
+})

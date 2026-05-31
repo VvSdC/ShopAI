@@ -1,0 +1,17 @@
+{
+  "name": "shopai",
+  "private": true,
+  "description": "ShopAI monorepo scripts — Backend + Frontend",
+  "scripts": {
+    "install:all": "npm ci --prefix Backend && npm ci --prefix Frontend",
+    "dev:backend": "npm run dev --prefix Backend",
+    "dev:frontend": "npm start --prefix Frontend",
+    "test": "npm test --prefix Backend && npm --prefix Frontend test -- --watchAll=false --passWithNoTests",
+    "test:backend": "npm test --prefix Backend",
+    "test:frontend": "npm --prefix Frontend test -- --watchAll=false --passWithNoTests",
+    "lint": "npm run lint --prefix Backend",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:ci": "docker compose -f docker-compose.ci.yml run --rm backend"
+  }
+}

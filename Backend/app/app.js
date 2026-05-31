@@ -1,5 +1,3 @@
-import dotenv from 'dotenv'
-dotenv.config()
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -8,7 +6,7 @@ import rateLimit from 'express-rate-limit'
 import cookieParser from 'cookie-parser'
 import Stripe from 'stripe'
 import path from 'path'
-import dbConnect from '../config/dbConnect.js'
+import { config } from '../config/env.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
 import brandsRouter from '../routes/brandsRouter.js'
 import categoriesRouter from '../routes/categoriesRouter.js'
@@ -26,14 +24,9 @@ import returnsRouter from '../routes/returnsRouter.js'
 import { processPaidOrder } from '../services/orderFulfillment.js'
 import { persistPaymentReferences } from '../services/orderRefund.js'
 
-dbConnect().catch((err) => {
-  console.error(err.message)
-  process.exit(1)
-})
-
 const app = express()
 
-app.set('trust proxy', 1)
+app.set('trust proxy', config.server.trustProxy ? 1 : false)
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -42,49 +35,48 @@ app.use(helmet({
 app.use(compression())
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
+  origin: config.cors.origin,
+  credentials: config.cors.credentials,
 }))
 
 app.use(cookieParser())
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+  windowMs: config.rateLimit.api.windowMs,
+  max: config.rateLimit.api.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many requests, please try again later.' },
 })
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
+  windowMs: config.rateLimit.auth.windowMs,
+  max: config.rateLimit.auth.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Too many login attempts, please try again later.' },
 })
 
 const chatLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 15,
+  windowMs: config.rateLimit.chat.windowMs,
+  max: config.rateLimit.chat.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: 'Chat rate limit reached. Please wait a moment.' },
 })
-//Stripe webhook
-//stripe instance
-const stripe = new Stripe(process.env.STRIPE_KEY)
 
-// Stripe webhook secret — set STRIPE_WEBHOOK_SECRET in your .env file
-// For local testing with Stripe CLI: stripe listen --forward-to localhost:2030/webhook
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET
+const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null
+const endpointSecret = config.stripe.webhookSecret
 
 app.post(
   '/webhook',
   express.raw({ type: 'application/json' }),
   async (request, response) => {
-    const sig = request.headers['stripe-signature']
+    if (!stripe) {
+      return response.status(503).json({ error: 'Stripe is not configured' })
+    }
 
+    const sig = request.headers['stripe-signature']
     let event
 
     try {
@@ -102,7 +94,6 @@ app.post(
     console.log('📩 Webhook event received:', event.type)
 
     if (event.type === 'checkout.session.completed') {
-      //update the order
       const session = event.data.object
       const { orderId } = session.metadata
       const paymentStatus = session.payment_status
@@ -110,7 +101,6 @@ app.post(
       const totalAmount = session.amount_total
       const currency = session.currency
 
-      // orderId is stored as a plain string in metadata
       const parsedOrderId = orderId?.replace(/"/g, '')
       console.log('✅ Payment completed — updating order:', parsedOrderId, { paymentStatus, paymentMethod, currency, totalAmount })
 
@@ -163,7 +153,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use(express.static('public'))
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
+  res.status(200).json({
+    status: 'ok',
+    env: config.nodeEnv,
+    timestamp: new Date().toISOString(),
+  })
 })
 
 app.get('/', (req, res) => {
@@ -184,7 +178,7 @@ app.use('/shopai/cart/', apiLimiter, cartRouter)
 app.use('/shopai/policy/', apiLimiter, policyRouter)
 app.use('/shopai/returns/', apiLimiter, returnsRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)
-//err middleware
+
 app.use(notFound)
 app.use(globalErrhandler)
 

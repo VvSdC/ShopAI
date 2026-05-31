@@ -22,5 +22,5 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# GitHub config
-.github
+# Test coverage
+coverage/

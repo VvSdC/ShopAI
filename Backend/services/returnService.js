@@ -32,7 +32,6 @@ function validateReasonItem(item) {
 
 export function getReturnEligibility(order) {
   const normalized = normalizeOrderItems(order.orderItems)
-  const reasons = []
 
   if (!STORE_POLICY.returns.enabled) {
     return { eligible: false, message: 'Returns are not available at this time.', lines: [] }

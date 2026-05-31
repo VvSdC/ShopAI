@@ -1,7 +1,7 @@
 import Order from '../model/Order.js'
 import Product from '../model/Product.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
-import { normalizeOrderItems, productIdKey } from './orderLineItems.js'
+import { normalizeOrderItems } from './orderLineItems.js'
 import { createStripeRefund } from './orderRefund.js'
 
 async function restoreStockForItems(items) {

@@ -4,11 +4,17 @@
   "description": "shopai server",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "server": "nodemon server.js",
     "start": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
     "start:server": "node server.js",
     "dev": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .js --config .eslintrc.cjs",
     "lint:fix": "eslint . --ext .js --fix --config .eslintrc.cjs",
     "depcheck": "depcheck"
@@ -39,11 +45,15 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.4",
     "concurrently": "^9.2.1",
     "depcheck": "^1.4.7",
     "eslint": "^8.45.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-security": "^4.0.0",
-    "nodemon": "^2.0.22"
+    "mongodb-memory-server": "^10.2.0",
+    "nodemon": "^2.0.22",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
   }
 }

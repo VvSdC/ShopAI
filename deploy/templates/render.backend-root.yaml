@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: shopai-api
+    runtime: node
+    branch: backend
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: true
+      - key: PORT
+        value: 2030

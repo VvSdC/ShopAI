@@ -1,0 +1,31 @@
+# CI-only compose — backend + mongo for smoke tests (no frontend build)
+services:
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: ShopAI
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./Backend
+      target: deps
+    working_dir: /app
+    command: npm run test
+    environment:
+      NODE_ENV: test
+      MONGO_URL: mongodb://mongodb:27017/ShopAI
+      JWT_KEY: ci-test-jwt-secret-min-32-characters-long
+      JWT_REFRESH_KEY: ci-test-refresh-secret-min-32-chars
+      STRIPE_KEY: sk_test_ci_placeholder
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./Backend:/app
+      - /app/node_modules
