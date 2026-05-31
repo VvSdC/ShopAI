@@ -4,6 +4,8 @@ import Category from '../model/Category.js'
 import Product from '../model/Product.js'
 import Review from '../model/Review.js'
 import { tagProductInBackground } from '../services/productTagging.js'
+import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
+import { searchProducts } from '../services/search/searchService.js'
 
 // @desc    Create new product
 // @route   POST /api/v1/products
@@ -58,6 +60,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   await brandFound.save()
 
   tagProductInBackground(product._id)
+  indexProductEmbeddingInBackground(product._id, 8000)
 
   //send response
   res.json({
@@ -72,9 +75,34 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getProductsCtrl = asyncHandler(async (req, res) => {
-  const filter = {}
+  const page = parseInt(req.query.page) || 1
+  const limit = parseInt(req.query.limit) || 12
+  const searchQuery = req.query.q?.trim() || req.query.name?.trim() || ''
 
-  if (req.query.name) filter.name = { $regex: req.query.name, $options: 'i' }
+  if (searchQuery) {
+    const searchArgs = {
+      query: searchQuery,
+      category: req.query.category,
+      brand: req.query.brand,
+      color: req.query.color,
+      min_price: req.query.minPrice ? Number(req.query.minPrice) : undefined,
+      max_price: req.query.maxPrice ? Number(req.query.maxPrice) : undefined,
+      inStock: req.query.inStock === 'true',
+      limit,
+    }
+
+    const { products, count, message } = await searchProducts(searchArgs)
+    return res.json({
+      status: 'success',
+      total: count,
+      results: products.length,
+      pagination: {},
+      message: message || 'Products fetched successfully',
+      products,
+    })
+  }
+
+  const filter = {}
   if (req.query.brand) filter.brand = req.query.brand
   if (req.query.category) filter.category = req.query.category
   if (req.query.color) filter.colors = req.query.color
@@ -84,8 +112,6 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     filter.price = { $gte: priceRange[0], $lte: priceRange[1] }
   }
 
-  const page = parseInt(req.query.page) || 1
-  const limit = parseInt(req.query.limit) || 12
   const startIndex = (page - 1) * limit
   const endIndex = page * limit
   const total = await Product.countDocuments(filter)
@@ -173,7 +199,10 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     }
   )
 
-  if (product) tagProductInBackground(product._id)
+  if (product) {
+    tagProductInBackground(product._id)
+    indexProductEmbeddingInBackground(product._id, 8000)
+  }
 
   res.json({
     status: 'success',

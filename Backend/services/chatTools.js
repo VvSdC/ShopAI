@@ -16,11 +16,7 @@ import {
   previewCheckout,
   checkoutFromCart,
 } from './checkoutFromCart.js'
-import {
-  buildProductSearchFilter,
-  rankProductsByQuery,
-  mapProductSearchResult,
-} from './productSearch.js'
+import { searchProductsForChat } from './search/searchService.js'
 import {
   listShippingAddresses,
   addShippingAddress,
@@ -473,35 +469,16 @@ const toolExecutors = {
   },
 
   async search_products(_userId, args) {
-    const filter = buildProductSearchFilter(args)
     const limit = Math.min(Math.max(args.limit || 8, 1), 15)
-    const fetchLimit = Math.min(Math.max(limit * 4, 24), 50)
-
-    const products = await Product.find(filter)
-      .limit(fetchLimit)
-      .select(
-        'name brand category price totalQty totalSold colors sizes images description tags'
-      )
-
-    const ranked = rankProductsByQuery(products, args.query || '').slice(0, limit)
-
-    if (!ranked.length) {
-      return {
-        count: 0,
-        products: [],
-        message: 'No products found in the catalog for this search.',
-        rule: 'Tell the user nothing matched. Do NOT suggest or name products that were not returned here.',
-      }
-    }
-
-    const mapped = ranked.map(mapProductSearchResult)
-
-    return {
-      count: mapped.length,
-      products: mapped,
-      rule:
-        'List products in the EXACT order returned (most relevant first). Use EXACT names, prices, and stock. Include each productUrl as a markdown link: [View product](productUrl). Never add products not in this list.',
-    }
+    return searchProductsForChat(_userId, {
+      query: args.query,
+      category: args.category,
+      brand: args.brand,
+      color: args.color,
+      min_price: args.min_price,
+      max_price: args.max_price,
+      limit,
+    })
   },
 
   async get_product_details(_userId, args) {

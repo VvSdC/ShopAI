@@ -1,5 +1,6 @@
 import { chatCompletion } from './llmService.js'
 import Product from '../model/Product.js'
+import { indexProductEmbeddingInBackground } from './search/vectorIndexService.js'
 
 function buildTaggingPrompt(name, description, category, brand) {
   return `You are a product tagging system for an e-commerce platform. Given the product details below, extract 3-8 lowercase keyword tags that a customer might use to search for this product.
@@ -74,6 +75,7 @@ export function tagProductInBackground(productId) {
       if (tags.length > 0) {
         product.tags = tags
         await product.save()
+        indexProductEmbeddingInBackground(productId, 500)
       }
     } catch (err) {
       console.error(`Background tagging failed for product ${productId}:`, err.message)

@@ -69,6 +69,17 @@ const ProductSchema = new Schema(
       type: [String],
       default: [],
     },
+    searchDocument: {
+      type: String,
+      default: '',
+    },
+    embedding: {
+      type: [Number],
+      default: undefined,
+    },
+    embeddingProvider: String,
+    embeddingModel: String,
+    embeddedAt: Date,
   },
   {
     timestamps: true,
@@ -104,6 +115,7 @@ ProductSchema.index({ category: 1 })
 ProductSchema.index({ brand: 1 })
 ProductSchema.index({ price: 1 })
 ProductSchema.index({ tags: 1 })
+ProductSchema.index({ embedding: 1 }, { sparse: true })
 
 const Product = mongoose.model('Product', ProductSchema)
 

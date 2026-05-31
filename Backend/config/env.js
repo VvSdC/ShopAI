@@ -87,6 +87,40 @@ export const config = {
       apiKey: env('HUGGINGFACE_API_KEY', ''),
       model: env('HUGGINGFACE_MODEL', 'Qwen/Qwen2.5-7B-Instruct'),
     },
+    groq: {
+      apiKey: env('GROQ_API_KEY', ''),
+      model: env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+    },
+  },
+
+  search: {
+    embedding: {
+      provider: env('EMBEDDING_PROVIDER', 'huggingface'),
+      model: env('EMBEDDING_MODEL', 'BAAI/bge-m3'),
+      dimension: envInt('EMBEDDING_DIMENSION', 1024),
+      openRouterModel: env('OPENROUTER_EMBEDDING_MODEL', 'openai/text-embedding-3-small'),
+      geminiModel: env('GEMINI_EMBEDDING_MODEL', 'text-embedding-004'),
+      voyageModel: env('VOYAGE_EMBEDDING_MODEL', 'voyage-3-lite'),
+      jinaModel: env('JINA_EMBEDDING_MODEL', 'jina-embeddings-v3'),
+    },
+    rerank: {
+      enabled: envBool('RERANK_ENABLED', true),
+      provider: env('RERANK_PROVIDER', 'voyage'),
+      model: env('RERANK_MODEL', 'rerank-2.5'),
+      topN: envInt('RERANK_TOP_N', 30),
+      openRouterModel: env('OPENROUTER_RERANK_MODEL', 'cohere/rerank-v3.5'),
+      hfModel: env('HF_RERANK_MODEL', 'BAAI/bge-reranker-v2-m3'),
+      jinaModel: env('JINA_RERANK_MODEL', 'jina-reranker-v2-base-multilingual'),
+      cohereModel: env('COHERE_RERANK_MODEL', 'rerank-v3.5'),
+    },
+    voyageApiKey: env('VOYAGE_API_KEY', ''),
+    jinaApiKey: env('JINA_API_KEY', ''),
+    cohereApiKey: env('COHERE_API_KEY', ''),
+    vectorIndex: env('ATLAS_VECTOR_INDEX', 'product_vector_index'),
+    vectorCandidates: envInt('SEARCH_VECTOR_CANDIDATES', 100),
+    vectorLimit: envInt('SEARCH_VECTOR_LIMIT', 50),
+    keywordLimit: envInt('SEARCH_KEYWORD_LIMIT', 50),
+    rrfK: envInt('SEARCH_RRF_K', 60),
   },
 
   rateLimit: {
