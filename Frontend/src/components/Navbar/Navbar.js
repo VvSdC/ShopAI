@@ -8,7 +8,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon } from '@heroicons/react/24/solid'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
@@ -16,8 +16,10 @@ import { syncAndLoadCartAction } from '../../redux/slices/cart/cartSlices'
 import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
+import ProductSearchBar from '../Users/Products/ProductSearchBar'
 
 export default function Navbar() {
+  const navigate = useNavigate()
   //dispatch
   const dispatch = useDispatch()
   useEffect(() => {
@@ -124,6 +126,21 @@ export default function Navbar() {
                   </button>
                 </div>
                 {/* mobile category menu links */}
+                <div className="border-t border-gray-200 px-4 py-4">
+                  <ProductSearchBar
+                    className="w-full"
+                    inputId="navbar-mobile-search"
+                    onSearch={(q) => {
+                      setMobileMenuOpen(false)
+                      if (q) {
+                        navigate(`/products-filters?q=${encodeURIComponent(q)}`)
+                      } else {
+                        navigate('/products-filters')
+                      }
+                    }}
+                  />
+                </div>
+
                 <div className="space-y-6 border-t border-gray-200 py-6 px-4">
                   {/* {navigation.pages.map((page) => (
                     <div key={page.name} className="flow-root">
@@ -252,7 +269,8 @@ export default function Navbar() {
 
           {/* Main navigation */}
           <div className="border-b border-gray-200 bg-white">
-            <div className="flex h-16 w-full items-center justify-between gap-4 pl-3 pr-3 sm:pl-4 sm:pr-4 lg:pl-5 lg:pr-6">
+            <div className="flex w-full flex-col lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:pl-5 lg:pr-6">
+              <div className="flex h-16 w-full items-center justify-between gap-4 pl-3 pr-3 sm:pl-4 sm:pr-4 lg:h-auto lg:min-w-0 lg:flex-1 lg:justify-start lg:gap-6 lg:pl-0 lg:pr-0">
                 {/* Mobile: menu + logo */}
                 <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
                   <button
@@ -358,8 +376,13 @@ export default function Navbar() {
                   )}
                 </div>
 
+                {/* Desktop search */}
+                <div className="hidden min-w-0 flex-1 justify-center px-4 lg:flex lg:max-w-xl">
+                  <ProductSearchBar className="w-full" inputId="navbar-desktop-search" />
+                </div>
+
                 {/* Right: admin, profile, cart */}
-                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-4 lg:pr-0">
                   {user?.isAdmin && (
                     <Link
                       to="/admin"
@@ -413,6 +436,12 @@ export default function Navbar() {
                     </span>
                   </Link>
                 </div>
+              </div>
+
+              {/* Mobile search */}
+              <div className="border-t border-stone-100 px-3 pb-3 pt-2 lg:hidden">
+                <ProductSearchBar className="w-full" inputId="navbar-mobile-bar-search" />
+              </div>
             </div>
           </div>
         </nav>

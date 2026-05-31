@@ -13,6 +13,7 @@ import { fetchColorsAction } from '../../../redux/slices/categories/colorsSlice'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import NoDataFound from '../../NoDataFound/NoDataFound'
+import ProductSearchBar from './ProductSearchBar'
 
 const allPrice = [
   { amount: '0 - 1000' },
@@ -147,8 +148,9 @@ function ShopFiltersPanel({
 export default function ProductsFilters() {
   const dispatch = useDispatch()
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const category = params.get('category')
+  const searchQuery = (params.get('q') || '').trim()
 
   const [color, setColor] = useState('')
   const [price, setPrice] = useState('')
@@ -169,6 +171,7 @@ export default function ProductsFilters() {
           : `${url}&${key}=${encodeURIComponent(value)}`
     }
 
+    if (searchQuery) appendParam('q', searchQuery)
     if (brand) appendParam('brand', brand)
     if (size) appendParam('size', size)
     if (price) appendParam('price', price)
@@ -182,7 +185,17 @@ export default function ProductsFilters() {
 
   useEffect(() => {
     setPage(1)
-  }, [category, size, brand, price, color, limit])
+  }, [category, size, brand, price, color, limit, searchQuery])
+
+  const handleSearch = (q) => {
+    const next = new URLSearchParams(params)
+    if (q) next.set('q', q)
+    else next.delete('q')
+    setParams(next)
+    setPage(1)
+  }
+
+  const clearSearch = () => handleSearch('')
 
   useEffect(() => {
     dispatch(fetchProductsAction({ url: productUrl }))
@@ -210,11 +223,13 @@ export default function ProductsFilters() {
     setSize('')
   }
 
-  const hasFilters = !!(color || price || brand || size)
+  const hasFilters = !!(color || price || brand || size || searchQuery)
   const totalPages = Math.max(1, Math.ceil(total / limit) || 1)
-  const pageTitle = category
-    ? category.replace(/-/g, ' ')
-    : 'All products'
+  const pageTitle = searchQuery
+    ? `Results for “${searchQuery}”`
+    : category
+      ? category.replace(/-/g, ' ')
+      : 'All products'
 
   const filterProps = {
     colors,
@@ -249,17 +264,32 @@ export default function ProductsFilters() {
               <span className="font-medium capitalize text-stone-800">{category}</span>
             </>
           )}
+          {searchQuery && (
+            <>
+              <ChevronRightIcon className="h-4 w-4 shrink-0" />
+              <span className="font-medium text-stone-800">Search</span>
+            </>
+          )}
         </nav>
 
         <div className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-stone-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
-            <div>
-              <h1 className="text-xl font-bold capitalize tracking-tight text-stone-900 sm:text-2xl">
-                {pageTitle}
-              </h1>
-              <p className="mt-1 text-sm text-stone-500">
-                {loading ? 'Loading…' : `${total} product${total === 1 ? '' : 's'} found`}
-              </p>
+          <div className="flex flex-col gap-4 border-b border-stone-100 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl font-bold capitalize tracking-tight text-stone-900 sm:text-2xl">
+                  {pageTitle}
+                </h1>
+                <p className="mt-1 text-sm text-stone-500">
+                  {loading ? 'Loading…' : `${total} product${total === 1 ? '' : 's'} found`}
+                  {searchQuery && !loading ? ' · hybrid search' : ''}
+                </p>
+              </div>
+              <ProductSearchBar
+                initialQuery={searchQuery}
+                onSearch={handleSearch}
+                className="w-full lg:max-w-md lg:shrink-0"
+                inputId="products-page-search"
+              />
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <Link
@@ -289,6 +319,14 @@ export default function ProductsFilters() {
 
           {(hasFilters || category) && (
             <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 bg-stone-50/60 px-4 py-3 sm:px-6">
+              {searchQuery && (
+                <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-stone-700 ring-1 ring-stone-200">
+                  <span className="truncate">“{searchQuery}”</span>
+                  <button type="button" onClick={clearSearch} aria-label="Clear search">
+                    <XMarkIcon className="h-3.5 w-3.5 shrink-0 text-stone-400" />
+                  </button>
+                </span>
+              )}
               {category && (
                 <Link
                   to="/products-filters"
@@ -403,11 +441,28 @@ export default function ProductsFilters() {
               ) : productList.length <= 0 ? (
                 <div className="rounded-xl border border-dashed border-stone-200 px-6 py-16 text-center">
                   <NoDataFound />
+                  {searchQuery && (
+                    <p className="mt-3 text-sm text-stone-500">
+                      No matches for “{searchQuery}”. Try different keywords or clear filters.
+                    </p>
+                  )}
                   <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                      >
+                        Clear search
+                      </button>
+                    )}
                     {hasFilters && (
                       <button
                         type="button"
-                        onClick={clearFilters}
+                        onClick={() => {
+                          clearFilters()
+                          if (searchQuery) clearSearch()
+                        }}
                         className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                       >
                         Clear filters
@@ -424,14 +479,21 @@ export default function ProductsFilters() {
               ) : (
                 <>
                   <Products products={productList} />
-                  <ShopPagination
-                    page={page}
-                    totalPages={totalPages}
-                    total={total}
-                    limit={limit}
-                    loading={loading}
-                    onPageChange={setPage}
-                  />
+                  {!searchQuery && (
+                    <ShopPagination
+                      page={page}
+                      totalPages={totalPages}
+                      total={total}
+                      limit={limit}
+                      loading={loading}
+                      onPageChange={setPage}
+                    />
+                  )}
+                  {searchQuery && total > limit && (
+                    <p className="mt-6 text-center text-sm text-stone-500">
+                      Showing top {Math.min(limit, total)} matches. Refine your search or use filters to narrow results.
+                    </p>
+                  )}
                 </>
               )}
             </div>

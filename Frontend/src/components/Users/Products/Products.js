@@ -57,7 +57,7 @@ export default function Products({ products }) {
       {products?.map((product) => {
         const id = product?._id || product?.id
         const productPath = `/products/${id}`
-        const image = product?.images?.[0]
+        const image = product?.images?.[0] || product?.image
         const rating = Number(product?.averageRating || 0)
         const outOfStock = (product?.qtyLeft ?? 0) <= 0
         const lowStock = !outOfStock && product.qtyLeft <= 5
