@@ -133,7 +133,7 @@ export default function ChatWidget() {
 
       if (cartSummary?.itemCount > 0) {
         setCartHint(
-          `${cartSummary.itemCount} item(s) in cart — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
+          `Cart: ${cartSummary.itemCount} unit${cartSummary.itemCount === 1 ? '' : 's'} — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
         )
       }
 

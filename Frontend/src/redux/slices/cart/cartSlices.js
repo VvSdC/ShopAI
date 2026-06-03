@@ -72,10 +72,16 @@ export const syncAndLoadCartAction = createAsyncThunk(
       return { cartItems: readLocalCart(), fromServer: false }
     }
     try {
+      const { data: initial } = await axiosInstance.get('/cart')
+      const serverItems = mapServerCartItems(initial.cart?.items)
       const localItems = readLocalCart()
-      if (localItems.length > 0) {
+
+      // Only merge local → server when the server cart is empty (e.g. guest cart before login).
+      // If chat/API already updated the server cart, re-syncing localStorage would double quantities.
+      if (serverItems.length === 0 && localItems.length > 0) {
         await axiosInstance.post('/cart/sync', { items: localItems })
       }
+
       const { data } = await axiosInstance.get('/cart')
       const cartItems = mapServerCartItems(data.cart?.items)
       persistCartItems(cartItems)

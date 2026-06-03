@@ -97,6 +97,27 @@ export function rankProductsByQuery(products, query) {
     .map(({ product }) => product)
 }
 
+/** Drop weak tail matches when reranker is unavailable (keyword/RRF-only path). */
+export function trimToRelevantProducts(products, query, maxResults = 12) {
+  if (!products?.length || !query?.trim()) return products.slice(0, maxResults)
+
+  const scored = products
+    .map((product) => ({ product, score: scoreProductForQuery(product, query) }))
+    .sort((a, b) => b.score - a.score)
+
+  const topScore = scored[0]?.score ?? 0
+  const kept = []
+
+  for (const { product, score } of scored) {
+    if (kept.length >= maxResults) break
+    if (score <= 0) break
+    if (kept.length > 0 && topScore > 0 && score < topScore * 0.45) break
+    kept.push(product)
+  }
+
+  return kept.length > 0 ? kept : scored.slice(0, Math.min(3, maxResults)).map(({ product }) => product)
+}
+
 export function mapProductSearchResult(product) {
   const id = String(product._id)
   const images = Array.isArray(product.images) ? product.images.filter(Boolean) : []

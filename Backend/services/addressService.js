@@ -22,7 +22,8 @@ function normalizeCountry(country) {
 
 function formatAddress(addr, index) {
   return {
-    index,
+    addressIndex: index,
+    choiceNumber: index + 1,
     id: addr._id,
     name: `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
     address: addr.address,

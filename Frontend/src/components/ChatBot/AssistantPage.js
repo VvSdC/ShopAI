@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import {
   PlusIcon,
   TrashIcon,
   Bars3Icon,
-  ShoppingCartIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
@@ -43,8 +41,6 @@ function SendIcon() {
 }
 
 export default function AssistantPage() {
-  const { cartItems } = useSelector((state) => state?.carts)
-
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -58,9 +54,6 @@ export default function AssistantPage() {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const { sendMessage, handleClientActions } = useShopAIChatActions()
-
-  const cartUnits =
-    cartItems?.reduce((sum, item) => sum + (item.qty || 0), 0) || 0
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -157,7 +150,7 @@ export default function AssistantPage() {
       const { cartSummary } = handleClientActions(data)
       if (cartSummary?.itemCount > 0) {
         setCartHint(
-          `${cartSummary.itemCount} in cart — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
+          `Cart updated: ${cartSummary.itemCount} unit${cartSummary.itemCount === 1 ? '' : 's'} — ₹${Number(cartSummary.total).toLocaleString('en-IN')}`
         )
       }
 
@@ -321,22 +314,15 @@ export default function AssistantPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {cartHint && (
-              <span className="hidden sm:inline text-xs text-stone-500">{cartHint}</span>
-            )}
-            <Link
-              to="/shopping-cart"
-              className="relative inline-flex items-center rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-            >
-              <ShoppingCartIcon className="h-5 w-5" />
-              {cartUnits > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
-                  {cartUnits}
-                </span>
-              )}
-            </Link>
-          </div>
+          {cartHint && (
+            <p className="hidden sm:block max-w-xs truncate text-xs text-stone-500">
+              {cartHint}
+              {' · '}
+              <Link to="/shopping-cart" className="font-medium text-indigo-600 hover:text-indigo-800">
+                View cart
+              </Link>
+            </p>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6">

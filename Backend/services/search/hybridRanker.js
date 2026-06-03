@@ -15,12 +15,10 @@ export function reciprocalRankFusion(lists, k = DEFAULT_K) {
     .map(([id]) => id)
 }
 
+/** Return only reranked product IDs (no unranked tail — avoids irrelevant matches after top results). */
 export function applyRerankOrder(productIds, rerankedIndices, candidates) {
   if (!rerankedIndices?.length) return productIds
 
   const idByIndex = candidates.map((p) => String(p._id))
-  const rerankedIds = rerankedIndices.map((i) => idByIndex[i]).filter(Boolean)
-  const rerankedSet = new Set(rerankedIds)
-  const tail = productIds.filter((id) => !rerankedSet.has(String(id)))
-  return [...rerankedIds, ...tail]
+  return rerankedIndices.map((i) => idByIndex[i]).filter(Boolean)
 }

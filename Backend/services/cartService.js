@@ -260,20 +260,49 @@ export async function syncLocalItems(userId, items) {
     return getCart(userId)
   }
 
+  const cart = await findOrCreateCart(userId)
+
   for (const item of items) {
     if (!item?._id || !item?.color || !item?.size) continue
     try {
-      await addItem(userId, {
-        productId: item._id,
-        color: item.color,
-        size: item.size,
-        qty: item.qty || 1,
-      })
+      const product = await Product.findById(item._id)
+      if (!product) continue
+
+      const matchedColor = resolveOptionMatch(item.color, product.colors)
+      const matchedSize = resolveOptionMatch(item.size, product.sizes)
+      if (!matchedColor || !matchedSize) continue
+
+      const qtyLeft = product.totalQty - product.totalSold
+      if (qtyLeft <= 0) continue
+
+      const finalQty = Math.min(Math.max(1, Number(item.qty) || 1), qtyLeft)
+      const newLine = {
+        _id: product._id,
+        name: product.name,
+        qty: finalQty,
+        price: product.price,
+        totalPrice: product.price * finalQty,
+        color: matchedColor,
+        size: matchedSize,
+        description: product.description || '',
+        image: product.images?.[0] || '',
+      }
+
+      const key = lineKey(newLine)
+      const existingIndex = cart.items.findIndex((line) => lineKey(line) === key)
+      if (existingIndex >= 0) {
+        cart.items[existingIndex].qty = finalQty
+        cart.items[existingIndex].price = product.price
+        cart.items[existingIndex].totalPrice = product.price * finalQty
+      } else {
+        cart.items.push(newLine)
+      }
     } catch {
       // skip invalid or unavailable items during sync
     }
   }
 
+  await cart.save()
   return getCart(userId)
 }
 

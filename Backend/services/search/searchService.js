@@ -4,6 +4,7 @@ import {
   buildProductSearchFilter,
   rankProductsByQuery,
   mapProductSearchResult,
+  trimToRelevantProducts,
 } from '../productSearch.js'
 import { embedText } from './embeddingService.js'
 import { vectorSearch } from './vectorSearch.js'
@@ -90,12 +91,15 @@ export async function searchProducts(args = {}) {
   }
 
   const docs = ordered.map((p) => p.searchDocument || `${p.name}. ${p.description || ''}`)
-  const rerankIndices = await rerankDocuments(query, docs, Math.min(config.search.rerank.topN, docs.length))
+  const rerankRows = await rerankDocuments(query, docs, Math.min(config.search.rerank.topN, docs.length))
 
-  if (rerankIndices) {
+  if (rerankRows?.length) {
     const mergedIdList = ordered.map((p) => String(p._id))
-    const reorderedIds = applyRerankOrder(mergedIdList, rerankIndices, ordered)
+    const rerankedIndices = rerankRows.map((r) => r.index)
+    const reorderedIds = applyRerankOrder(mergedIdList, rerankedIndices, ordered)
     ordered = reorderedIds.map((id) => productMap.get(id)).filter(Boolean)
+  } else {
+    ordered = trimToRelevantProducts(ordered, query, limit)
   }
 
   const final = ordered.slice(0, limit).map(mapProductSearchResult)

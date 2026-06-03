@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom'
 const INTERNAL_PATH =
   /^\/(products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant)(?:[?#]|$)/
 
+function normalizeChatHref(href) {
+  if (typeof href !== 'string') return href
+  if (/^\/addresses\//i.test(href)) return '/customer-profile'
+  return href.split(/[?#]/)[0]
+}
+
 function isAppRoute(href) {
   return typeof href === 'string' && INTERNAL_PATH.test(href)
 }
@@ -10,7 +16,12 @@ function isAppRoute(href) {
 export function formatMessage(text) {
   if (!text) return text
 
-  const lines = text.split('\n')
+  const cleaned = text
+    .replace(/<\/?[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi, '')
+    .replace(/https?:\/\/(?:www\.)?stripe\.com[^\s)\]]*/gi, '')
+    .replace(/https:\/\/checkout\.stripe\.com[^\s)\]]*/gi, '(Use the Pay on Stripe button below)')
+
+  const lines = cleaned.split('\n')
   const elements = []
   let listBuffer = []
   let listType = null
@@ -53,6 +64,9 @@ export function formatMessage(text) {
       if (listType === 'ul') flushList()
       listType = 'ol'
       listBuffer.push(olMatch[1])
+    } else if (listType === 'ol' && listBuffer.length > 0 && /^[\s]+-\s+(.+)/.test(line)) {
+      const cont = line.match(/^[\s]+-\s+(.+)/)
+      listBuffer[listBuffer.length - 1] += ` · ${cont[1]}`
     } else {
       flushList()
       if (line.trim() === '') {
@@ -84,13 +98,13 @@ function renderTextSegment(segment, keyPrefix) {
       parts.push(segment.slice(lastIndex, match.index))
     }
     if (match[1]) {
-      const href = match[3]
+      const href = normalizeChatHref(match[3])
       const label = match[2]
       parts.push(
         isAppRoute(href) ? (
           <Link
             key={`${keyPrefix}-lnk-${match.index}`}
-            to={href.split(/[?#]/)[0]}
+            to={href}
             className="text-indigo-600 hover:text-indigo-800 font-medium underline"
           >
             {label}
@@ -132,15 +146,12 @@ function renderTextSegment(segment, keyPrefix) {
       )
     } else if (match[11]) {
       parts.push(
-        <a
+        <span
           key={`${keyPrefix}-stripe-${match.index}`}
-          href={match[11]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-indigo-600 hover:text-indigo-800 font-medium underline break-all"
+          className="text-indigo-700 font-medium"
         >
-          Stripe checkout
-        </a>
+          Use the Pay on Stripe button below
+        </span>
       )
     }
     lastIndex = regex.lastIndex

@@ -169,7 +169,7 @@ export const toolDefinitions = [
     function: {
       name: 'get_my_addresses',
       description:
-        "Get the current user's saved shipping addresses with index numbers for checkout. Use when user asks about their addresses or delivery info.",
+        "Get the current user's saved shipping addresses (choiceNumber 1, 2, … for the customer; addressIndex for tools). Use when user asks about their addresses or delivery info.",
       parameters: {
         type: 'object',
         properties: {},
@@ -307,7 +307,7 @@ export const toolDefinitions = [
           address_index: {
             type: 'number',
             description:
-              'Index of saved shipping address (from get_my_addresses). Omit to use the most recently added address.',
+              'address_index from get_my_addresses (0-based addressIndex). Omit to use the most recently added address.',
           },
         },
       },
@@ -325,7 +325,7 @@ export const toolDefinitions = [
           address_index: {
             type: 'number',
             description:
-              'Index of saved shipping address (from get_my_addresses). Omit to use the most recently added address.',
+              'address_index from get_my_addresses (0-based addressIndex). Omit to use the most recently added address.',
           },
         },
       },
@@ -542,8 +542,29 @@ const toolExecutors = {
 
   async get_my_addresses(userId) {
     const result = await listShippingAddresses(userId)
-    if (result.message) return result
-    return result.addresses
+    if (result.message) {
+      return {
+        ...result,
+        profileUrl: '/customer-profile',
+        rule: 'Never invent /addresses/ URLs. Direct users to [My Profile](/customer-profile) to manage addresses.',
+      }
+    }
+    return {
+      count: result.addresses.length,
+      addresses: result.addresses.map((a) => ({
+        choiceNumber: a.choiceNumber,
+        addressIndex: a.addressIndex,
+        label: `${a.city}, ${a.province}`,
+        city: a.city,
+        province: a.province,
+        address: a.address,
+        postalCode: a.postalCode,
+        name: a.name,
+        profileUrl: '/customer-profile',
+      })),
+      rule:
+        'Show addresses to the customer as **1**, **2**, etc. (choiceNumber). Never say "Index 0" or expose addressIndex in user-facing text. For checkout tools use address_index = addressIndex. Link only to [My Profile](/customer-profile).',
+    }
   },
 
   async add_shipping_address(userId, args) {

@@ -9,6 +9,7 @@ import {
   sessionHistoryForApi,
 } from '../services/chatSessionService.js'
 import { previewCheckout, checkoutFromCart } from '../services/checkoutFromCart.js'
+import { runCheckoutAssist, isCheckoutProceedIntent } from '../services/chatCheckoutAssist.js'
 
 const MAX_TOOL_ROUNDS = 7
 
@@ -91,9 +92,27 @@ function formatProductListBlock(searchResult) {
     .map((p, i) => {
       const url = p.productUrl || `/products/${p.id}`
       const stock = p.qtyLeft != null ? `${p.qtyLeft} in stock` : p.inStock ? 'In stock' : 'Out of stock'
-      return `${i + 1}. **${p.name}**\n   - Price: ${formatInr(p.price)}\n   - ${stock}\n   - [View product](${url})`
+      return `${i + 1}. **${p.name}** — ${formatInr(p.price)} · ${stock} · [View product](${url})`
     })
-    .join('\n\n')
+    .join('\n')
+}
+
+function isValidStripeCheckoutUrl(url) {
+  return typeof url === 'string' && /^https:\/\/checkout\.stripe\.com\//i.test(url.trim())
+}
+
+/** Remove fake payment markup/URLs from model text — checkout uses CheckoutPaymentCard only. */
+function sanitizeAssistantReply(reply) {
+  if (!reply || typeof reply !== 'string') return reply
+  return reply
+    .replace(/<\/?[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi, '')
+    .replace(/\[Pay[^\]]*\]\([^)]+\)/gi, '')
+    .replace(/https?:\/\/(?:www\.)?stripe\.com[^\s)\]]*/gi, '')
+    .replace(/https:\/\/checkout\.stripe\.com[^\s)\]]*/gi, '')
+    .replace(/\[([^\]]+)\]\(\/addresses\/[^)]+\)/gi, '[My Profile](/customer-profile)')
+    .replace(/\(\/addresses\/[^)]+\)/gi, '(/customer-profile)')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function buildCatalogBackedReply(searchResult) {
@@ -158,9 +177,12 @@ HARD BOUNDARIES — You MUST refuse these:
    - You CAN add/update the cart, apply/remove coupons on the cart, add/update shipping addresses, and start checkout via tools.
    - Before add_to_cart: confirm product name, size, color, and qty unless the user gave them clearly in one message. Map user color words to the closest catalog color (e.g. "pink" → "Light Pink") using get_product_details — do not loop asking for exact casing.
    - NEVER call add_to_cart again when the user confirms checkout — use preview_checkout then create_checkout_session instead. add_to_cart only once per variant per purchase flow.
-   - When the user wants a new delivery address: call add_shipping_address with parsed fields (city, state/province, pincode). Use their profile name and phone if not provided. Then use the returned addressIndex (or omit address_index to use the newest address) for preview_checkout / create_checkout_session.
-   - Before create_checkout_session: call preview_checkout, summarize cart total and shipping address, and get explicit confirmation ("yes", "confirm", "checkout").
-   - When the user confirms checkout ("yes", "proceed", "pay", etc.), you MUST call create_checkout_session in that same turn. Never say payment is processing or provide a checkout link without calling that tool first.
+   - When the user says "proceed to checkout" (or similar): call get_my_addresses FIRST. If they already have saved addresses, NEVER ask them to type a full address form again.
+   - Multiple saved addresses: call get_my_addresses, then ask the user to pick **1**, **2**, or a city name. Never write "Index 0" — customers see **1** and **2** only. Never invent /addresses/ URLs — only [My Profile](/customer-profile).
+   - One saved address: call preview_checkout then create_checkout_session when the user says checkout/proceed.
+   - When the user wants a new delivery address: call add_shipping_address with parsed fields (city, state/province, pincode). Use their profile name and phone if not provided. Then use address_index for preview_checkout / create_checkout_session.
+   - Before create_checkout_session: call preview_checkout, summarize cart total and shipping address, and get explicit confirmation when appropriate.
+   - When the user confirms checkout ("yes", "proceed", "pay", city name, or "1"/"2" for address choice), you MUST call create_checkout_session with the correct address_index. Never say payment is processing without calling that tool first.
    - **Cancel or return orders in chat:**
      • User says cancel/delete/remove an order → call get_my_orders or get_order_details to find it, then get_order_cancel_return_status.
      • If availableAction is **cancel** (pending/processing): confirm with user, then call cancel_order. If already cancelled, say so.
@@ -203,15 +225,16 @@ DATA & FORMATTING:
 }
 
 function buildCheckoutBackedReply(checkout) {
-  return `Your Stripe checkout is ready for order **#${checkout.orderNumber}** (total ${formatInr(checkout.totalPrice)}).
+  return `Your checkout is ready for order **#${checkout.orderNumber}** (total ${formatInr(checkout.totalPrice)}).
 
-Tap **Pay on Stripe** below to complete payment. Payment is **not** finished until you pay on Stripe.
+Use the **Pay on Stripe** button shown below this message to pay securely. Do not use payment links in the chat text — only that button opens your order checkout.
 
 Your cart has been cleared for this checkout.`
 }
 
 function isCheckoutConfirmation(text) {
   const normalized = String(text || '').trim().toLowerCase()
+  if (isCheckoutProceedIntent(text)) return true
   return /^(yes|yeah|yep|yup|confirm|confirmed|proceed|ok|okay|sure|go ahead|pay|checkout)([.!?\s]|$)/.test(
     normalized
   )
@@ -268,9 +291,9 @@ function applyCheckoutReply(reply, toolResults) {
 function extractCheckoutInfo(toolResults) {
   for (let i = toolResults.length - 1; i >= 0; i--) {
     const r = toolResults[i]
-    if (r?.checkoutUrl) {
+    if (r?.checkoutUrl && isValidStripeCheckoutUrl(r.checkoutUrl)) {
       return {
-        checkoutUrl: r.checkoutUrl,
+        checkoutUrl: r.checkoutUrl.trim(),
         orderNumber: r.orderNumber,
         orderId: r.orderId,
         totalPrice: r.totalPrice,
@@ -429,13 +452,19 @@ async function persistAndRespond(
   userId,
   messages = []
 ) {
-  const finalToolResults = await ensureCheckoutOnConfirm(
+  const assist = await runCheckoutAssist(userId, userText, messages, toolResults)
+  let finalToolResults = assist.toolResults
+  if (assist.reply) {
+    reply = assist.reply
+  }
+
+  finalToolResults = await ensureCheckoutOnConfirm(
     userId,
     userText,
     messages,
-    toolResults
+    finalToolResults
   )
-  reply = applyCheckoutReply(reply, finalToolResults)
+  reply = sanitizeAssistantReply(applyCheckoutReply(reply, finalToolResults))
   const payload = buildChatResponse(reply, finalToolResults)
   if (session) {
     await appendMessages(session, userText, reply, payload.checkout || null)

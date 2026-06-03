@@ -100,8 +100,22 @@ function orderedProviders() {
   })
 }
 
+const RERANK_MIN_SCORE = 0.28
+const RERANK_RELATIVE_TO_TOP = 0.5
+
+export function filterRerankResults(results, { minScore = RERANK_MIN_SCORE, relativeToTop = RERANK_RELATIVE_TO_TOP } = {}) {
+  if (!results?.length) return []
+  const sorted = [...results].sort((a, b) => b.score - a.score)
+  const top = sorted[0]?.score ?? 0
+  return sorted.filter((row, i) => {
+    if (row.score < minScore) return false
+    if (i > 0 && top > 0 && row.score < top * relativeToTop) return false
+    return true
+  })
+}
+
 /**
- * @returns {number[]|null} Reordered indices into `documents`, or null if rerank skipped/failed
+ * @returns {{ index: number, score: number }[]|null} Relevance-scored rerank rows, or null if skipped/failed
  */
 export async function rerankDocuments(query, documents, topN) {
   if (!config.search.rerank.enabled || !query?.trim() || !documents?.length) {
@@ -116,7 +130,7 @@ export async function rerankDocuments(query, documents, topN) {
     if (!provider.ready()) continue
     try {
       const results = await provider.rerank(query.trim(), documents, limit)
-      return results.sort((a, b) => b.score - a.score).map((r) => r.index)
+      return filterRerankResults(results)
     } catch (err) {
       lastError = err
       console.warn(`[rerank] ${provider.name} failed:`, err.message)

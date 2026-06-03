@@ -17,6 +17,7 @@ import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/use
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
 import ProductSearchBar from '../Users/Products/ProductSearchBar'
+import { getCartUnitCount } from '../../utils/cartCount'
 
 export default function Navbar() {
   const navigate = useNavigate()
@@ -37,6 +38,7 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { cartItems } = useSelector((state) => state?.carts)
+  const cartUnitCount = getCartUnitCount(cartItems)
   const { userAuth } = useSelector((state) => state?.users)
   const user = userAuth?.userInfo
   const isLoggedIn = userAuth?.isLoggedIn
@@ -432,7 +434,7 @@ export default function Navbar() {
                       aria-hidden="true"
                     />
                     <span className="text-sm font-medium">
-                      {cartItems?.length > 0 ? cartItems.length : 0}
+                      {cartUnitCount}
                     </span>
                   </Link>
                 </div>
