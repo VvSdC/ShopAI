@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler'
 import Brand from '../model/Brand.js'
 import Category from '../model/Category.js'
 import Product from '../model/Product.js'
+import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import Review from '../model/Review.js'
 import { tagProductInBackground } from '../services/productTagging.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
@@ -150,6 +151,7 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
 export const getProductCtrl = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id).populate({
     path: 'reviews',
+    match: PUBLIC_REVIEW_MATCH,
     populate: {
       path: 'user',
       select: 'fullname',

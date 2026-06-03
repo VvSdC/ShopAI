@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { resetSuccessAction } from "../../../redux/slices/globalActions/globalActions";
 import Select from "react-select";
 import makeAnimated from "react-select/animated";
 import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice";
@@ -88,9 +89,11 @@ export default function AddProduct() {
   //---form data---
   const [formData, setFormData] = useState({
     name: "",
-    address: "",
-    district: "",
-    phone: "",
+    description: "",
+    category: "",
+    brand: "",
+    price: "",
+    totalQty: "",
   });
 
   //onChange
@@ -101,11 +104,30 @@ export default function AddProduct() {
   //get product from store
   const { isAdded, loading, error } = useSelector((state) => state?.products);
 
+  useEffect(() => {
+    dispatch(resetSuccessAction());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!isAdded) return;
+    setFormData({
+      name: "",
+      description: "",
+      category: "",
+      brand: "",
+      price: "",
+      totalQty: "",
+    });
+    setFiles([]);
+    setFileErrs([]);
+    setSizeOption([]);
+    setColorsOption([]);
+  }, [isAdded]);
+
   //onSubmit
   const handleOnSubmit = (e) => {
     e.preventDefault();
-    console.log(fileErrs);
-    //dispatch
+    if (fileErrs?.length > 0) return;
     dispatch(
       createProductAction({
         ...formData,
@@ -114,19 +136,6 @@ export default function AddProduct() {
         sizes: sizeOption?.map((size) => size?.label),
       })
     );
-
-    //reset form data
-    setFormData({
-      name: "",
-      description: "",
-      category: "",
-      sizes: "",
-      brand: "",
-      colors: "",
-      images: "",
-      price: "",
-      totalQty: "",
-    });
   };
 
   return (
@@ -135,7 +144,7 @@ export default function AddProduct() {
       {fileErrs?.length > 0 && (
         <ErrorMsg message="file too large or upload an image" />
       )}
-      {isAdded && <SuccessMsg message="Product Added Successfully" />}
+      <SuccessMsg show={isAdded} message="Product Added Successfully" />
       <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">

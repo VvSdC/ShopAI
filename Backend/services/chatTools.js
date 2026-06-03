@@ -1,5 +1,6 @@
 import Order from '../model/Order.js'
 import Product from '../model/Product.js'
+import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import Coupon from '../model/Coupon.js'
@@ -484,7 +485,7 @@ const toolExecutors = {
   async get_product_details(_userId, args) {
     const product = await Product.findById(args.product_id)
       .select('name description brand category price totalQty totalSold colors sizes images')
-      .populate('reviews')
+      .populate({ path: 'reviews', match: PUBLIC_REVIEW_MATCH })
 
     if (!product) return { error: 'Product not found.' }
 

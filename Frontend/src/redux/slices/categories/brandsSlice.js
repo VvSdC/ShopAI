@@ -83,6 +83,8 @@ const brandsSlice = createSlice({
     //create
     builder.addCase(createBrandAction.pending, (state) => {
       state.loading = true
+      state.isAdded = false
+      state.error = null
     })
     builder.addCase(createBrandAction.fulfilled, (state, action) => {
       state.loading = false

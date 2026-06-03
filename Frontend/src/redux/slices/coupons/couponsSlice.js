@@ -132,6 +132,8 @@ const couponsSlice = createSlice({
     //create
     builder.addCase(createCouponAction.pending, (state) => {
       state.loading = true;
+      state.isAdded = false;
+      state.error = null;
     });
     builder.addCase(createCouponAction.fulfilled, (state, action) => {
       state.loading = false;

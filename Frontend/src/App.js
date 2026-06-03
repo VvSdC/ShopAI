@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AdminDashboard from "./components/Admin/AdminDashboard";
 import ManageCoupons from "./components/Admin/Coupons/ManageCoupons";
 import AddCoupon from "./components/Admin/Coupons/AddCoupon";
@@ -130,11 +130,7 @@ function AppShell() {
           {/* Category */}
           <Route
             path="category-to-add"
-            element={
-              <AdminRoutes>
-                <CategoryToAdd />
-              </AdminRoutes>
-            }
+            element={<Navigate to="/admin/add-category" replace />}
           />
           <Route path="add-category" element={<AdminRoutes><AddCategory /></AdminRoutes>} />
           <Route

@@ -245,14 +245,12 @@ export default function Product() {
     return 'bg-gray-100 text-gray-600'
   }
 
-  const visibleReviews = (product?.reviews || []).filter((r) => {
-    if (r.moderationStatus === 'approved' || !r.moderationStatus) return true
-    return r.user?._id === currentUserId
-  })
+  const isPublicReview = (r) =>
+    !r.moderationStatus || r.moderationStatus === 'approved'
 
-  const approvedReviewTags = visibleReviews
-    .filter((r) => r.moderationStatus === 'approved' || !r.moderationStatus)
-    .flatMap((r) => r.tags || [])
+  const visibleReviews = (product?.reviews || []).filter(isPublicReview)
+
+  const approvedReviewTags = visibleReviews.flatMap((r) => r.tags || [])
   const tagCounts = {}
   approvedReviewTags.forEach((t) => { tagCounts[t] = (tagCounts[t] || 0) + 1 })
   const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])
@@ -268,8 +266,15 @@ export default function Product() {
   }
 
   const images = product?.images?.length ? product.images : []
-  const rating = Number(product?.averageRating || 0)
-  const reviewCount = product?.totalReviews ?? product?.reviews?.length ?? 0
+  const reviewCount = visibleReviews.length
+  const displayRating =
+    visibleReviews.length > 0
+      ? (
+          visibleReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+          visibleReviews.length
+        ).toFixed(1)
+      : product?.averageRating || 0
+  const rating = Number(displayRating || 0)
   const inStock = (product?.qtyLeft ?? 0) > 0
   const lowStock = inStock && product.qtyLeft <= 5
 
@@ -601,7 +606,7 @@ export default function Product() {
                 </button>
               )}
               {/* Sort controls */}
-              {product?.reviews?.length > 1 && (
+              {visibleReviews.length > 1 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">Sort:</span>
                   <button
@@ -672,14 +677,7 @@ export default function Product() {
               {sortedReviews.map((review) => (
                 <div
                   key={review._id}
-                  className={classNames(
-                    'rounded-xl border p-5 shadow-sm transition-shadow',
-                    review.moderationStatus === 'rejected'
-                      ? 'border-red-200 bg-red-50/30'
-                      : review.moderationStatus === 'pending'
-                      ? 'border-amber-200 bg-amber-50/20'
-                      : 'border-gray-200 bg-white hover:shadow-md'
-                  )}
+                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
                 >
                   {/* Top row: user info + date */}
                   <div className="flex items-center justify-between mb-3">
@@ -724,27 +722,6 @@ export default function Product() {
                       </div>
                     )}
                   </div>
-
-                  {/* Moderation status badges (visible only to the review author) */}
-                  {review.moderationStatus === 'pending' && review.user?._id === currentUserId && (
-                    <div className="flex items-center gap-2 mb-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                      <svg className="h-4 w-4 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span className="text-xs font-medium text-amber-700">
-                        Checking content...
-                      </span>
-                    </div>
-                  )}
-                  {review.moderationStatus === 'rejected' && review.user?._id === currentUserId && (
-                    <div className="mb-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-                      <p className="text-xs font-semibold text-red-700 mb-0.5">Review flagged</p>
-                      <p className="text-xs text-red-600">
-                        {review.moderationReason || 'Your review did not pass our content guidelines. Please edit or delete it.'}
-                      </p>
-                    </div>
-                  )}
 
                   {/* Stars */}
                   <div className="flex items-center gap-1 mb-2">

@@ -93,23 +93,26 @@ ProductSchema.virtual('qtyLeft').get(function () {
   const product = this
   return product.totalQty - product.totalSold
 })
-//Total rating
+function approvedReviewsForProduct(product) {
+  return (product?.reviews || []).filter((review) => {
+    const status = review?.moderationStatus
+    return !status || status === 'approved'
+  })
+}
+
+//Total rating (approved reviews only)
 ProductSchema.virtual('totalReviews').get(function () {
-  const product = this
-  return product?.reviews?.length
+  return approvedReviewsForProduct(this).length
 })
-//average Rating
+//average Rating (approved reviews only)
 ProductSchema.virtual('averageRating').get(function () {
+  const approved = approvedReviewsForProduct(this)
+  if (!approved.length) return 0
   let ratingsTotal = 0
-  const product = this
-  product?.reviews?.forEach((review) => {
+  approved.forEach((review) => {
     ratingsTotal += review?.rating
   })
-  //calc average rating
-  const averageRating = Number(ratingsTotal / product?.reviews?.length).toFixed(
-    1
-  )
-  return averageRating
+  return Number(ratingsTotal / approved.length).toFixed(1)
 })
 ProductSchema.index({ name: 'text', description: 'text', tags: 'text' })
 ProductSchema.index({ category: 1 })
