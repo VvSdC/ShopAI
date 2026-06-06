@@ -21,6 +21,7 @@ import chatRouter from '../routes/chatRouter.js'
 import cartRouter from '../routes/cartRouter.js'
 import policyRouter from '../routes/policyRouter.js'
 import returnsRouter from '../routes/returnsRouter.js'
+import analyticsRouter from '../routes/analyticsRouter.js'
 import { processPaidOrder } from '../services/orderFulfillment.js'
 import { persistPaymentReferences } from '../services/orderRefund.js'
 
@@ -178,6 +179,7 @@ app.use('/shopai/cart/', apiLimiter, cartRouter)
 app.use('/shopai/policy/', apiLimiter, policyRouter)
 app.use('/shopai/returns/', apiLimiter, returnsRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)
+app.use('/shopai/analytics/', apiLimiter, analyticsRouter)
 
 app.use(notFound)
 app.use(globalErrhandler)

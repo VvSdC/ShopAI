@@ -41,10 +41,14 @@ import ChatWidget from "./components/ChatBot/ChatWidget";
 import AssistantPage from "./components/ChatBot/AssistantPage";
 import ForgotPassword from "./components/Users/Forms/ForgotPassword";
 import SiteFooter from "./components/Layout/SiteFooter";
+import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnalyticsLayout";
+import InferencePanel from "./components/Admin/Analytics/InferencePanel";
 
 function AppShell() {
   const location = useLocation();
-  const hideFloatingChat = location.pathname === "/assistant";
+  const hideFloatingChat =
+    location.pathname === "/assistant" ||
+    location.pathname.startsWith("/admin/developer-analytics");
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -186,6 +190,17 @@ function AppShell() {
               </AdminRoutes>
             }
           />
+        </Route>
+        <Route
+          path="admin/developer-analytics"
+          element={
+            <AdminRoutes>
+              <DeveloperAnalyticsLayout />
+            </AdminRoutes>
+          }
+        >
+          <Route index element={<Navigate to="inference" replace />} />
+          <Route path="inference" element={<InferencePanel />} />
         </Route>
         {/* public links */}
         {/* Products */}
