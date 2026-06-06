@@ -43,6 +43,7 @@ import ForgotPassword from "./components/Users/Forms/ForgotPassword";
 import SiteFooter from "./components/Layout/SiteFooter";
 import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnalyticsLayout";
 import InferencePanel from "./components/Admin/Analytics/InferencePanel";
+import ChatbotEvalPanel from "./components/Admin/Analytics/ChatbotEvalPanel";
 
 function AppShell() {
   const location = useLocation();
@@ -201,6 +202,7 @@ function AppShell() {
         >
           <Route index element={<Navigate to="inference" replace />} />
           <Route path="inference" element={<InferencePanel />} />
+          <Route path="chat-eval" element={<ChatbotEvalPanel />} />
         </Route>
         {/* public links */}
         {/* Products */}

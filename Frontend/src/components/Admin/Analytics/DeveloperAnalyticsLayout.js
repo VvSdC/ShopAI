@@ -7,6 +7,7 @@ import {
   XMarkIcon,
   CpuChipIcon,
   ArrowLeftIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline'
 import user from '../user.png'
 
@@ -15,6 +16,11 @@ const sidebarLinks = [
     name: 'Inference',
     href: 'inference',
     icon: CpuChipIcon,
+  },
+  {
+    name: 'Evaluate Chatbot',
+    href: 'chat-eval',
+    icon: ChatBubbleLeftRightIcon,
   },
 ]
 

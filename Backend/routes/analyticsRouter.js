@@ -4,6 +4,9 @@ import isAdmin from '../middlewares/isAdmin.js'
 import {
   listInferenceProvidersCtrl,
   testInferenceProviderCtrl,
+  listChatEvalCasesCtrl,
+  runChatEvalCtrl,
+  getChatEvalStatusCtrl,
 } from '../controllers/analyticsCtrl.js'
 
 const analyticsRouter = express.Router()
@@ -19,6 +22,19 @@ analyticsRouter.post(
   isLoggedIn,
   isAdmin,
   testInferenceProviderCtrl
+)
+analyticsRouter.get(
+  '/chat-eval/cases',
+  isLoggedIn,
+  isAdmin,
+  listChatEvalCasesCtrl
+)
+analyticsRouter.post('/chat-eval/run', isLoggedIn, isAdmin, runChatEvalCtrl)
+analyticsRouter.get(
+  '/chat-eval/status/:jobId',
+  isLoggedIn,
+  isAdmin,
+  getChatEvalStatusCtrl
 )
 
 export default analyticsRouter

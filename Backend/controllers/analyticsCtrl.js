@@ -1,8 +1,19 @@
 import asyncHandler from 'express-async-handler'
+import User from '../model/User.js'
 import {
   listInferenceProviders,
   testInferenceProvider,
 } from '../services/inferenceTestService.js'
+import {
+  listChatEvalCases,
+  runChatEvalSuite,
+} from '../services/chatEvalService.js'
+import {
+  createChatEvalJob,
+  getChatEvalJob,
+  patchChatEvalJob,
+  publicChatEvalJob,
+} from '../services/chatEvalJobStore.js'
 
 export const listInferenceProvidersCtrl = asyncHandler(async (req, res) => {
   res.json({
@@ -21,4 +32,65 @@ export const testInferenceProviderCtrl = asyncHandler(async (req, res) => {
 
   const result = await testInferenceProvider(providerId, model)
   res.json({ success: true, ...result })
+})
+
+export const listChatEvalCasesCtrl = asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    cases: listChatEvalCases(),
+  })
+})
+
+export const runChatEvalCtrl = asyncHandler(async (req, res) => {
+  const { caseIds } = req.body || {}
+  const user = await User.findById(req.userAuthId).select('fullname')
+  if (!user) {
+    res.status(401)
+    throw new Error('User not found')
+  }
+
+  const job = createChatEvalJob(req.userAuthId)
+  res.status(202).json({ success: true, jobId: job.id })
+
+  ;(async () => {
+    try {
+      patchChatEvalJob(job.id, { status: 'running' })
+
+      const payload = await runChatEvalSuite(
+        req.userAuthId,
+        user.fullname || 'Admin',
+        Array.isArray(caseIds) && caseIds.length ? caseIds : null,
+        (progress) => patchChatEvalJob(job.id, progress)
+      )
+
+      patchChatEvalJob(job.id, {
+        status: 'completed',
+        total: payload.results.length,
+        completed: payload.results.length,
+        currentCase: null,
+        results: payload.results,
+        summary: payload.summary,
+        finishedAt: new Date().toISOString(),
+      })
+    } catch (err) {
+      patchChatEvalJob(job.id, {
+        status: 'failed',
+        error: err.message || 'Evaluation run failed',
+        finishedAt: new Date().toISOString(),
+      })
+    }
+  })()
+})
+
+export const getChatEvalStatusCtrl = asyncHandler(async (req, res) => {
+  const job = getChatEvalJob(req.params.jobId, req.userAuthId)
+  if (!job) {
+    res.status(404)
+    throw new Error('Evaluation job not found')
+  }
+
+  res.json({
+    success: true,
+    job: publicChatEvalJob(job),
+  })
 })
