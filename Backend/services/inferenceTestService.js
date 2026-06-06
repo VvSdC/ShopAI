@@ -54,6 +54,22 @@ const PROVIDER_DEFINITIONS = [
     models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'],
     url: 'https://api.groq.com/openai/v1/chat/completions',
   },
+  {
+    id: 'cloudflare',
+    name: 'Cloudflare Workers AI',
+    getApiKey: () => config.llm.cloudflare.apiToken,
+    isConfigured: () =>
+      Boolean(config.llm.cloudflare.apiToken && config.llm.cloudflare.accountId),
+    getDefaultModel: () => config.llm.cloudflare.model,
+    models: [
+      '@cf/meta/llama-3.1-8b-instruct',
+      '@cf/mistral/mistral-7b-instruct-v0.2',
+      '@cf/google/gemma-7b-it',
+      '@cf/qwen/qwen1.5-14b-chat-awq',
+    ],
+    buildUrl: () =>
+      `https://api.cloudflare.com/client/v4/accounts/${config.llm.cloudflare.accountId}/ai/v1/chat/completions`,
+  },
 ]
 
 function uniqueModels(defaultModel, models) {
@@ -72,11 +88,33 @@ function findProvider(providerId) {
   return PROVIDER_DEFINITIONS.find((p) => p.id === providerId) || null
 }
 
+function providerConfigured(provider) {
+  if (provider.isConfigured) return provider.isConfigured()
+  return Boolean(provider.getApiKey())
+}
+
+function providerUrl(provider) {
+  if (provider.buildUrl) return provider.buildUrl()
+  return provider.url
+}
+
+function extractErrorDetail(data, status) {
+  if (data?.errors?.length) {
+    return data.errors.map((e) => e.message || JSON.stringify(e)).join('; ')
+  }
+  return (
+    data?.error?.message ||
+    data?.message ||
+    (typeof data?.error === 'string' ? data.error : '') ||
+    `HTTP ${status}`
+  )
+}
+
 export function listInferenceProviders() {
   return PROVIDER_DEFINITIONS.map((provider) => ({
     id: provider.id,
     name: provider.name,
-    configured: Boolean(provider.getApiKey()),
+    configured: providerConfigured(provider),
     defaultModel: provider.getDefaultModel(),
     models: uniqueModels(provider.getDefaultModel(), provider.models),
   }))
@@ -88,11 +126,15 @@ export async function testInferenceProvider(providerId, model) {
     return { ok: false, status: 'error', error: 'Unknown provider' }
   }
 
-  const apiKey = provider.getApiKey()
-  if (!apiKey) {
-    return { ok: false, status: 'not_configured', error: 'API key not configured' }
+  if (!providerConfigured(provider)) {
+    const missing =
+      provider.id === 'cloudflare'
+        ? 'Cloudflare account ID and API token not configured'
+        : 'API key not configured'
+    return { ok: false, status: 'not_configured', error: missing }
   }
 
+  const apiKey = provider.getApiKey()
   const useModel = String(model || provider.getDefaultModel()).trim()
   if (!useModel) {
     return { ok: false, status: 'error', error: 'Model is required' }
@@ -101,7 +143,7 @@ export async function testInferenceProvider(providerId, model) {
   const extraHeaders = provider.extraHeaders ? provider.extraHeaders() : {}
 
   try {
-    const response = await fetch(provider.url, {
+    const response = await fetch(providerUrl(provider), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -119,12 +161,12 @@ export async function testInferenceProvider(providerId, model) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      const detail =
-        data?.error?.message ||
-        data?.message ||
-        (typeof data?.error === 'string' ? data.error : '') ||
-        `HTTP ${response.status}`
-      return { ok: false, status: 'not_working', error: detail, model: useModel }
+      return {
+        ok: false,
+        status: 'not_working',
+        error: extractErrorDetail(data, response.status),
+        model: useModel,
+      }
     }
 
     const content = data?.choices?.[0]?.message?.content?.trim() || ''

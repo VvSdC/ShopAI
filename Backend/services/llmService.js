@@ -1,7 +1,7 @@
 import { config } from '../config/env.js'
 
 /**
- * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace (router).
+ * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace → Groq → Cloudflare.
  * Skips providers without an API key. Retries next on rate limits or errors.
  */
 const providers = [
@@ -33,7 +33,27 @@ const providers = [
     key: () => config.llm.huggingFace.apiKey,
     model: () => config.llm.huggingFace.model,
   },
+  {
+    name: 'Groq',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    key: () => config.llm.groq.apiKey,
+    model: () => config.llm.groq.model,
+  },
+  {
+    name: 'Cloudflare',
+    url: () =>
+      `https://api.cloudflare.com/client/v4/accounts/${config.llm.cloudflare.accountId}/ai/v1/chat/completions`,
+    key: () => config.llm.cloudflare.apiToken,
+    model: () => config.llm.cloudflare.model,
+    isConfigured: () =>
+      Boolean(config.llm.cloudflare.apiToken && config.llm.cloudflare.accountId),
+  },
 ]
+
+function providerReady(provider) {
+  if (provider.isConfigured) return provider.isConfigured()
+  return Boolean(provider.key())
+}
 
 async function callProvider(provider, messages, tools) {
   const apiKey = provider.key()
@@ -94,7 +114,7 @@ export async function chatCompletion(messages, tools) {
 
   for (const provider of providers) {
     try {
-      if (!provider.key()) continue
+      if (!providerReady(provider)) continue
       const result = await callProvider(provider, messages, tools)
       return result
     } catch (err) {
