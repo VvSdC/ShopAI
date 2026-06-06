@@ -2,12 +2,32 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
+function normalizeSecret(value) {
+  let cleaned = String(value).trim()
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim()
+  }
+  if (cleaned.toLowerCase().startsWith('bearer ')) {
+    cleaned = cleaned.slice(7).trim()
+  }
+  return cleaned
+}
+
 function env(key, fallback = undefined) {
   const value = process.env[key]
   if (value === undefined || value === '') {
     return fallback
   }
   return value
+}
+
+function envSecret(key, fallback = '') {
+  const value = env(key, fallback)
+  if (value === undefined || value === '') return fallback
+  return normalizeSecret(value)
 }
 
 function envInt(key, fallback) {
@@ -72,29 +92,24 @@ export const config = {
 
   llm: {
     openRouter: {
-      apiKey: env('OPENROUTER_API_KEY', ''),
+      apiKey: envSecret('OPENROUTER_API_KEY', ''),
       model: env('OPENROUTER_MODEL', 'qwen/qwen3-8b'),
     },
     gemini: {
-      apiKey: env('GEMINI_API_KEY', env('GOOGLE_API_KEY', '')),
+      apiKey: envSecret('GEMINI_API_KEY', envSecret('GOOGLE_API_KEY', '')),
       model: env('GEMINI_MODEL', 'gemini-2.0-flash'),
     },
     mistral: {
-      apiKey: env('MISTRAL_API_KEY', ''),
+      apiKey: envSecret('MISTRAL_API_KEY', ''),
       model: env('MISTRAL_MODEL', 'mistral-small-latest'),
     },
     huggingFace: {
-      apiKey: env('HUGGINGFACE_API_KEY', ''),
+      apiKey: envSecret('HUGGINGFACE_API_KEY', ''),
       model: env('HUGGINGFACE_MODEL', 'Qwen/Qwen2.5-7B-Instruct'),
     },
     groq: {
-      apiKey: env('GROQ_API_KEY', ''),
+      apiKey: envSecret('GROQ_API_KEY', ''),
       model: env('GROQ_MODEL', 'llama-3.1-8b-instant'),
-    },
-    cloudflare: {
-      accountId: env('CLOUDFLARE_ACCOUNT_ID', ''),
-      apiToken: env('CLOUDFLARE_API_TOKEN', ''),
-      model: env('CLOUDFLARE_MODEL', '@cf/meta/llama-3.1-8b-instruct'),
     },
   },
 

@@ -1,7 +1,8 @@
 import { config } from '../config/env.js'
+import { callGeminiChat } from './geminiClient.js'
 
 /**
- * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace → Groq → Cloudflare.
+ * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace → Groq.
  * Skips providers without an API key. Retries next on rate limits or errors.
  */
 const providers = [
@@ -17,7 +18,6 @@ const providers = [
   },
   {
     name: 'Gemini',
-    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     key: () => config.llm.gemini.apiKey,
     model: () => config.llm.gemini.model,
   },
@@ -39,19 +39,9 @@ const providers = [
     key: () => config.llm.groq.apiKey,
     model: () => config.llm.groq.model,
   },
-  {
-    name: 'Cloudflare',
-    url: () =>
-      `https://api.cloudflare.com/client/v4/accounts/${config.llm.cloudflare.accountId}/ai/v1/chat/completions`,
-    key: () => config.llm.cloudflare.apiToken,
-    model: () => config.llm.cloudflare.model,
-    isConfigured: () =>
-      Boolean(config.llm.cloudflare.apiToken && config.llm.cloudflare.accountId),
-  },
 ]
 
 function providerReady(provider) {
-  if (provider.isConfigured) return provider.isConfigured()
   return Boolean(provider.key())
 }
 
@@ -61,8 +51,28 @@ async function callProvider(provider, messages, tools) {
     throw new Error(`${provider.name} API key not configured`)
   }
 
-  const url = typeof provider.url === 'function' ? provider.url() : provider.url
   const model = provider.model()
+
+  if (provider.name === 'Gemini') {
+    const result = await callGeminiChat(messages, {
+      model,
+      maxTokens: 2048,
+      temperature: 0.7,
+      tools,
+    })
+
+    if (result.ok) return result.data
+
+    if (result.status === 429) {
+      const err = new Error(`Gemini rate limited: ${result.error}`)
+      err.isRateLimit = true
+      throw err
+    }
+
+    throw new Error(`Gemini error: ${result.error}`)
+  }
+
+  const url = typeof provider.url === 'function' ? provider.url() : provider.url
 
   const body = {
     model,

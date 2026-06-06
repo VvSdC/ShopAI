@@ -47,7 +47,7 @@ flowchart TB
   end
 
   subgraph External
-    F[OpenRouter / Gemini / Mistral / HF / Groq / Cloudflare]
+    F[OpenRouter / Gemini / Mistral / HF / Groq]
     G[Stripe — payments]
     H[Search pipeline — embeddings + rerank]
   end
@@ -132,8 +132,7 @@ ShopAI does not depend on a single AI company. The **LLM service** tries provide
 2. **Google Gemini**  
 3. **Mistral**  
 4. **Hugging Face Inference Router**  
-5. **Groq**  
-6. **Cloudflare Workers AI** (requires account ID + API token)
+5. **Groq**
 
 If one provider is down, rate-limited, or missing an API key, the next one is used automatically.
 

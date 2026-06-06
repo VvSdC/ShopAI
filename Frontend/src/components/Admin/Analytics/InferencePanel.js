@@ -7,6 +7,7 @@ const STATUS_STYLES = {
   working: 'bg-green-100 text-green-800',
   not_working: 'bg-red-100 text-red-800',
   not_configured: 'bg-amber-100 text-amber-800',
+  rate_limited: 'bg-orange-100 text-orange-800',
 }
 
 function statusLabel(status, configured) {
@@ -16,6 +17,8 @@ function statusLabel(status, configured) {
       return 'Working'
     case 'not_working':
       return 'Not working'
+    case 'rate_limited':
+      return 'Rate limited'
     case 'testing':
       return 'Testing…'
     default:

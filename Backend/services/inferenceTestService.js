@@ -1,4 +1,5 @@
 import { config } from '../config/env.js'
+import { testGeminiInference } from './geminiClient.js'
 
 const PROVIDER_DEFINITIONS = [
   {
@@ -23,7 +24,7 @@ const PROVIDER_DEFINITIONS = [
     name: 'Gemini',
     getApiKey: () => config.llm.gemini.apiKey,
     getDefaultModel: () => config.llm.gemini.model,
-    models: ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'],
+    models: ['gemini-2.0-flash', 'gemini-2.5-flash'],
     url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
   },
   {
@@ -54,22 +55,6 @@ const PROVIDER_DEFINITIONS = [
     models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'],
     url: 'https://api.groq.com/openai/v1/chat/completions',
   },
-  {
-    id: 'cloudflare',
-    name: 'Cloudflare Workers AI',
-    getApiKey: () => config.llm.cloudflare.apiToken,
-    isConfigured: () =>
-      Boolean(config.llm.cloudflare.apiToken && config.llm.cloudflare.accountId),
-    getDefaultModel: () => config.llm.cloudflare.model,
-    models: [
-      '@cf/meta/llama-3.1-8b-instruct',
-      '@cf/mistral/mistral-7b-instruct-v0.2',
-      '@cf/google/gemma-7b-it',
-      '@cf/qwen/qwen1.5-14b-chat-awq',
-    ],
-    buildUrl: () =>
-      `https://api.cloudflare.com/client/v4/accounts/${config.llm.cloudflare.accountId}/ai/v1/chat/completions`,
-  },
 ]
 
 function uniqueModels(defaultModel, models) {
@@ -89,12 +74,10 @@ function findProvider(providerId) {
 }
 
 function providerConfigured(provider) {
-  if (provider.isConfigured) return provider.isConfigured()
   return Boolean(provider.getApiKey())
 }
 
 function providerUrl(provider) {
-  if (provider.buildUrl) return provider.buildUrl()
   return provider.url
 }
 
@@ -108,6 +91,20 @@ function extractErrorDetail(data, status) {
     (typeof data?.error === 'string' ? data.error : '') ||
     `HTTP ${status}`
   )
+}
+
+function failureFromResponse(status, data) {
+  const detail = extractErrorDetail(data, status)
+  if (status === 429) {
+    return {
+      status: 'rate_limited',
+      error:
+        detail && detail !== 'HTTP 429'
+          ? `Rate limited: ${detail}`
+          : 'Rate limited — quota exceeded or too many requests',
+    }
+  }
+  return { status: 'not_working', error: detail }
 }
 
 export function listInferenceProviders() {
@@ -127,19 +124,19 @@ export async function testInferenceProvider(providerId, model) {
   }
 
   if (!providerConfigured(provider)) {
-    const missing =
-      provider.id === 'cloudflare'
-        ? 'Cloudflare account ID and API token not configured'
-        : 'API key not configured'
-    return { ok: false, status: 'not_configured', error: missing }
+    return { ok: false, status: 'not_configured', error: 'API key not configured' }
   }
 
-  const apiKey = provider.getApiKey()
   const useModel = String(model || provider.getDefaultModel()).trim()
   if (!useModel) {
     return { ok: false, status: 'error', error: 'Model is required' }
   }
 
+  if (provider.id === 'gemini') {
+    return testGeminiInference(useModel)
+  }
+
+  const apiKey = provider.getApiKey()
   const extraHeaders = provider.extraHeaders ? provider.extraHeaders() : {}
 
   try {
@@ -161,12 +158,8 @@ export async function testInferenceProvider(providerId, model) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      return {
-        ok: false,
-        status: 'not_working',
-        error: extractErrorDetail(data, response.status),
-        model: useModel,
-      }
+      const failure = failureFromResponse(response.status, data)
+      return { ok: false, ...failure, model: useModel }
     }
 
     const content = data?.choices?.[0]?.message?.content?.trim() || ''
@@ -189,7 +182,7 @@ export async function testInferenceProvider(providerId, model) {
     return {
       ok: false,
       status: 'not_working',
-      error: err.message || 'Request failed',
+      error: err.message || 'Test request failed',
       model: useModel,
     }
   }
