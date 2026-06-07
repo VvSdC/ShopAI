@@ -1,0 +1,276 @@
+# ShopAI — Developer Guide
+
+Technical overview of the ShopAI monorepo: architecture, request flows, the chatbot pipeline, hybrid retrieval, and admin tooling.
+
+---
+
+## Repository layout
+
+| Path | Role |
+|------|------|
+| `Frontend/` | React storefront, Shop with AI UI, admin dashboard, Developer Analytics |
+| `Backend/` | Express API, MongoDB models, AI services, search pipeline, Stripe webhooks |
+| `Backend/.env.example` | Environment variable reference — copy to `Backend/.env` |
+| `Backend/docs/` | Focused deep-dives (chatbot, search box, product/review tagging) |
+
+**Stack:** Node.js 20+, Express, MongoDB (Mongoose), React, Stripe, multi-provider LLM APIs.
+
+---
+
+## System architecture
+
+```mermaid
+flowchart TB
+  subgraph Client
+    FE[React Frontend]
+  end
+
+  subgraph Backend
+    API[Express app — routes + controllers]
+    CHAT[LangGraph chat workflow]
+    TOOLS[Chat tools — 20 shop actions]
+    SEARCH[Hybrid search pipeline]
+    LLM[LLM service — provider fallback]
+    DB[(MongoDB)]
+  end
+
+  subgraph External
+    STRIPE[Stripe]
+    EMBED[Embedding APIs]
+    RERANK[Rerank APIs]
+    CHAT_LLM[Chat LLM providers]
+  end
+
+  FE -->|JWT + REST| API
+  API --> CHAT
+  CHAT --> LLM
+  LLM --> CHAT_LLM
+  CHAT --> TOOLS
+  TOOLS --> DB
+  TOOLS --> SEARCH
+  TOOLS --> STRIPE
+  SEARCH --> EMBED
+  SEARCH --> RERANK
+  SEARCH --> DB
+```
+
+**Layers:**
+
+1. **Frontend** — product browsing, cart, checkout UI, full-page chat, admin CRUD, Developer Analytics.
+2. **API** — auth middleware, validation (Zod), rate limits, controllers.
+3. **Services** — business logic isolated from HTTP (cart, checkout, search, chat graph, LLM).
+4. **Data** — MongoDB for users, products, orders, carts, chat sessions, embeddings on products.
+
+There is **no WebSocket chat streaming** today. Each chat message is a single HTTP request/response cycle.
+
+---
+
+## What happens at runtime
+
+### Typical product search (website)
+
+1. User opens `/products-filters?q=cricket+bat`.
+2. `GET /api/v1/products?q=...` hits `productsCtrl.js`.
+3. When `q` is present, `searchProducts()` runs the hybrid pipeline (see [Retrieval](#retrieval-hybrid-search-bi-encoder--cross-encoder-rerank)).
+4. JSON product cards return to the React product list.
+
+### Typical chat message
+
+1. Logged-in user sends `POST /shopai/chat/message` with `message` and optional `sessionId`.
+2. `chatCtrl.js` loads user + session history, calls `runChatGraph()`.
+3. LangGraph runs **guard → router → specialized agent → format**.
+4. Agent may loop on tools (up to 7 rounds) — search, cart, orders, checkout, etc.
+5. Post-processing: checkout assist, auto-checkout on confirmation, reply sanitization, client actions.
+6. Response JSON: `reply`, optional `clientActions`, `cartSummary`, `checkout`, `sessionId`.
+
+### Background jobs (not user-facing)
+
+| Job | When | What |
+|-----|------|------|
+| Product AI tagging | Product create/update | Adds searchable tags (`ProductTagging`) |
+| Embedding sync | Server startup + after tagging | Builds `searchDocument` + bi-encoder vectors |
+| Stripe webhooks | Payment events | Updates order payment status |
+| Chat eval suite | Admin triggers from Developer Analytics | Background job with polling status |
+
+---
+
+## Chatbot architecture (LangGraph)
+
+The assistant no longer uses a single monolithic prompt + full tool list. Each message flows through a compiled **LangGraph** workflow in `Backend/services/chatGraph/`.
+
+```mermaid
+flowchart LR
+  START --> Guard
+  Guard -->|blocked| Refuse
+  Guard -->|allowed| Router
+  Router --> Agent[Specialized agent]
+  Refuse --> Format
+  Agent --> Format
+  Format --> END
+```
+
+### Nodes
+
+| Node | Purpose |
+|------|---------|
+| **Guard** | Deterministic checks for prompt injection and off-topic requests (coding, politics, etc.) before any LLM call |
+| **Router** | Keyword intent routing to one of eight agents |
+| **Agent** | Scoped system prompt + subset of tools + internal tool loop |
+| **Refuse** | Fixed safe reply when guard blocks |
+| **Format** | Catalog-backed product listings + strip fake Stripe URLs / bad markup |
+
+### Specialized agents
+
+| Route | Typical intents | Tools (subset) |
+|-------|-----------------|----------------|
+| `retrieval` | “Show me cricket bats”, browse, recommend | `search_products`, `get_product_details`, categories, brands |
+| `comparison` | “Which bat is better?” | Same as retrieval |
+| `payment` | “Did my payment go through?” | `get_my_orders`, `get_order_details` |
+| `order_summary` | “My recent orders” | `get_my_orders`, `get_order_details` |
+| `order_update` | Cancel, return, refund | Order tools + `cancel_order`, `submit_return_request` |
+| `checkout` | Cart, coupons, addresses, pay | Cart, address, preview/create checkout tools |
+| `policies` | Return policy, how checkout works | Policy prompt + `get_active_coupons` |
+| `general` | Greeting, identity, broad help | Light tool set |
+
+### Tool execution
+
+- All **20 tools** live in `Backend/services/chatTools.js`.
+- Each agent only receives the tools it needs — smaller context, fewer wrong tool calls.
+- Tool results are real DB/API data; the formatter enforces **strict product listings** from `search_products` output.
+
+### LLM provider fallback
+
+`llmService.js` tries providers in order until one succeeds:
+
+1. OpenRouter  
+2. Google Gemini (`geminiClient.js` — native API with OpenAI-compatible fallback)  
+3. Mistral  
+4. Hugging Face Inference Router  
+5. Groq  
+
+Chat eval and live chat both call `runChatGraph()` so behavior stays aligned.
+
+### Key files
+
+| File | Role |
+|------|------|
+| `services/chatGraph/index.js` | `runChatGraph()` entry point |
+| `services/chatGraph/graph.js` | StateGraph compile |
+| `services/chatGraph/guard.js` | Injection / off-topic detection |
+| `services/chatGraph/router.js` | Intent → route |
+| `services/chatGraph/agentRunner.js` | Per-agent LLM + tool loop |
+| `services/chatGraph/agentPrompts.js` | Scoped system prompts |
+| `services/chatPostProcess.js` | Sanitize, catalog reply, checkout reply helpers |
+| `controllers/chatCtrl.js` | HTTP layer, sessions, checkout assist |
+| `services/chatSessionService.js` | Persist conversations |
+
+Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md)
+
+---
+
+## Retrieval: hybrid search, bi-encoder & cross-encoder rerank
+
+Product discovery (website search box **and** chat `search_products` tool) uses the same pipeline in `Backend/services/search/searchService.js`.
+
+### Mental model
+
+| Stage | Model type | Role |
+|-------|------------|------|
+| **Keyword search** | Classic text match | Fast recall on exact words in name, description, brand, category, tags |
+| **Vector search** | **Bi-encoder** (embedding model) | Encode query and each product *independently*; rank by cosine similarity |
+| **RRF merge** | Rank fusion | Combine keyword + vector lists without one dominating |
+| **Rerank** | **Cross-encoder** (reranker model) | Score query + each candidate *together* for precise final ordering |
+
+**Bi-encoder** (e.g. `BAAI/bge-m3` via Hugging Face): cheap at scale — one embedding per product at index time, one embedding per query at search time. Good recall, weaker fine-grained ordering.
+
+**Cross-encoder reranker** (e.g. Voyage `rerank-2.5`, Cohere, Jina): expensive per pair but much better at “does this product actually match this query?” Used only on the top ~30 RRF candidates.
+
+```mermaid
+flowchart TB
+  Q[Query text]
+  Q --> KW[Keyword path — MongoDB text match]
+  Q --> BE[Bi-encoder — embed query]
+  BE --> VS[Vector search — cosine vs product embeddings]
+  KW --> RRF[Reciprocal Rank Fusion]
+  VS --> RRF
+  RRF --> CE[Cross-encoder rerank — top N candidates]
+  CE --> OUT[Ranked product list]
+```
+
+### Indexing pipeline
+
+1. **AI product tags** — improves keyword leg and `searchDocument` text ([ProductTagging.md](../Backend/docs/ProductTagging.md)).
+2. **`documentBuilder.js`** — concatenates name, brand, category, description, tags, variants, price, stock into `searchDocument`.
+3. **`embeddingService.js`** — bi-encoder API → vector stored on `Product.embedding`.
+4. **`embeddingSyncService.js`** — startup catch-up for missing/stale embeddings; bump `SEARCH_EMBEDDING_VERSION` to force refresh.
+5. **Manual reindex** — `npm run search:reindex` in `Backend/`.
+
+### Search request pipeline
+
+1. **Keyword path** — `productSearch.js`: multi-word rules, scoring, limit `SEARCH_KEYWORD_LIMIT`.
+2. **Vector path** — embed query → `vectorSearch.js` (Atlas Vector Search on `mongodb+srv://`, else in-app cosine similarity locally).
+3. **RRF** — `hybridRanker.js`, constant `SEARCH_RRF_K`.
+4. **Rerank** — `rerankService.js` on top `RERANK_TOP_N` documents; skipped if `RERANK_ENABLED=false` or all APIs fail.
+5. **Map** — `mapProductSearchResult()` for API/chat consumption.
+
+Chat wraps this via `searchProductsForChat()` in `chatTools.js` with strict listing metadata so the formatter can override hallucinated product lists.
+
+Further detail: [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md)
+
+---
+
+## Developer Analytics
+
+Admin-only UI at `/admin/developer-analytics` (requires admin role).
+
+| Tab | API | Purpose |
+|-----|-----|---------|
+| **Inference** | `GET/POST /shopai/analytics/inference/*` | Smoke-test LLM providers with model picker and a “Hi” prompt |
+| **Evaluate Chatbot** | `POST /shopai/analytics/chat-eval/run`, `GET .../status/:jobId` | Run golden test cases with live progress, deterministic checks, and LLM judge |
+
+Eval cases live in `Backend/services/chatEvalCases.js`. Each case runs through **`runChatGraph()`** — same pipeline as production chat. Cases are spaced by ~10s to reduce Gemini rate-limit errors during full suite runs.
+
+---
+
+## Environment & local setup
+
+1. Copy `Backend/.env.example` → `Backend/.env` and fill keys.
+2. MongoDB running locally or Atlas URI in `MONGO_URL`.
+3. `cd Backend && npm install && npm run dev`
+4. `cd Frontend && npm install && npm start`
+
+**Minimum for chat:** `JWT_KEY`, `MONGO_URL`, at least one LLM key (`OPENROUTER_API_KEY` recommended).
+
+**Minimum for semantic search:** embedding key (`HUGGINGFACE_API_KEY` default) + products indexed.
+
+**Minimum for rerank:** `VOYAGE_API_KEY` (default provider) or another rerank provider key.
+
+**Stripe:** `STRIPE_KEY` + webhook secret for checkout; use `npm start` in Backend to run server + `stripe listen`.
+
+Run tests: `cd Backend && npm test`
+
+---
+
+## Related documentation
+
+| Document | Topic |
+|----------|-------|
+| [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md) | Chat API, tools, sessions, response shape |
+| [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md) | Hybrid search, embeddings, rerankers, config |
+| [`Backend/docs/ProductTagging.md`](../Backend/docs/ProductTagging.md) | AI tags for catalog search |
+| [`Backend/docs/CommentTagging.md`](../Backend/docs/CommentTagging.md) | Review moderation and tags |
+| [`Backend/.env.example`](../Backend/.env.example) | Full environment reference |
+
+---
+
+## Quick reference — main entry points
+
+| Concern | Entry |
+|---------|--------|
+| Chat message | `POST /shopai/chat/message` → `chatCtrl.js` → `runChatGraph()` |
+| Product search | `GET /api/v1/products?q=` → `searchProducts()` |
+| Chat product search | Tool `search_products` → `searchProductsForChat()` |
+| LLM calls | `services/llmService.js` |
+| Graph compile | `services/chatGraph/graph.js` |
+| Embeddings | `services/search/embeddingService.js` |
+| Reranking | `services/search/rerankService.js` |

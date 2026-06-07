@@ -38,6 +38,7 @@ Your built-in shopping companion — not a generic chatbot.
 - **Full-page assistant** with saved conversation history, plus a quick chat widget while you browse
 - **Cart & checkout from chat** — add items, update quantities, apply coupons, and pay without leaving the conversation
 - **Order tracking & account help** — check order status, shipping addresses, and active promotions
+- **Stays on topic** — focused on shopping, orders, and your account — with clear AI disclosure at every step
 - **Transparent by design** — you always know you’re talking to an AI assistant, with clear guidance to verify prices before you pay
 
 ### A Store Worth Browsing
@@ -45,7 +46,7 @@ Your built-in shopping companion — not a generic chatbot.
 Everything you expect from a modern shop — polished and ready to use.
 
 - **Curated catalog** across categories, brands, colors, and sizes
-- **Smart filters & search** so you can narrow down exactly what you need
+- **Smart search & filters** so you can narrow down exactly what you need
 - **Trending picks & category highlights** on the homepage
 - **Rich product pages** with multiple images, stock info, and customer reviews
 - **Persistent cart** that stays in sync when you’re signed in
@@ -120,4 +121,8 @@ Pay securely, get email confirmation, and ask the assistant anytime about your o
   <strong>ShopAI — smart shopping, made simple.</strong><br />
   Built by <a href="https://github.com/VvSdC"><strong>VVSD Charan</strong></a>
   &amp; <a href="https://github.com/pavankumar130"><strong>Pavan Meravath</strong></a>
+</p>
+
+<p align="center">
+  <sub>Developers — see <a href="docs/README.md">docs/README.md</a> for architecture and setup.</sub>
 </p>
