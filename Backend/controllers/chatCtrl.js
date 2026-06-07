@@ -7,6 +7,8 @@ import {
   sessionHistoryForApi,
 } from '../services/chatSessionService.js'
 import { runCheckoutAssist } from '../services/chatCheckoutAssist.js'
+import { runCartAssist } from '../services/chatCartAssist.js'
+import { runAddressAssist } from '../services/chatAddressAssist.js'
 import { runChatGraph } from '../services/chatGraph/index.js'
 import {
   buildChatResponse,
@@ -61,24 +63,34 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
     await persistAndRespond(
       session,
       userText,
-      graphResult.reply,
-      graphResult.toolResults,
+      graphResult,
       req.userAuthId,
-      graphResult.messages
+      trimmedHistory
     )
   )
 })
 
-async function persistAndRespond(
-  session,
-  userText,
-  reply,
-  toolResults,
-  userId,
-  messages = []
-) {
-  const assist = await runCheckoutAssist(userId, userText, messages, toolResults)
-  let finalToolResults = assist.toolResults
+async function persistAndRespond(session, userText, graphResult, userId, history = []) {
+  let reply = graphResult.reply
+  let toolResults = graphResult.toolResults || []
+  const messages = graphResult.messages || []
+
+  const cartAssist = await runCartAssist(userId, userText, history, toolResults, {
+    route: graphResult.route,
+  })
+  let finalToolResults = cartAssist.toolResults
+  if (cartAssist.reply) {
+    reply = cartAssist.reply
+  }
+
+  const addressAssist = await runAddressAssist(userId, userText, finalToolResults)
+  finalToolResults = addressAssist.toolResults
+  if (addressAssist.reply) {
+    reply = addressAssist.reply
+  }
+
+  const assist = await runCheckoutAssist(userId, userText, history, finalToolResults)
+  finalToolResults = assist.toolResults
   if (assist.reply) {
     reply = assist.reply
   }

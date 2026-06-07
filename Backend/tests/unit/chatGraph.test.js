@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest'
 import { evaluateGuard } from '../../services/chatGraph/guard.js'
-import { routeIntent } from '../../services/chatGraph/router.js'
+import {
+  routeIntent,
+  isCheckoutIntent,
+  isDiscoveryIntent,
+} from '../../services/chatGraph/router.js'
+
+const shirtListingHistory = [
+  {
+    role: 'assistant',
+    content:
+      '1. **Jack & Jones Men’s Red Casual Shirt** — ₹1,899 · [View product](/products/507f1f77bcf86cd799439011)',
+  },
+]
 
 describe('chatGraph guard', () => {
   it('allows greetings and shopping questions', () => {
@@ -27,17 +39,50 @@ describe('chatGraph router', () => {
     expect(routeIntent('Show me cricket bats available in the store.')).toBe('retrieval')
   })
 
-  it('routes checkout intents to checkout', () => {
+  it('routes add-without-product to retrieval, not checkout', () => {
+    expect(routeIntent('Add 2 mens shirt to the cart')).toBe('retrieval')
+    expect(isCheckoutIntent('Add 2 mens shirt to the cart', [])).toBe(false)
+    expect(isDiscoveryIntent('Add 2 mens shirt to the cart', [])).toBe(true)
+  })
+
+  it('routes variant purchase to checkout when product is in history', () => {
+    expect(routeIntent('I want 2 red shirts of extra large', shirtListingHistory)).toBe('checkout')
+    expect(routeIntent('I want to pay', shirtListingHistory)).toBe('checkout')
+  })
+
+  it('does not stick to checkout because of prior add message in history', () => {
+    const history = [{ role: 'user', content: 'Add 2 mens shirt to the cart' }]
+    expect(routeIntent('i need mens shirts?', history)).toBe('retrieval')
+    expect(routeIntent('Show me the available ones', history)).toBe('retrieval')
+  })
+
+  it('routes checkout when product is already in context', () => {
+    expect(routeIntent('Add 2 to cart', shirtListingHistory)).toBe('checkout')
+    expect(routeIntent('I want to buy 2 shirts', shirtListingHistory)).toBe('checkout')
+    expect(routeIntent('you can add and we can proceed to payment', shirtListingHistory)).toBe(
+      'checkout'
+    )
+  })
+
+  it('routes explicit cart operations to checkout', () => {
     expect(routeIntent('What is in my cart?')).toBe('checkout')
     expect(routeIntent('Apply coupon SAVE10')).toBe('checkout')
   })
 
-  it('routes order history to order_summary', () => {
-    expect(routeIntent('Show my recent orders')).toBe('order_summary')
+  it('routes payment status to payment, not checkout', () => {
+    expect(routeIntent('Did my payment go through?')).toBe('payment')
   })
 
-  it('routes cancel requests to order_update', () => {
-    expect(routeIntent('Cancel my latest order')).toBe('order_update')
+  it('routes product detail requests to product_detail when product known', () => {
+    expect(routeIntent('can you give details about the mens shirt', shirtListingHistory)).toBe(
+      'product_detail'
+    )
+    expect(routeIntent('i want more details about it', shirtListingHistory)).toBe('product_detail')
+  })
+
+  it('routes casual product browse to retrieval', () => {
+    expect(routeIntent('a mens tshirt maybe?')).toBe('retrieval')
+    expect(routeIntent('i need mens shirts?')).toBe('retrieval')
   })
 
   it('routes identity questions to general', () => {

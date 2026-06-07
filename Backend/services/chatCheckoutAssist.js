@@ -1,11 +1,9 @@
 import { listShippingAddresses } from './addressService.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
+import { buildAddressMissingPrompt } from './chatMissingFields.js'
+import { isCheckoutProceedIntent } from './chatIntentHelpers.js'
 
-export function isCheckoutProceedIntent(text) {
-  return /\b(proceed to checkout|proceed with checkout|ready to checkout|checkout now|start checkout|place (?:my )?order|i(?:'ll| will) (?:proceed|checkout)|let'?s checkout|go ahead with checkout)\b/i.test(
-    String(text || '')
-  )
-}
+export { isCheckoutProceedIntent, isAffirmativeReply, conversationMentionsCheckoutPending } from './chatIntentHelpers.js'
 
 export function alreadyHasAddressIntent(text) {
   return /\b(already (gave|have|added|saved)|existing address|saved address(?:es)?|my address(?:es)?|i think i (?:gave|have))\b/i.test(
@@ -52,7 +50,7 @@ function buildCheckoutBlockedReply(preview) {
     return 'Your cart is empty. Add items first, then say **proceed to checkout**.'
   }
   if (preview.missing?.includes('shipping_address')) {
-    return 'You do not have a saved shipping address yet. Add one in [My Profile](/customer-profile), or tell me your full delivery details and I can save it for you.'
+    return `${buildAddressMissingPrompt(['address', 'city', 'province', 'postal_code', 'phone'])}\n\nOr add one in [My Profile](/customer-profile).`
   }
   return preview.shippingAddressError || 'Checkout is not ready yet. Please check your cart and shipping address.'
 }
@@ -88,7 +86,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
     return { toolResults, reply: null }
   }
 
-  const proceed = isCheckoutProceedIntent(userText)
+  const proceed = isCheckoutProceedIntent(userText, messages)
   const addressRecall = alreadyHasAddressIntent(userText)
   const { addresses = [] } = await listShippingAddresses(userId)
   const selected = parseAddressSelection(userText, addresses)
@@ -102,8 +100,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
   if (!addresses.length) {
     return {
       toolResults,
-      reply:
-        'You do not have a saved shipping address yet. Add one in [My Profile](/customer-profile), or share your delivery details (street, city, state, postal code) and I will save it for you.',
+      reply: `${buildAddressMissingPrompt(['address', 'city', 'province', 'postal_code', 'phone'])}\n\nOr add one in [My Profile](/customer-profile).`,
     }
   }
 

@@ -2,7 +2,7 @@ import { StateGraph, START, END } from '@langchain/langgraph'
 import { ChatGraphState } from './state.js'
 import { guardNode } from './guard.js'
 import { routerNode, guardRoute, agentRoute, ROUTE_NAMES } from './router.js'
-import { refuseNode, makeAgentNode, formatNode } from './nodes.js'
+import { refuseNode, makeAgentNode, formatNode, productDetailNode } from './nodes.js'
 
 function buildGraph() {
   const workflow = new StateGraph(ChatGraphState)
@@ -22,6 +22,7 @@ function buildGraph() {
   })
   workflow.addConditionalEdges('router', agentRoute, {
     retrieval: 'retrieval',
+    product_detail: 'product_detail',
     comparison: 'comparison',
     payment: 'payment',
     order_summary: 'order_summary',

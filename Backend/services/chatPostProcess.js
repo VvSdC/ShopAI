@@ -1,5 +1,8 @@
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
-import { isCheckoutProceedIntent } from './chatCheckoutAssist.js'
+import {
+  isCheckoutProceedIntent,
+  conversationMentionsCheckoutPending,
+} from './chatIntentHelpers.js'
 
 export function collectClientActions(toolResults) {
   const actions = []
@@ -98,6 +101,8 @@ export function sanitizeAssistantReply(reply) {
     .replace(/https:\/\/checkout\.stripe\.com[^\s)\]]*/gi, '')
     .replace(/\[([^\]]+)\]\(\/addresses\/[^)]+\)/gi, '[My Profile](/customer-profile)')
     .replace(/\(\/addresses\/[^)]+\)/gi, '(/customer-profile)')
+    .replace(/\[([^\]]+)\]\(\/checkout[^)]*\)/gi, '$1')
+    .replace(/\[([^\]]+)\]\(\/cart[^)]*\)/gi, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -128,25 +133,12 @@ Use the **Pay on Stripe** button shown below this message to pay securely. Do no
 Your cart has been cleared for this checkout.`
 }
 
-export function isCheckoutConfirmation(text) {
+export function isCheckoutConfirmation(text, messages = []) {
   const normalized = String(text || '').trim().toLowerCase()
-  if (isCheckoutProceedIntent(text)) return true
+  if (isCheckoutProceedIntent(text, messages)) return true
   return /^(yes|yeah|yep|yup|confirm|confirmed|proceed|ok|okay|sure|go ahead|pay|checkout)([.!?\s]|$)/.test(
     normalized
   )
-}
-
-export function conversationMentionsCheckoutPending(messages) {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (m.role === 'user') continue
-    if (m.role === 'assistant') {
-      return /checkout|proceed with payment|pay now|payment|stripe|ready for checkout|would you like to proceed/i.test(
-        m.content || ''
-      )
-    }
-  }
-  return false
 }
 
 export function extractCheckoutInfo(toolResults) {
@@ -199,11 +191,90 @@ export function applyCheckoutReply(reply, toolResults) {
   return reply
 }
 
+export function findLastProductDetails(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'tool') continue
+    const data = parseToolContent(msg.content)
+    if (!data || data.error) continue
+    if (data.id && data.name && (data.description != null || data.sizes || data.colors)) {
+      return data
+    }
+    return null
+  }
+  return null
+}
+
+export function buildProductDetailReply(product) {
+  if (!product || product.error) {
+    return product?.error || 'I could not load that product. Please try again.'
+  }
+
+  const sizes =
+    Array.isArray(product.sizes) && product.sizes.length
+      ? product.sizes.join(', ')
+      : 'One size'
+  const colors =
+    Array.isArray(product.colors) && product.colors.length
+      ? product.colors.join(', ')
+      : 'Default'
+  const stock =
+    product.qtyLeft != null
+      ? `${product.qtyLeft} in stock`
+      : product.inStock
+        ? 'In stock'
+        : 'Out of stock'
+  const url = product.productUrl || `/products/${product.id}`
+
+  const lines = [
+    `**${product.name}** — ${formatInr(product.price)}`,
+    '',
+    product.description || 'No description available.',
+    '',
+    `- **Brand:** ${product.brand || '—'}`,
+    `- **Category:** ${product.category || '—'}`,
+    `- **Stock:** ${stock}`,
+    `- **Available sizes:** ${sizes}`,
+    `- **Available colors:** ${colors}`,
+  ]
+
+  if (product.totalReviews) {
+    lines.push(`- **Reviews:** ${product.totalReviews} customer review(s)`)
+  }
+
+  lines.push(
+    '',
+    `[View product](${url})`,
+    '',
+    'If you would like to add this to your cart, tell me your preferred **size**, **color**, and **quantity**.'
+  )
+
+  return lines.join('\n')
+}
+
+function lastToolWasSearchListing(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'tool') continue
+    const data = parseToolContent(msg.content)
+    if (!data) return false
+    return Array.isArray(data.products)
+  }
+  return false
+}
+
 export function formatAgentReply(reply, messages) {
+  const lastDetails = findLastProductDetails(messages)
+  if (lastDetails) {
+    return sanitizeAssistantReply(buildProductDetailReply(lastDetails))
+  }
+
   let formatted = reply
-  const lastCatalog = findLastProductCatalog(messages)
-  if (lastCatalog?.strictListing) {
-    formatted = buildCatalogBackedReply(lastCatalog)
+  if (lastToolWasSearchListing(messages)) {
+    const lastCatalog = findLastProductCatalog(messages)
+    if (lastCatalog?.strictListing) {
+      formatted = buildCatalogBackedReply(lastCatalog)
+    }
   }
   return sanitizeAssistantReply(formatted)
 }

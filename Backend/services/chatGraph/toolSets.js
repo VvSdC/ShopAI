@@ -2,6 +2,7 @@ import { toolDefinitions } from '../chatTools.js'
 
 export const ROUTE_TOOL_NAMES = {
   retrieval: ['search_products', 'get_product_details', 'get_categories', 'get_brands'],
+  product_detail: ['get_product_details', 'search_products'],
   comparison: ['search_products', 'get_product_details', 'get_categories', 'get_brands'],
   payment: ['get_my_orders', 'get_order_details'],
   order_summary: ['get_my_orders', 'get_order_details'],
@@ -13,6 +14,7 @@ export const ROUTE_TOOL_NAMES = {
     'submit_return_request',
   ],
   checkout: [
+    'search_products',
     'get_cart',
     'add_to_cart',
     'update_cart_item',

@@ -1,6 +1,9 @@
 import { REFUSE_MESSAGES } from './guard.js'
 import { runAgentWithTools } from './agentRunner.js'
-import { formatAgentReply } from '../chatPostProcess.js'
+import { executeTool } from '../chatTools.js'
+import { buildAgentSystemPrompt } from './agentPrompts.js'
+import { resolveProductIdFromContext } from './productContext.js'
+import { buildProductDetailReply, formatAgentReply } from '../chatPostProcess.js'
 
 export async function refuseNode(state) {
   const reply =
@@ -17,6 +20,44 @@ export function makeAgentNode(route) {
       toolResults: result.toolResults,
       toolsUsed: result.toolsUsed,
     }
+  }
+}
+
+export async function productDetailNode(state) {
+  const productId = resolveProductIdFromContext(state.history, state.userText)
+
+  if (productId) {
+    const result = await executeTool('get_product_details', state.userId, {
+      product_id: productId,
+    })
+
+    if (!result.error) {
+      const messages = [
+        { role: 'system', content: buildAgentSystemPrompt('product_detail', state.userName) },
+        ...state.history,
+        { role: 'user', content: state.userText },
+        {
+          role: 'tool',
+          tool_call_id: 'product_detail_direct',
+          content: JSON.stringify(result),
+        },
+      ]
+
+      return {
+        reply: buildProductDetailReply(result),
+        messages,
+        toolResults: [{ ...result, toolName: 'get_product_details' }],
+        toolsUsed: ['get_product_details'],
+      }
+    }
+  }
+
+  const fallback = await runAgentWithTools(state, 'product_detail')
+  return {
+    reply: fallback.reply,
+    messages: fallback.messages,
+    toolResults: fallback.toolResults,
+    toolsUsed: fallback.toolsUsed,
   }
 }
 
