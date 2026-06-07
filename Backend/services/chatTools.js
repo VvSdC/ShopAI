@@ -721,8 +721,10 @@ const toolExecutors = {
       orderNumber: session.orderNumber,
       totalPrice: session.totalPrice,
       checkoutUrl: session.url,
+      checkoutSource: session.checkoutSource || 'chat',
+      expiresAt: session.expiresAt,
       message:
-        'Checkout session created. Payment opens in a new tab. Cart has been cleared.',
+        'Checkout session created. Use the Pay on Stripe button in chat. You have 5 minutes to complete payment.',
       clientAction: 'open_checkout',
     }
   },

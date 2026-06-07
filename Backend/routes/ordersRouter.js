@@ -9,6 +9,8 @@ import {
   resendConfirmationCtrl,
   getUserOrdersCtrl,
   cancelOrderCtrl,
+  pollPaymentStatusCtrl,
+  expireCheckoutCtrl,
 } from '../controllers/orderCtrl.js'
 import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import isAdmin from '../middlewares/isAdmin.js'
@@ -22,6 +24,8 @@ orderRouter.get('/', isLoggedIn, isAdmin, getAllordersCtrl)
 orderRouter.get('/sales/stats', isLoggedIn, isAdmin, getOrderStatsCtrl)
 orderRouter.get('/my-orders', isLoggedIn, getUserOrdersCtrl)
 orderRouter.get('/verify-payment/:session_id', isLoggedIn, verifyPaymentCtrl)
+orderRouter.get('/payment-status/:orderId', isLoggedIn, pollPaymentStatusCtrl)
+orderRouter.post('/expire-checkout/:orderId', isLoggedIn, expireCheckoutCtrl)
 orderRouter.post(
   '/resend-confirmation/:session_id',
   isLoggedIn,

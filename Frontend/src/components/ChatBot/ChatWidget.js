@@ -5,6 +5,8 @@ import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
 import { formatMessage, TypingDots, buildClientWelcomeMessage } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
+import { checkoutCardVisible } from './checkoutMessageHelpers'
+import { useCheckoutHandlers } from './useCheckoutHandlers'
 import { useShopAIChatActions } from './useShopAIChat'
 
 
@@ -70,6 +72,8 @@ export default function ChatWidget() {
   const userName = userAuth?.userInfo?.fullname
 
   const { sendMessage, handleClientActions } = useShopAIChatActions()
+
+  const { handleCheckoutPaid, handleCheckoutExpired } = useCheckoutHandlers(setMessages)
 
 
 
@@ -348,12 +352,18 @@ export default function ChatWidget() {
                 >
                   {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
                 </div>
-                {msg.checkout?.checkoutUrl && (
+                {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[85%]">
                     <CheckoutPaymentCard
                       checkoutUrl={msg.checkout.checkoutUrl}
+                      orderId={msg.checkout.orderId}
                       orderNumber={msg.checkout.orderNumber}
                       totalPrice={msg.checkout.totalPrice}
+                      source={msg.checkout.source || 'chat'}
+                      paid={msg.checkout.paid}
+                      expired={msg.checkout.expired}
+                      onPaid={handleCheckoutPaid}
+                      onExpired={handleCheckoutExpired}
                     />
                   </div>
                 )}

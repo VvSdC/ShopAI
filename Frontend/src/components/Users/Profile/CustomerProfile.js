@@ -12,6 +12,7 @@ import {
   getRefundSummary,
   REFUND_TIMELINE,
 } from '../../../utils/orderDisplay'
+import { useStripeReturnHandler } from '../../ChatBot/useStripeReturnHandler'
 
 const statusColor = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -216,6 +217,20 @@ export default function CustomerProfile() {
   const [returnOrder, setReturnOrder] = useState(null)
   const [toast, setToast] = useState('')
   const ORDERS_PER_PAGE = 5
+
+  useStripeReturnHandler({
+    defaultRedirect: '/customer-profile',
+    onVerified: (data) => {
+      dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
+      const orderNo = data?.order?.orderNumber
+      setToast(
+        orderNo
+          ? `Payment confirmed for order #${orderNo}.`
+          : 'Payment confirmed successfully.'
+      )
+      setTimeout(() => setToast(''), 8000)
+    },
+  })
 
   useEffect(() => {
     dispatch(getUserProfileAction())

@@ -62,6 +62,8 @@ function checkoutToolPayload(session) {
     orderNumber: session.orderNumber,
     totalPrice: session.totalPrice,
     checkoutUrl: session.url,
+    checkoutSource: session.checkoutSource || 'chat',
+    expiresAt: session.expiresAt,
     clientAction: 'open_checkout',
   }
 }

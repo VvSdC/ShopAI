@@ -150,6 +150,8 @@ export function extractCheckoutInfo(toolResults) {
         orderNumber: r.orderNumber,
         orderId: r.orderId,
         totalPrice: r.totalPrice,
+        expiresAt: r.expiresAt || null,
+        source: r.checkoutSource || 'chat',
       }
     }
   }
@@ -174,6 +176,8 @@ export async function ensureCheckoutOnConfirm(userId, userText, messages, toolRe
         orderNumber: session.orderNumber,
         totalPrice: session.totalPrice,
         checkoutUrl: session.url,
+        checkoutSource: session.checkoutSource || 'chat',
+        expiresAt: session.expiresAt,
         clientAction: 'open_checkout',
       },
     ]

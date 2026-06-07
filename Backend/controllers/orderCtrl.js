@@ -10,6 +10,10 @@ import {
   parseOrderId,
 } from '../services/orderFulfillment.js'
 import { createCheckoutSession } from '../services/orderCheckout.js'
+import {
+  pollOrderPaymentStatus,
+  expireOrderCheckoutSession,
+} from '../services/orderPaymentPollService.js'
 import { cancelOrderForUser } from '../services/cancelService.js'
 import { persistPaymentReferences } from '../services/orderRefund.js'
 //@desc create orders
@@ -31,13 +35,29 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
     throw new Error('No Order Items')
   }
 
-  const { url } = await createCheckoutSession({
+  const session = await createCheckoutSession({
     userId: req.userAuthId,
     orderItems,
     shippingAddress,
     couponCode,
+    source: 'cart',
   })
-  res.send({ url })
+  res.send({
+    url: session.url,
+    orderId: session.orderId,
+    orderNumber: session.orderNumber,
+    expiresAt: session.expiresAt,
+  })
+})
+
+export const pollPaymentStatusCtrl = asyncHandler(async (req, res) => {
+  const status = await pollOrderPaymentStatus(req.userAuthId, req.params.orderId)
+  res.json({ success: true, ...status })
+})
+
+export const expireCheckoutCtrl = asyncHandler(async (req, res) => {
+  const result = await expireOrderCheckoutSession(req.userAuthId, req.params.orderId)
+  res.json({ success: true, ...result })
 })
 
 //@desc verify payment by Stripe session ID and update order

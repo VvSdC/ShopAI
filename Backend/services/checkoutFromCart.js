@@ -87,6 +87,7 @@ export async function checkoutFromCart(userId, { addressIndex } = {}) {
     orderItems,
     shippingAddress: address,
     couponCode,
+    source: 'chat',
   })
 
   await clearCart(userId)

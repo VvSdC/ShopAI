@@ -57,6 +57,15 @@ const OrderSchema = new Schema(
       type: String,
       default: null,
     },
+    checkoutExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    checkoutSource: {
+      type: String,
+      enum: ['chat', 'cart'],
+      default: 'cart',
+    },
     stripePaymentIntentId: {
       type: String,
       default: null,

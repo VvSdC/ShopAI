@@ -1,5 +1,61 @@
-export default function CheckoutPaymentCard({ checkoutUrl, orderNumber, totalPrice, onDismiss }) {
-  if (!checkoutUrl) return null
+import { useCheckoutPaymentPoll } from './useCheckoutPaymentPoll'
+
+function formatCountdown(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+export default function CheckoutPaymentCard({
+  checkoutUrl,
+  orderId,
+  orderNumber,
+  totalPrice,
+  source = 'chat',
+  paid = false,
+  expired = false,
+  onPaid,
+  onExpired,
+}) {
+  const pollEnabled = Boolean(orderId && checkoutUrl && !paid && !expired)
+
+  const { status, secondsRemaining } = useCheckoutPaymentPoll({
+    orderId,
+    enabled: pollEnabled,
+    onPaid,
+    onExpired,
+  })
+
+  const displayStatus = paid ? 'paid' : expired ? 'expired' : status
+
+  if (!orderId) return null
+  if (displayStatus === 'idle' && !checkoutUrl) return null
+
+  if (displayStatus === 'paid') {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+        <p className="text-sm font-semibold text-emerald-900">Payment received</p>
+        <p className="mt-1 text-xs text-emerald-800">
+          {orderNumber && <>Order <strong>#{orderNumber}</strong> is confirmed.</>}
+          {source === 'chat'
+            ? ' You can continue chatting below.'
+            : ' See your order in My Profile.'}
+        </p>
+      </div>
+    )
+  }
+
+  if (displayStatus === 'expired') {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+        <p className="text-sm font-semibold text-amber-950">Payment link expired</p>
+        <p className="mt-1 text-xs text-amber-900/90">
+          The 5-minute payment window has ended. Ask me to start checkout again if you still want
+          to pay.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
@@ -14,10 +70,10 @@ export default function CheckoutPaymentCard({ checkoutUrl, orderNumber, totalPri
         )}
       </p>
       <p className="mt-2 text-xs text-indigo-700/80">
-        Use the button below to open secure Stripe checkout. This link expires after a short time —
-        request checkout again if needed.
+        Pay within <strong>{formatCountdown(secondsRemaining)}</strong>. We check every 20 seconds
+        and will confirm automatically when payment completes.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3">
         <a
           href={checkoutUrl}
           target="_blank"
@@ -26,15 +82,6 @@ export default function CheckoutPaymentCard({ checkoutUrl, orderNumber, totalPri
         >
           Pay on Stripe
         </a>
-        {onDismiss && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-100/50"
-          >
-            Dismiss
-          </button>
-        )}
       </div>
     </div>
   )

@@ -12,6 +12,7 @@ import {
 import { findLiveCouponByCode } from '../utils/couponQueries.js'
 import { productIdKey } from './cartService.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
+import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
@@ -78,6 +79,7 @@ export async function createCheckoutSession({
   orderItems,
   shippingAddress,
   couponCode,
+  source = 'cart',
 }) {
   const user = await User.findById(userId)
   if (!user) {
@@ -153,18 +155,32 @@ export async function createCheckoutSession({
     },
   })
 
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+  const checkoutSource = source === 'chat' ? 'chat' : 'cart'
+  const successUrl =
+    checkoutSource === 'chat'
+      ? `${baseUrl}/assistant?payment=success&session_id={CHECKOUT_SESSION_ID}`
+      : `${baseUrl}/customer-profile?payment=success&session_id={CHECKOUT_SESSION_ID}`
+  const cancelUrl =
+    checkoutSource === 'chat'
+      ? `${baseUrl}/assistant?payment=cancelled`
+      : `${baseUrl}/shopping-cart?payment=cancelled`
+
   const session = await stripe.checkout.sessions.create({
     line_items: convertedOrders,
     customer: stripeCustomer.id,
     metadata: {
       orderId: order._id.toString(),
+      checkoutSource,
     },
     mode: 'payment',
-    success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/cancel`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   })
 
   order.stripeSessionId = session.id
+  order.checkoutSource = checkoutSource
+  order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
   await order.save()
 
   return {
@@ -172,5 +188,7 @@ export async function createCheckoutSession({
     orderId: String(order._id),
     orderNumber: order.orderNumber,
     totalPrice: finalTotal,
+    checkoutSource,
+    expiresAt: order.checkoutExpiresAt,
   }
 }

@@ -15,6 +15,9 @@ import {
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
+import { checkoutCardVisible } from './checkoutMessageHelpers'
+import { useStripeReturnHandler } from './useStripeReturnHandler'
+import { useCheckoutHandlers } from './useCheckoutHandlers'
 import ConfirmDialog from '../common/ConfirmDialog'
 import {
   useShopAIChatActions,
@@ -54,6 +57,13 @@ export default function AssistantPage() {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const { sendMessage, handleClientActions } = useShopAIChatActions()
+
+  const { handleCheckoutPaid, handleCheckoutExpired } = useCheckoutHandlers(setMessages)
+
+  useStripeReturnHandler({
+    defaultRedirect: '/assistant',
+    onVerified: handleCheckoutPaid,
+  })
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -365,12 +375,18 @@ export default function AssistantPage() {
                     ? formatMessage(msg.content)
                     : msg.content}
                 </div>
-                {msg.checkout?.checkoutUrl && (
+                {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[90%] sm:max-w-[80%]">
                     <CheckoutPaymentCard
                       checkoutUrl={msg.checkout.checkoutUrl}
+                      orderId={msg.checkout.orderId}
                       orderNumber={msg.checkout.orderNumber}
                       totalPrice={msg.checkout.totalPrice}
+                      source={msg.checkout.source || 'chat'}
+                      paid={msg.checkout.paid}
+                      expired={msg.checkout.expired}
+                      onPaid={handleCheckoutPaid}
+                      onExpired={handleCheckoutExpired}
                     />
                   </div>
                 )}
