@@ -1,167 +1,26 @@
 import { chatCompletion } from './llmService.js'
-import { toolDefinitions, executeTool } from './chatTools.js'
-import { buildSystemPrompt } from './chatPrompt.js'
 import { getChatEvalCases, listChatEvalCases } from './chatEvalCases.js'
+import { runChatGraph } from './chatGraph/index.js'
 
-const MAX_TOOL_ROUNDS = 7
 const EVAL_CASE_DELAY_MS = 10_000
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function parseToolContent(content) {
-  try {
-    return JSON.parse(content)
-  } catch {
-    return null
-  }
-}
-
-function findLastProductCatalog(messages) {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i]
-    if (msg.role !== 'tool') continue
-    const data = parseToolContent(msg.content)
-    if (!data) continue
-    if (Array.isArray(data.products)) {
-      return {
-        count: data.count ?? data.products.length,
-        products: data.products,
-        message: data.message,
-        strictListing: true,
-      }
-    }
-  }
-  return null
-}
-
-function formatInr(price) {
-  return `₹${Number(price).toLocaleString('en-IN')}`
-}
-
-function formatProductListBlock(searchResult) {
-  const { products, count } = searchResult
-  if (!count || !products?.length) {
-    return searchResult.message || 'No matching products are in our catalog right now.'
-  }
-  return products
-    .map((p, i) => {
-      const url = p.productUrl || `/products/${p.id}`
-      const stock =
-        p.qtyLeft != null ? `${p.qtyLeft} in stock` : p.inStock ? 'In stock' : 'Out of stock'
-      return `${i + 1}. **${p.name}** — ${formatInr(p.price)} · ${stock} · [View product](${url})`
-    })
-    .join('\n')
-}
-
-function buildCatalogBackedReply(searchResult) {
-  const count = searchResult.count ?? 0
-  if (count === 0) {
-    return (
-      searchResult.message ||
-      "I couldn't find any products matching that in our catalog. Would you like me to try a different search?"
-    )
-  }
-
-  const list = formatProductListBlock(searchResult)
-  const intro =
-    count === 1
-      ? 'I found **1** product in our catalog that matches:'
-      : `I found **${count}** products in our catalog that match:`
-
-  return `${intro}\n\n${list}\n\nTap **View product** to see full details. Let me know if you need anything else.`
-}
-
-function sanitizeAssistantReply(reply) {
-  if (!reply || typeof reply !== 'string') return reply
-  return reply
-    .replace(/https:\/\/checkout\.stripe\.com[^\s)\]]*/gi, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
-function collectToolsUsed(toolResults) {
-  const names = []
-  for (const result of toolResults) {
-    if (result?.toolName && !names.includes(result.toolName)) {
-      names.push(result.toolName)
-    }
-  }
-  return names
-}
-
 export async function runChatEvalTurn(userId, userName, prompt) {
-  const messages = [
-    { role: 'system', content: buildSystemPrompt(userName) },
-    { role: 'user', content: prompt },
-  ]
-
-  const toolResults = []
-  const toolsUsed = []
-  let response
-
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    response = await chatCompletion(messages, toolDefinitions)
-    const choice = response.choices?.[0]
-    if (!choice) throw new Error('No response from AI service')
-
-    const assistantMessage = choice.message
-
-    if (assistantMessage.tool_calls?.length) {
-      messages.push(assistantMessage)
-
-      for (const toolCall of assistantMessage.tool_calls) {
-        const fnName = toolCall.function.name
-        if (!toolsUsed.includes(fnName)) toolsUsed.push(fnName)
-
-        let fnArgs = {}
-        try {
-          fnArgs = JSON.parse(toolCall.function.arguments || '{}')
-        } catch {
-          fnArgs = {}
-        }
-
-        const result = await executeTool(fnName, userId, fnArgs)
-        toolResults.push({ ...result, toolName: fnName })
-
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
-        })
-      }
-      continue
-    }
-
-    let reply =
-      assistantMessage.content || "I'm sorry, I couldn't generate a response. Please try again."
-
-    const lastCatalog = findLastProductCatalog(messages)
-    if (lastCatalog?.strictListing) {
-      reply = buildCatalogBackedReply(lastCatalog)
-    }
-
-    return {
-      reply: sanitizeAssistantReply(reply),
-      toolsUsed,
-      toolResults,
-    }
-  }
-
-  let reply =
-    response?.choices?.[0]?.message?.content ||
-    "I'm sorry, I wasn't able to find what you're looking for."
-
-  const lastCatalog = findLastProductCatalog(messages)
-  if (lastCatalog?.strictListing) {
-    reply = buildCatalogBackedReply(lastCatalog)
-  }
+  const result = await runChatGraph({
+    userId,
+    userName,
+    userText: prompt,
+    history: [],
+  })
 
   return {
-    reply: sanitizeAssistantReply(reply),
-    toolsUsed,
-    toolResults,
+    reply: result.reply,
+    toolsUsed: result.toolsUsed,
+    toolResults: result.toolResults,
+    route: result.route,
   }
 }
 
