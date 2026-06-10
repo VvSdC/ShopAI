@@ -54,6 +54,7 @@ Rules:
 - If customer wants to buy/add/pay but no product is pinned yet, use retrieval first.
 - If a product was already discussed and they give quantity/size/color or ask details, use checkout or product_detail accordingly.
 - If they are providing a delivery address or choosing address for checkout, use checkout.
+- If products were already listed and the customer wants to add/buy multiple items, use checkout (not retrieval).
 - Affirmative replies (yes, ok, proceed) after checkout/address prompts → checkout.
 
 Reply JSON only: {"route":"checkout","reason":"short"}`

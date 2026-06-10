@@ -1,5 +1,5 @@
 import {
-  extractProductsFromHistory,
+  activeCatalogProducts,
   isAddToCartVariantIntent,
 } from './productContext.js'
 
@@ -28,12 +28,15 @@ const CATALOG_NOUN_PATTERN =
   /\b(shirt|shirts|tshirt|t-shirt|jersey|bat|ball|product|item|dress|shoe|pant|trouser|jacket|hoodie)\b/i
 
 export function hasKnownProductInHistory(history) {
-  return extractProductsFromHistory(history).length > 0
+  return activeCatalogProducts(history).length > 0
 }
 
 export function isDiscoveryIntent(text, history = []) {
   const t = String(text || '').trim().toLowerCase()
   if (isAddToCartVariantIntent(text, history)) return false
+  if (hasKnownProductInHistory(history) && /\b(add|buy|cart|them|those|these)\b/.test(t)) {
+    return false
+  }
   return DISCOVERY_PATTERN.test(t) || (CATALOG_NOUN_PATTERN.test(t) && !hasKnownProductInHistory(history))
 }
 

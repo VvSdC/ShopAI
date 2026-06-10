@@ -62,6 +62,6 @@ export async function productDetailNode(state) {
 }
 
 export async function formatNode(state) {
-  const reply = formatAgentReply(state.reply, state.messages || [])
+  const reply = formatAgentReply(state.reply, state.messages || [], state.userText)
   return { reply }
 }

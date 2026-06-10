@@ -3,6 +3,7 @@ import {
   isCheckoutProceedIntent,
   conversationMentionsCheckoutPending,
 } from './chatIntentHelpers.js'
+import { isKitBundleQuery } from './chatGraph/productContext.js'
 
 export function collectClientActions(toolResults) {
   const actions = []
@@ -107,7 +108,7 @@ export function sanitizeAssistantReply(reply) {
     .trim()
 }
 
-export function buildCatalogBackedReply(searchResult) {
+export function buildCatalogBackedReply(searchResult, { kitQuery = false } = {}) {
   const count = searchResult.count ?? 0
   if (count === 0) {
     return (
@@ -122,7 +123,25 @@ export function buildCatalogBackedReply(searchResult) {
       ? 'I found **1** product in our catalog that matches:'
       : `I found **${count}** products in our catalog that match:`
 
-  return `${intro}\n\n${list}\n\nTap **View product** to see full details. Let me know if you need anything else.`
+  const kitNote = kitQuery
+    ? "We don't have a single pre-made **kit** in our catalog, but you can combine these items:\n\n"
+    : ''
+
+  const outro = kitQuery
+    ? 'Tell me which items to add (e.g. *Add the bat and leather ball, 2 each*) or tap **View product** for details.'
+    : 'Tap **View product** to see full details. Tell me which items to add, with size, color, and quantity when needed.'
+
+  return `${kitNote}${intro}\n\n${list}\n\n${outro}`
+}
+
+export function applyKitSearchReply(reply, userText) {
+  if (!isKitBundleQuery(userText)) return reply
+  if (/pre-made \*\*kit\*\*/i.test(reply)) return reply
+  if (!/I found \*\*\d+\*\* product/i.test(reply)) return reply
+  return reply.replace(
+    /^/,
+    "We don't have a single pre-made **kit** in our catalog, but you can combine these items:\n\n"
+  )
 }
 
 export function buildCheckoutBackedReply(checkout) {
@@ -267,7 +286,7 @@ function lastToolWasSearchListing(messages) {
   return false
 }
 
-export function formatAgentReply(reply, messages) {
+export function formatAgentReply(reply, messages, userText = '') {
   const lastDetails = findLastProductDetails(messages)
   if (lastDetails) {
     return sanitizeAssistantReply(buildProductDetailReply(lastDetails))
@@ -277,9 +296,12 @@ export function formatAgentReply(reply, messages) {
   if (lastToolWasSearchListing(messages)) {
     const lastCatalog = findLastProductCatalog(messages)
     if (lastCatalog?.strictListing) {
-      formatted = buildCatalogBackedReply(lastCatalog)
+      formatted = buildCatalogBackedReply(lastCatalog, {
+        kitQuery: isKitBundleQuery(userText),
+      })
     }
   }
+  formatted = applyKitSearchReply(formatted, userText)
   return sanitizeAssistantReply(formatted)
 }
 
