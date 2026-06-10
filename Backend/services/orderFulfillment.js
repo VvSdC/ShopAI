@@ -1,14 +1,9 @@
 import Order from '../model/Order.js'
-import Product from '../model/Product.js'
 import User from '../model/User.js'
 import { sendOrderConfirmationEmail } from './emailService.js'
+import { atomicallyReserveStockForOrderItems } from './stockService.js'
 
 const MAX_CONFIRMATION_EMAIL_ATTEMPTS = 5
-
-function productIdKey(id) {
-  if (id == null) return ''
-  return String(id)
-}
 
 function parseOrderId(raw) {
   return String(raw || '').replace(/"/g, '').trim()
@@ -93,16 +88,7 @@ export async function sendOrderConfirmation(order, options = {}) {
 }
 
 async function adjustStockForOrder(orderItems) {
-  const ids = orderItems.map((i) => productIdKey(i._id)).filter(Boolean)
-  const products = await Product.find({ _id: { $in: ids } })
-
-  for (const item of orderItems) {
-    const product = products.find((p) => productIdKey(p._id) === productIdKey(item._id))
-    if (product) {
-      product.totalSold += item.qty || 1
-      await product.save()
-    }
-  }
+  await atomicallyReserveStockForOrderItems(orderItems)
 }
 
 /**
@@ -146,7 +132,21 @@ export async function processPaidOrder(orderId, options = {}) {
 
   const orderItems = claimed.orderItems || []
   if (orderItems.length > 0) {
-    await adjustStockForOrder(orderItems)
+    try {
+      await adjustStockForOrder(orderItems)
+    } catch (err) {
+      await Order.findByIdAndUpdate(id, { postPaymentProcessed: false })
+      console.error(
+        `[fulfillment] stock reservation failed for order ${claimed.orderNumber}:`,
+        err.message
+      )
+      return {
+        processed: false,
+        emailSent: false,
+        reason: 'insufficient_stock',
+        error: err.message,
+      }
+    }
   }
 
   const emailResult = await sendOrderConfirmation(claimed, { receiptEmail })

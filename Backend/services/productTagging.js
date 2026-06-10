@@ -1,5 +1,6 @@
 import { chatCompletion } from './llmService.js'
 import Product from '../model/Product.js'
+import { categoryDisplayName } from '../utils/categoryRef.js'
 import { indexProductEmbeddingInBackground } from './search/vectorIndexService.js'
 
 function buildTaggingPrompt(name, description, category, brand) {
@@ -47,7 +48,7 @@ function parseTags(raw) {
 export function tagProductInBackground(productId) {
   (async () => {
     try {
-      const product = await Product.findById(productId)
+      const product = await Product.findById(productId).populate('category', 'name')
       if (!product) return
 
       const messages = [
@@ -60,7 +61,7 @@ export function tagProductInBackground(productId) {
           content: buildTaggingPrompt(
             product.name,
             product.description,
-            product.category,
+            categoryDisplayName(product.category),
             product.brand
           ),
         },

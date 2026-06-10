@@ -1,3 +1,5 @@
+import { categoryDisplayName } from '../utils/categoryRef.js'
+
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -14,7 +16,6 @@ export function buildProductSearchFilter(args) {
           $or: [
             { name: { $regex: escaped, $options: 'i' } },
             { description: { $regex: escaped, $options: 'i' } },
-            { category: { $regex: escaped, $options: 'i' } },
             { brand: { $regex: escaped, $options: 'i' } },
             { tags: { $regex: escaped, $options: 'i' } },
           ],
@@ -31,8 +32,8 @@ export function buildProductSearchFilter(args) {
     }
   }
 
-  if (args.category) {
-    conditions.push({ category: { $regex: args.category, $options: 'i' } })
+  if (args.categoryId) {
+    conditions.push({ category: args.categoryId })
   }
   if (args.brand) {
     conditions.push({ brand: { $regex: args.brand, $options: 'i' } })
@@ -62,7 +63,7 @@ export function scoreProductForQuery(product, query) {
   const description = (product.description || '').toLowerCase()
   const tagsText = (product.tags || []).join(' ').toLowerCase()
   const brand = (product.brand || '').toLowerCase()
-  const category = (product.category || '').toLowerCase()
+  const category = categoryDisplayName(product.category).toLowerCase()
 
   let score = 0
 
@@ -126,7 +127,7 @@ export function mapProductSearchResult(product) {
     _id: product._id,
     name: product.name,
     brand: product.brand,
-    category: product.category,
+    category: categoryDisplayName(product.category),
     price: product.price,
     description: product.description,
     inStock: product.totalQty - product.totalSold > 0,

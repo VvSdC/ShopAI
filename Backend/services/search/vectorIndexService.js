@@ -4,7 +4,7 @@ import { buildProductSearchDocument } from './documentBuilder.js'
 import { embedText } from './embeddingService.js'
 
 export async function indexProductEmbedding(productId) {
-  const product = await Product.findById(productId)
+  const product = await Product.findById(productId).populate('category', 'name')
   if (!product) return { ok: false, reason: 'not_found' }
 
   const searchDocument = buildProductSearchDocument(product)

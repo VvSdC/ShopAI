@@ -1,4 +1,5 @@
 import Product from '../../model/Product.js'
+import { enrichProductsWithCategoryNames, resolveCategoryId } from '../../utils/categoryRef.js'
 import { config } from '../../config/env.js'
 import {
   buildProductSearchFilter,
@@ -13,7 +14,7 @@ import { rerankDocuments } from './rerankService.js'
 
 function buildMongoFilter(args) {
   const filter = {}
-  if (args.category) filter.category = args.category
+  if (args.categoryId) filter.category = args.categoryId
   if (args.brand) filter.brand = args.brand
   if (args.color) filter.colors = args.color
   if (args.size) filter.sizes = args.size
@@ -34,6 +35,7 @@ async function keywordSearch(args, limit) {
 
   const products = await Product.find(filter)
     .limit(fetchLimit)
+    .populate('category', 'name')
     .select(
       'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
     )
@@ -42,14 +44,35 @@ async function keywordSearch(args, limit) {
   return rankProductsByQuery(products, args.query || '').slice(0, limit)
 }
 
+async function normalizeSearchArgs(args = {}) {
+  const normalized = { ...args }
+  if (args.category) {
+    normalized.categoryId = await resolveCategoryId(args.category)
+    if (!normalized.categoryId) {
+      return { normalized, categoryMissing: true }
+    }
+  }
+  return { normalized, categoryMissing: false }
+}
+
 export async function searchProducts(args = {}) {
   const query = args.query?.trim() || ''
   const limit = Math.min(Math.max(args.limit || 12, 1), 50)
-  const mongoFilter = buildMongoFilter(args)
+  const { normalized, categoryMissing } = await normalizeSearchArgs(args)
+  if (categoryMissing) {
+    return {
+      products: [],
+      count: 0,
+      mode: query ? 'hybrid' : 'browse',
+      message: 'No products found for this category.',
+    }
+  }
+  const mongoFilter = buildMongoFilter(normalized)
 
   if (!query) {
     const products = await Product.find(mongoFilter)
       .limit(limit)
+      .populate('category', 'name')
       .select(
         'name brand category price totalQty totalSold colors sizes images description tags'
       )
@@ -57,7 +80,7 @@ export async function searchProducts(args = {}) {
     return { products: products.map(mapProductSearchResult), count: products.length, mode: 'browse' }
   }
 
-  const keywordResults = await keywordSearch(args, config.search.keywordLimit)
+  const keywordResults = await keywordSearch(normalized, config.search.keywordLimit)
   let vectorResults = []
 
   try {
@@ -102,7 +125,8 @@ export async function searchProducts(args = {}) {
     ordered = trimToRelevantProducts(ordered, query, limit)
   }
 
-  const final = ordered.slice(0, limit).map(mapProductSearchResult)
+  const enriched = await enrichProductsWithCategoryNames(ordered.slice(0, limit))
+  const final = enriched.map(mapProductSearchResult)
   return { products: final, count: final.length, mode: 'hybrid' }
 }
 

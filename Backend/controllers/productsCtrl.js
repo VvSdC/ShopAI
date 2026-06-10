@@ -7,6 +7,7 @@ import Review from '../model/Review.js'
 import { tagProductInBackground } from '../services/productTagging.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
 import { searchProducts } from '../services/search/searchService.js'
+import { resolveCategoryId } from '../utils/categoryRef.js'
 
 // @desc    Create new product
 // @route   POST /api/v1/products
@@ -42,7 +43,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   const product = await Product.create({
     name,
     description,
-    category,
+    category: categoryFound._id,
     sizes,
     colors,
     user: req.userAuthId,
@@ -62,6 +63,8 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
 
   tagProductInBackground(product._id)
   indexProductEmbeddingInBackground(product._id, 2500)
+
+  await product.populate('category', 'name')
 
   //send response
   res.json({
@@ -109,7 +112,20 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
 
   const filter = {}
   if (req.query.brand) filter.brand = req.query.brand
-  if (req.query.category) filter.category = req.query.category
+  if (req.query.category) {
+    const categoryId = await resolveCategoryId(req.query.category)
+    if (!categoryId) {
+      return res.json({
+        status: 'success',
+        total: 0,
+        results: 0,
+        pagination: {},
+        message: 'No products found for this category',
+        products: [],
+      })
+    }
+    filter.category = categoryId
+  }
   if (req.query.color) filter.colors = req.query.color
   if (req.query.size) filter.sizes = req.query.size
   if (req.query.price) {
@@ -124,6 +140,7 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   const products = await Product.find(filter)
     .skip(startIndex)
     .limit(limit)
+    .populate('category', 'name')
     .populate('reviews')
 
   const pagination = {}
@@ -149,14 +166,16 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getProductCtrl = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id).populate({
-    path: 'reviews',
-    match: PUBLIC_REVIEW_MATCH,
-    populate: {
-      path: 'user',
-      select: 'fullname',
-    },
-  })
+  const product = await Product.findById(req.params.id)
+    .populate('category', 'name')
+    .populate({
+      path: 'reviews',
+      match: PUBLIC_REVIEW_MATCH,
+      populate: {
+        path: 'user',
+        select: 'fullname',
+      },
+    })
   if (!product) {
     throw new Error('Prouduct not found')
   }
@@ -185,13 +204,22 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
   } = req.body
   //validation
 
-  //update
+  let categoryId
+  if (category) {
+    categoryId = await resolveCategoryId(category)
+    if (!categoryId) {
+      throw new Error(
+        'Category not found, please create category first or check category name'
+      )
+    }
+  }
+
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     {
       name,
       description,
-      category,
+      ...(categoryId ? { category: categoryId } : {}),
       sizes,
       colors,
       user,
@@ -203,7 +231,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  )
+  ).populate('category', 'name')
 
   if (product) tagProductInBackground(product._id)
 

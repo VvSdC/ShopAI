@@ -17,7 +17,7 @@ const ProductSchema = new Schema(
       required: true,
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: 'Category',
       required: true,
     },
@@ -84,7 +84,15 @@ const ProductSchema = new Schema(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform(_doc, ret) {
+        if (ret.category && typeof ret.category === 'object' && ret.category.name) {
+          ret.category = ret.category.name
+        }
+        return ret
+      },
+    },
   }
 )
 //Virtuals
