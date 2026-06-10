@@ -1,4 +1,5 @@
 import { chatCompletion } from '../llmService.js'
+import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { executeTool } from '../chatTools.js'
 import { buildAgentSystemPrompt } from './agentPrompts.js'
 import { getToolsForRoute } from './toolSets.js'
@@ -22,6 +23,7 @@ export async function runAgentWithTools(state, route) {
   let response
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    patchLlmUsageContext({ span: `agent:${route}:round-${round + 1}` })
     response = await chatCompletion(messages, tools.length ? tools : undefined)
     const choice = response.choices?.[0]
     if (!choice) throw new Error('No response from AI service')

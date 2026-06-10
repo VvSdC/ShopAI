@@ -1,4 +1,5 @@
 import { chatCompletion } from './llmService.js'
+import { patchLlmUsageContext } from './llmUsageContext.js'
 import { getChatEvalCases, listChatEvalCases } from './chatEvalCases.js'
 import { runChatGraph } from './chatGraph/index.js'
 
@@ -149,6 +150,7 @@ Return JSON:
       },
     ]
 
+    patchLlmUsageContext({ span: 'eval-judge' })
     const response = await chatCompletion(messages, null)
     const raw = response?.choices?.[0]?.message?.content
     const parsed = parseJudgeResponse(raw)

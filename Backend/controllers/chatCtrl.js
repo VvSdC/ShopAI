@@ -16,6 +16,7 @@ import {
   applyCheckoutReply,
   ensureCheckoutOnConfirm,
 } from '../services/chatPostProcess.js'
+import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 
 const MAX_HISTORY = 20
 
@@ -52,22 +53,32 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
       : []
 
   const userText = message.trim()
-  const graphResult = await runChatGraph({
-    userId: req.userAuthId,
-    userName: user.fullname,
-    userText,
-    history: trimmedHistory,
-  })
 
-  res.json(
-    await persistAndRespond(
-      session,
-      userText,
-      graphResult,
-      req.userAuthId,
-      trimmedHistory
-    )
+  const payload = await runWithLlmUsageContext(
+    {
+      source: 'chat',
+      userId: req.userAuthId,
+      sessionId: session ? String(session._id) : null,
+    },
+    async () => {
+      const graphResult = await runChatGraph({
+        userId: req.userAuthId,
+        userName: user.fullname,
+        userText,
+        history: trimmedHistory,
+      })
+      patchLlmUsageContext({ route: graphResult.route || null })
+      return persistAndRespond(
+        session,
+        userText,
+        graphResult,
+        req.userAuthId,
+        trimmedHistory
+      )
+    }
   )
+
+  res.json(payload)
 })
 
 async function persistAndRespond(session, userText, graphResult, userId, history = []) {

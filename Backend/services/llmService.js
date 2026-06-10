@@ -1,5 +1,6 @@
 import { config } from '../config/env.js'
 import { callGeminiChat } from './geminiClient.js'
+import { recordLlmUsage } from './llmUsageLogger.js'
 
 /**
  * Fallback order: OpenRouter → Gemini → Mistral → HuggingFace → Groq.
@@ -52,6 +53,7 @@ async function callProvider(provider, messages, tools) {
   }
 
   const model = provider.model()
+  const startedAt = Date.now()
 
   if (provider.name === 'Gemini') {
     const result = await callGeminiChat(messages, {
@@ -61,7 +63,24 @@ async function callProvider(provider, messages, tools) {
       tools,
     })
 
-    if (result.ok) return result.data
+    if (result.ok) {
+      recordLlmUsage({
+        provider: provider.name,
+        model,
+        responseData: result.data,
+        latencyMs: Date.now() - startedAt,
+        success: true,
+      })
+      return result.data
+    }
+
+    recordLlmUsage({
+      provider: provider.name,
+      model,
+      responseData: null,
+      latencyMs: Date.now() - startedAt,
+      success: false,
+    })
 
     if (result.status === 429) {
       const err = new Error(`Gemini rate limited: ${result.error}`)
@@ -106,6 +125,13 @@ async function callProvider(provider, messages, tools) {
 
   if (!response.ok) {
     const text = await response.text().catch(() => 'Unknown error')
+    recordLlmUsage({
+      provider: provider.name,
+      model,
+      responseData: null,
+      latencyMs: Date.now() - startedAt,
+      success: false,
+    })
     const hint =
       provider.name === 'HuggingFace' && response.status === 410
         ? ' (old inference endpoint — ensure HUGGINGFACE uses router.huggingface.co)'
@@ -116,6 +142,13 @@ async function callProvider(provider, messages, tools) {
   }
 
   const data = await response.json()
+  recordLlmUsage({
+    provider: provider.name,
+    model,
+    responseData: data,
+    latencyMs: Date.now() - startedAt,
+    success: true,
+  })
   return data
 }
 

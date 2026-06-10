@@ -8,6 +8,7 @@ import {
   CpuChipIcon,
   ArrowLeftIcon,
   ChatBubbleLeftRightIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline'
 import user from '../user.png'
 
@@ -21,6 +22,11 @@ const sidebarLinks = [
     name: 'Evaluate Chatbot',
     href: 'chat-eval',
     icon: ChatBubbleLeftRightIcon,
+  },
+  {
+    name: 'Chat usage',
+    href: 'chat-usage',
+    icon: ChartBarIcon,
   },
 ]
 

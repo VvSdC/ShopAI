@@ -14,6 +14,8 @@ import {
   patchChatEvalJob,
   publicChatEvalJob,
 } from '../services/chatEvalJobStore.js'
+import { getChatUsageAnalytics } from '../services/llmUsageAnalytics.js'
+import { runWithLlmUsageContext } from '../services/llmUsageContext.js'
 
 export const listInferenceProvidersCtrl = asyncHandler(async (req, res) => {
   res.json({
@@ -56,11 +58,15 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
     try {
       patchChatEvalJob(job.id, { status: 'running' })
 
-      const payload = await runChatEvalSuite(
-        req.userAuthId,
-        user.fullname || 'Admin',
-        Array.isArray(caseIds) && caseIds.length ? caseIds : null,
-        (progress) => patchChatEvalJob(job.id, progress)
+      const payload = await runWithLlmUsageContext(
+        { source: 'eval', userId: req.userAuthId },
+        () =>
+          runChatEvalSuite(
+            req.userAuthId,
+            user.fullname || 'Admin',
+            Array.isArray(caseIds) && caseIds.length ? caseIds : null,
+            (progress) => patchChatEvalJob(job.id, progress)
+          )
       )
 
       patchChatEvalJob(job.id, {
@@ -93,4 +99,12 @@ export const getChatEvalStatusCtrl = asyncHandler(async (req, res) => {
     success: true,
     job: publicChatEvalJob(job),
   })
+})
+
+export const getChatUsageCtrl = asyncHandler(async (req, res) => {
+  const days = parseInt(req.query.days, 10) || 7
+  const source = typeof req.query.source === 'string' ? req.query.source : 'chat'
+
+  const analytics = await getChatUsageAnalytics({ days, source })
+  res.json({ success: true, ...analytics })
 })

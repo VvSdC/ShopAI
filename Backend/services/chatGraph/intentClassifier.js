@@ -1,4 +1,5 @@
 import { chatCompletion } from '../llmService.js'
+import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { ROUTE_NAMES, routeIntentHeuristic, hasKnownProductInHistory } from './routerHeuristic.js'
 import { extractProductsFromHistory } from './productContext.js'
 
@@ -66,6 +67,7 @@ Latest customer message:
 ${userText}`
 
   try {
+    patchLlmUsageContext({ span: 'intent-router' })
     const response = await chatCompletion(
       [
         { role: 'system', content: system },
