@@ -1,4 +1,6 @@
 import ChatSession from '../model/ChatSession.js'
+import { CHAT_HISTORY_MAX_ITEMS, CHAT_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
+import { clampChatText, clampSessionMessageText } from '../utils/chatMessageLimits.js'
 
 const MAX_SESSIONS_PER_USER = 50
 const MAX_MESSAGES_PER_SESSION = 100
@@ -65,9 +67,15 @@ export async function appendMessages(session, userContent, assistantContent, che
     session.title = deriveSessionTitle(userContent)
   }
 
-  session.messages.push({ role: 'user', content: userContent })
+  session.messages.push({
+    role: 'user',
+    content: clampSessionMessageText(userContent),
+  })
 
-  const assistantEntry = { role: 'assistant', content: assistantContent }
+  const assistantEntry = {
+    role: 'assistant',
+    content: clampSessionMessageText(assistantContent),
+  }
   if (checkout?.checkoutUrl) {
     assistantEntry.checkout = {
       checkoutUrl: checkout.checkoutUrl,
@@ -114,11 +122,11 @@ export async function trimOldSessions(userId) {
   await ChatSession.deleteMany({ _id: { $in: ids } })
 }
 
-export function sessionHistoryForApi(session, maxMessages = 20) {
+export function sessionHistoryForApi(session, maxMessages = CHAT_HISTORY_MAX_ITEMS) {
   return (session?.messages || [])
     .slice(-maxMessages)
     .map((m) => ({
       role: m.role === 'user' ? 'user' : 'assistant',
-      content: String(m.content || ''),
+      content: clampChatText(m.content, CHAT_MESSAGE_MAX_LENGTH),
     }))
 }

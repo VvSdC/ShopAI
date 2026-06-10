@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
+import { allocateOrderNumber } from '../utils/orderNumber.js'
+
 const Schema = mongoose.Schema
-// Generate a new random order number per document (do not compute once at module load)
+
 const OrderSchema = new Schema(
   {
     user: {
@@ -20,9 +22,6 @@ const OrderSchema = new Schema(
     },
     orderNumber: {
       type: String,
-      default: () =>
-        Math.random().toString(36).substring(7).toUpperCase() +
-        Math.floor(1000 + Math.random() * 90000),
     },
     coupon: {
       type: String,
@@ -115,6 +114,18 @@ const OrderSchema = new Schema(
     timestamps: true,
   },
 )
+
+OrderSchema.pre('save', async function assignOrderNumber(next) {
+  if (!this.isNew || this.orderNumber) {
+    return next()
+  }
+  try {
+    this.orderNumber = await allocateOrderNumber()
+    next()
+  } catch (err) {
+    next(err)
+  }
+})
 
 OrderSchema.index({ user: 1, createdAt: -1 })
 OrderSchema.index({ orderNumber: 1 }, { unique: true })

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { CHAT_SESSION_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
 
 const chatMessageSchema = new mongoose.Schema(
   {
@@ -10,6 +11,7 @@ const chatMessageSchema = new mongoose.Schema(
     content: {
       type: String,
       required: true,
+      maxlength: CHAT_SESSION_MESSAGE_MAX_LENGTH,
     },
     checkout: {
       checkoutUrl: { type: String },

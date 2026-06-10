@@ -17,16 +17,10 @@ import {
   ensureCheckoutOnConfirm,
 } from '../services/chatPostProcess.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
-
-const MAX_HISTORY = 20
+import { CHAT_HISTORY_MAX_ITEMS } from '../constants/chatLimits.js'
 
 export const chatMessageCtrl = asyncHandler(async (req, res) => {
   const { message, history, sessionId } = req.body
-
-  if (!message || typeof message !== 'string' || !message.trim()) {
-    res.status(400)
-    throw new Error('Message is required')
-  }
 
   const user = await User.findById(req.userAuthId).select('fullname')
   if (!user) {
@@ -44,15 +38,13 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
   }
 
   const trimmedHistory = session
-    ? sessionHistoryForApi(session, MAX_HISTORY)
-    : Array.isArray(history)
-      ? history.slice(-MAX_HISTORY).map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: String(m.content || ''),
-        }))
-      : []
+    ? sessionHistoryForApi(session, CHAT_HISTORY_MAX_ITEMS)
+    : (history || []).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
 
-  const userText = message.trim()
+  const userText = message
 
   const payload = await runWithLlmUsageContext(
     {
