@@ -11,6 +11,7 @@
     "server": "nodemon server.js",
     "start": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
     "start:server": "node server.js",
+    "start:worker": "node worker.js",
     "dev": "concurrently --names server,stripe --prefix-colors cyan,magenta \"nodemon server.js\" \"stripe listen --forward-to localhost:2030/webhook\"",
     "test": "vitest run",
     "test:watch": "vitest",

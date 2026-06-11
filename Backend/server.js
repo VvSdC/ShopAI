@@ -1,14 +1,12 @@
 import app from './app/app.js'
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
-import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncService.js'
-import { startCheckoutExpiryWorker, stopCheckoutExpiryWorker } from './services/checkoutQueue.js'
+import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncQueue.js'
+import { startAllQueueWorkers, stopAllQueueWorkers } from './services/queueWorkers.js'
 
 async function startServer() {
   validateConfig({ strict: config.isProduction })
   await dbConnect()
-  scheduleEmbeddingSyncOnStartup()
-  await startCheckoutExpiryWorker()
 
   const server = app.listen(config.server.port, config.server.host, () => {
     console.log(
@@ -16,12 +14,20 @@ async function startServer() {
     )
   })
 
+  scheduleEmbeddingSyncOnStartup()
+
+  if (config.redis.runQueueWorkersInApi) {
+    await startAllQueueWorkers()
+  } else {
+    console.log('[queues] Workers disabled in API — run node worker.js separately')
+  }
+
   let shuttingDown = false
   async function shutdown(signal) {
     if (shuttingDown) return
     shuttingDown = true
     console.log(`${signal} received — shutting down`)
-    await stopCheckoutExpiryWorker()
+    await stopAllQueueWorkers()
     server.close(() => process.exit(0))
   }
 

@@ -80,6 +80,8 @@ export const config = {
   redis: {
     url: env('REDIS_URL', ''),
     checkoutQueueEnabled: envBool('ENABLE_CHECKOUT_QUEUE', false),
+    embeddingSyncQueueEnabled: envBool('ENABLE_EMBEDDING_SYNC_QUEUE', false),
+    runQueueWorkersInApi: envBool('RUN_QUEUE_WORKERS_IN_API', true),
   },
 
   cloudinary: {

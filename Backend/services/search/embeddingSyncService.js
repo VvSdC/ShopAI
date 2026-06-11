@@ -64,25 +64,3 @@ export async function syncMissingProductEmbeddings(options = {}) {
     failed,
   }
 }
-
-let syncInProgress = false
-
-/**
- * Fire-and-forget startup sync (does not block HTTP server).
- */
-export function scheduleEmbeddingSyncOnStartup() {
-  if (!config.search.autoSyncEmbeddings) return
-  if (config.isTest) return
-
-  setTimeout(async () => {
-    if (syncInProgress) return
-    syncInProgress = true
-    try {
-      await syncMissingProductEmbeddings()
-    } catch (err) {
-      console.error('[search] Auto-sync failed:', err.message)
-    } finally {
-      syncInProgress = false
-    }
-  }, config.search.syncStartupDelayMs)
-}
