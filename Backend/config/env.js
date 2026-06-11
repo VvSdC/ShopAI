@@ -77,6 +77,11 @@ export const config = {
     webhookSecret: env('STRIPE_WEBHOOK_SECRET', ''),
   },
 
+  redis: {
+    url: env('REDIS_URL', ''),
+    checkoutQueueEnabled: envBool('ENABLE_CHECKOUT_QUEUE', false),
+  },
+
   cloudinary: {
     cloudName: env('CLOUDINARY_CLOUD_NAME', ''),
     apiKey: env('CLOUDINARY_API_KEY', ''),

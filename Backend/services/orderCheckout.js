@@ -13,6 +13,7 @@ import { findLiveCouponByCode } from '../utils/couponQueries.js'
 import { productIdKey } from './cartService.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
+import { enqueueCheckoutExpiry } from './checkoutQueue.js'
 
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
@@ -182,6 +183,8 @@ export async function createCheckoutSession({
   order.checkoutSource = checkoutSource
   order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
   await order.save()
+
+  await enqueueCheckoutExpiry(order._id, CHECKOUT_LINK_TTL_MS)
 
   return {
     url: session.url,

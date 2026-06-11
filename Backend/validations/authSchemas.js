@@ -12,3 +12,14 @@ export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6).max(100),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  otp: z.string().trim().min(6).max(6),
+  password: z.string().min(6).max(100),
+});

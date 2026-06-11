@@ -9,6 +9,7 @@ import {
   generateRefreshToken,
 } from "../utils/generateToken.js";
 import { sendPasswordResetOTPEmail, sendWelcomeEmail } from "../services/emailService.js";
+import { clearAuthCookies, invalidateUserRefreshToken } from "../utils/authSessions.js";
 
 // Cookie options
 const accessCookieOptions = {
@@ -208,6 +209,39 @@ export const updateProfileCtrl = asyncHandler(async (req, res) => {
       phone: user.phone,
       country: user.country,
     },
+  });
+});
+
+// @desc    Change password (logged-in user)
+// @route   PUT /api/v1/users/change-password
+// @access  Private
+export const changePasswordCtrl = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const user = await User.findById(req.userAuthId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const matchesCurrent = await bcrypt.compare(currentPassword, user.password);
+  if (!matchesCurrent) {
+    res.status(400);
+    throw new Error("Current password is incorrect");
+  }
+
+  const sameAsOld = await bcrypt.compare(newPassword, user.password);
+  if (sameAsOld) {
+    res.status(400);
+    throw new Error("New password must be different from your current password");
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(newPassword, salt);
+  await invalidateUserRefreshToken(user);
+
+  clearAuthCookies(res);
+  res.json({
+    status: "success",
+    message: "Password changed successfully. Please log in again.",
   });
 });
 
@@ -431,9 +465,9 @@ export const resetPasswordCtrl = asyncHandler(async (req, res) => {
   user.password = await bcrypt.hash(password, salt);
   user.passwordResetOTP = undefined;
   user.passwordResetExpires = undefined;
-  user.refreshToken = "";
-  await user.save();
+  await invalidateUserRefreshToken(user);
 
+  clearAuthCookies(res);
   res.json({
     status: "success",
     message: "Password reset successful. Please log in with your new password.",

@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import Order from '../model/Order.js'
 import { processPaidOrder } from './orderFulfillment.js'
 import { persistPaymentReferences } from './orderRefund.js'
+import { expireCheckoutJob } from './checkoutQueue.js'
 
 const stripe = new Stripe(process.env.STRIPE_KEY)
 
@@ -89,13 +90,7 @@ export async function pollOrderPaymentStatus(userId, orderId) {
   }
 
   if (expiresAt != null && now >= expiresAt) {
-    if (order.stripeSessionId) {
-      try {
-        await stripe.checkout.sessions.expire(order.stripeSessionId)
-      } catch {
-        // Session may already be expired or completed
-      }
-    }
+    await expireCheckoutJob(order._id)
     return {
       paid: false,
       expired: true,
@@ -163,16 +158,7 @@ export async function expireOrderCheckoutSession(userId, orderId) {
     return { expired: false, alreadyPaid: true }
   }
 
-  if (order.stripeSessionId) {
-    try {
-      await stripe.checkout.sessions.expire(order.stripeSessionId)
-    } catch {
-      // ignore
-    }
-  }
-
-  order.checkoutExpiresAt = new Date()
-  await order.save()
+  await expireCheckoutJob(order._id)
 
   return { expired: true, alreadyPaid: false }
 }

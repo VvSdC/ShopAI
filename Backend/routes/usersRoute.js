@@ -16,11 +16,17 @@ import {
   forgotPasswordCtrl,
   verifyOTPCtrl,
   resetPasswordCtrl,
+  changePasswordCtrl,
 } from "../controllers/usersCtrl.js";
 import { isLoggedIn } from "../middlewares/isLoggedin.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import { validate } from "../middlewares/validate.js";
-import { registerSchema, loginSchema } from "../validations/authSchemas.js";
+import {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  resetPasswordSchema,
+} from "../validations/authSchemas.js";
 
 const userRoutes = express.Router();
 
@@ -30,7 +36,8 @@ userRoutes.post("/refresh", refreshTokenCtrl);
 userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.post("/forgot-password", forgotPasswordCtrl);
 userRoutes.post("/verify-otp", verifyOTPCtrl);
-userRoutes.post("/reset-password", resetPasswordCtrl);
+userRoutes.post("/reset-password", validate(resetPasswordSchema), resetPasswordCtrl);
+userRoutes.put("/change-password", isLoggedIn, validate(changePasswordSchema), changePasswordCtrl);
 userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);
 userRoutes.put("/update/profile", isLoggedIn, updateProfileCtrl);

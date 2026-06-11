@@ -2,11 +2,13 @@ import app from './app/app.js'
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
 import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncService.js'
+import { startCheckoutExpiryWorker, stopCheckoutExpiryWorker } from './services/checkoutQueue.js'
 
 async function startServer() {
   validateConfig({ strict: config.isProduction })
   await dbConnect()
   scheduleEmbeddingSyncOnStartup()
+  await startCheckoutExpiryWorker()
 
   const server = app.listen(config.server.port, config.server.host, () => {
     console.log(
@@ -14,8 +16,12 @@ async function startServer() {
     )
   })
 
-  function shutdown(signal) {
+  let shuttingDown = false
+  async function shutdown(signal) {
+    if (shuttingDown) return
+    shuttingDown = true
     console.log(`${signal} received — shutting down`)
+    await stopCheckoutExpiryWorker()
     server.close(() => process.exit(0))
   }
 
