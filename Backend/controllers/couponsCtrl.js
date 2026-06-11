@@ -14,6 +14,13 @@ import {
   findLiveCouponByCode,
   normalizeCouponCode,
 } from '../utils/couponQueries.js'
+import {
+  CACHE_KEYS,
+  CACHE_TTL,
+  getCachedOrFetch,
+  invalidateCouponsCache,
+} from '../services/catalogCache.js'
+import { scheduleCouponCacheJobs } from '../services/couponCacheQueue.js'
 
 // @desc    Create new Coupon
 // @route   POST /api/v1/coupons
@@ -39,6 +46,8 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
     user: req.userAuthId,
   })
 
+  await scheduleCouponCacheJobs(coupon)
+
   res.status(201).json({
     status: 'success',
     message: 'Coupon created successfully',
@@ -51,21 +60,31 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getActiveCouponCtrl = asyncHandler(async (req, res) => {
-  const coupons = await Coupon.find().sort({ createdAt: -1 }).select('code discount startDate endDate')
+  const { data } = await getCachedOrFetch(
+    CACHE_KEYS.couponsActive,
+    CACHE_TTL.couponsActive,
+    async () => {
+      const coupons = await Coupon.find()
+        .sort({ createdAt: -1 })
+        .select('code discount startDate endDate')
+        .lean()
 
-  const coupon = coupons.find((c) => isCouponLive(c))
+      const coupon = coupons.find((c) => isCouponLive(c))
 
-  res.status(200).json({
-    status: 'success',
-    coupon: coupon
-      ? {
-          code: coupon.code,
-          discount: coupon.discount,
-          daysLeft: daysLeftLabel(coupon.endDate),
-          isExpired: false,
-        }
-      : null,
-  })
+      return {
+        status: 'success',
+        coupon: coupon
+          ? {
+              code: coupon.code,
+              discount: coupon.discount,
+              daysLeft: daysLeftLabel(coupon.endDate),
+              isExpired: false,
+            }
+          : null,
+      }
+    }
+  )
+  res.status(200).json(data)
 })
 
 // @desc    Get all coupons
@@ -87,23 +106,30 @@ export const getAllCouponsCtrl = asyncHandler(async (req, res) => {
 
 export const getCouponCtrl = asyncHandler(async (req, res) => {
   const code = normalizeCouponCode(req.query.code)
-  const coupon = await findLiveCouponByCode(code)
-  if (!coupon) {
-    const all = await findCouponsByCode(code)
-    if (all.some((c) => isCouponNotStarted(c))) {
-      throw new Error('This coupon is not active yet')
+  const cacheKey = CACHE_KEYS.couponCode(code)
+
+  const cached = await getCachedOrFetch(cacheKey, CACHE_TTL.couponCode, async () => {
+    const live = await findLiveCouponByCode(code)
+    if (!live) return null
+    return {
+      status: 'success',
+      message: 'Coupon fetched',
+      coupon: live,
     }
-    if (all.some((c) => isCouponExpired(c))) {
-      throw new Error('This coupon has expired')
-    }
-    throw new Error('Coupon not found')
+  })
+
+  if (cached.data) {
+    return res.json(cached.data)
   }
 
-  res.json({
-    status: 'success',
-    message: 'Coupon fetched',
-    coupon,
-  })
+  const all = await findCouponsByCode(code)
+  if (all.some((c) => isCouponNotStarted(c))) {
+    throw new Error('This coupon is not active yet')
+  }
+  if (all.some((c) => isCouponExpired(c))) {
+    throw new Error('This coupon has expired')
+  }
+  throw new Error('Coupon not found')
 })
 
 export const updateCouponCtrl = asyncHandler(async (req, res) => {
@@ -115,6 +141,7 @@ export const updateCouponCtrl = asyncHandler(async (req, res) => {
     await assertCouponCodeAvailable(code, { excludeId: req.params.id })
   }
 
+  const existing = await Coupon.findById(req.params.id)
   const coupon = await Coupon.findByIdAndUpdate(
     req.params.id,
     {
@@ -125,6 +152,8 @@ export const updateCouponCtrl = asyncHandler(async (req, res) => {
     },
     { new: true, runValidators: true }
   )
+  if (existing?.code) await invalidateCouponsCache(existing.code)
+  if (coupon) await scheduleCouponCacheJobs(coupon)
   res.json({
     status: 'success',
     message: 'Coupon updated successfully',
@@ -134,6 +163,7 @@ export const updateCouponCtrl = asyncHandler(async (req, res) => {
 
 export const deleteCouponCtrl = asyncHandler(async (req, res) => {
   const coupon = await Coupon.findByIdAndDelete(req.params.id)
+  if (coupon?.code) await invalidateCouponsCache(coupon.code)
   res.json({
     status: 'success',
     message: 'Coupon deleted successfully',

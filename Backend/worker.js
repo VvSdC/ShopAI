@@ -6,6 +6,8 @@
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
 import { startAllQueueWorkers, stopAllQueueWorkers } from './services/queueWorkers.js'
+import { shutdownLlmUsageLogger } from './services/llmUsageLogger.js'
+import { shutdownCache } from './services/cacheService.js'
 
 async function startWorkerProcess() {
   validateConfig({ strict: config.isProduction })
@@ -20,6 +22,8 @@ async function shutdown(signal) {
   shuttingDown = true
   console.log(`[worker] ${signal} received — shutting down`)
   await stopAllQueueWorkers()
+  await shutdownLlmUsageLogger()
+  await shutdownCache()
   process.exit(0)
 }
 

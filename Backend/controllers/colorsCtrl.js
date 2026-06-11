@@ -1,5 +1,11 @@
 import asyncHandler from "express-async-handler";
 import Color from "../model/Color.js";
+import {
+  CACHE_KEYS,
+  CACHE_TTL,
+  getCachedOrFetch,
+  invalidateColorsCache,
+} from "../services/catalogCache.js";
 
 // @desc    Create new Color
 // @route   POST /api/v1/colors
@@ -19,6 +25,7 @@ export const createColorCtrl = asyncHandler(async (req, res) => {
     user: req.userAuthId,
   });
 
+  await invalidateColorsCache();
   res.json({
     status: "success",
     message: "color created successfully",
@@ -31,12 +38,19 @@ export const createColorCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getAllColorsCtrl = asyncHandler(async (req, res) => {
-  const colors = await Color.find();
-  res.json({
-    status: "success",
-    message: "colors fetched successfully",
-    colors,
-  });
+  const { data } = await getCachedOrFetch(
+    CACHE_KEYS.colorsAll,
+    CACHE_TTL.colors,
+    async () => {
+      const colors = await Color.find().lean();
+      return {
+        status: "success",
+        message: "colors fetched successfully",
+        colors,
+      };
+    }
+  );
+  res.json(data);
 });
 
 // @desc    Get single color
@@ -68,6 +82,7 @@ export const updateColorCtrl = asyncHandler(async (req, res) => {
       new: true,
     }
   );
+  await invalidateColorsCache();
   res.json({
     status: "success",
     message: "color updated successfully",
@@ -80,6 +95,7 @@ export const updateColorCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 export const deleteColorCtrl = asyncHandler(async (req, res) => {
   await Color.findByIdAndDelete(req.params.id);
+  await invalidateColorsCache();
   res.json({
     status: "success",
     message: "color deleted successfully",

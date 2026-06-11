@@ -1,6 +1,12 @@
 import asyncHandler from 'express-async-handler'
 import cloudinaryPackage from 'cloudinary'
 import Category from '../model/Category.js'
+import {
+  CACHE_KEYS,
+  CACHE_TTL,
+  getCachedOrFetch,
+  invalidateCategoriesCache,
+} from '../services/catalogCache.js'
 
 const cloudinary = cloudinaryPackage.v2
 // @desc    Create new category
@@ -28,6 +34,7 @@ export const createCategoryCtrl = async (req, res) => {
     user: req.userAuthId,
     image: req?.file?.path || req.body.image,
   })
+  await invalidateCategoriesCache()
   res.json({
     status: 'success',
     message: 'Category created successfully',
@@ -40,12 +47,19 @@ export const createCategoryCtrl = async (req, res) => {
 // @access  Public
 
 export const getAllCategoriesCtrl = asyncHandler(async (req, res) => {
-  const categories = await Category.find()
-  res.json({
-    status: 'success',
-    message: 'Categories fetched successfully',
-    categories,
-  })
+  const { data } = await getCachedOrFetch(
+    CACHE_KEYS.categoriesAll,
+    CACHE_TTL.categories,
+    async () => {
+      const categories = await Category.find().lean()
+      return {
+        status: 'success',
+        message: 'Categories fetched successfully',
+        categories,
+      }
+    }
+  )
+  res.json(data)
 })
 
 // @desc    Get single category
@@ -99,6 +113,7 @@ export const updateCategoryCtrl = asyncHandler(async (req, res) => {
     { new: true }
   )
 
+  await invalidateCategoriesCache()
   res.json({
     status: 'success',
     message: 'Category updated successfully',
@@ -130,6 +145,7 @@ export const deleteCategoryCtrl = asyncHandler(async (req, res) => {
   }
 
   await Category.findByIdAndDelete(req.params.id)
+  await invalidateCategoriesCache()
   res.json({
     status: 'success',
     message: 'Category deleted successfully',

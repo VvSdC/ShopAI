@@ -1,5 +1,11 @@
 import asyncHandler from "express-async-handler";
 import Brand from "../model/Brand.js";
+import {
+  CACHE_KEYS,
+  CACHE_TTL,
+  getCachedOrFetch,
+  invalidateBrandsCache,
+} from "../services/catalogCache.js";
 
 // @desc    Create new Brand
 // @route   POST /api/v1/brands
@@ -18,6 +24,7 @@ export const createBrandCtrl = asyncHandler(async (req, res) => {
     user: req.userAuthId,
   });
 
+  await invalidateBrandsCache();
   res.json({
     status: "success",
     message: "Brand created successfully",
@@ -30,12 +37,19 @@ export const createBrandCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getAllBrandsCtrl = asyncHandler(async (req, res) => {
-  const brands = await Brand.find();
-  res.json({
-    status: "success",
-    message: "Brands fetched successfully",
-    brands,
-  });
+  const { data } = await getCachedOrFetch(
+    CACHE_KEYS.brandsAll,
+    CACHE_TTL.brands,
+    async () => {
+      const brands = await Brand.find().lean();
+      return {
+        status: "success",
+        message: "Brands fetched successfully",
+        brands,
+      };
+    }
+  );
+  res.json(data);
 });
 
 // @desc    Get single brand
@@ -66,6 +80,7 @@ export const updateBrandCtrl = asyncHandler(async (req, res) => {
       new: true,
     }
   );
+  await invalidateBrandsCache();
   res.json({
     status: "success",
     message: "brand updated successfully",
@@ -78,6 +93,7 @@ export const updateBrandCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 export const deleteBrandCtrl = asyncHandler(async (req, res) => {
   await Brand.findByIdAndDelete(req.params.id);
+  await invalidateBrandsCache();
   res.json({
     status: "success",
     message: "brand deleted successfully",

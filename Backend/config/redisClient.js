@@ -5,10 +5,10 @@ export function isRedisConfigured() {
   return Boolean(config.redis.url)
 }
 
-/** BullMQ requires maxRetriesPerRequest: null on ioredis connections. */
-export function createRedisConnection(label = 'default') {
+/** BullMQ requires maxRetriesPerRequest: null — use separate connections per role. */
+export function createRedisConnection(role = 'default') {
   if (!config.redis.url) {
-    throw new Error(`REDIS_URL is not configured (${label})`)
+    throw new Error(`REDIS_URL is not configured (${role})`)
   }
 
   const connection = new Redis(config.redis.url, {
@@ -17,7 +17,7 @@ export function createRedisConnection(label = 'default') {
   })
 
   connection.on('error', (err) => {
-    console.error(`[redis:${label}]`, err.message)
+    console.error(`[redis:${role}]`, err.message)
   })
 
   return connection

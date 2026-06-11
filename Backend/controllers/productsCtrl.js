@@ -8,6 +8,17 @@ import { tagProductInBackground } from '../services/productTagging.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
 import { searchProducts } from '../services/search/searchService.js'
 import { resolveCategoryId } from '../utils/categoryRef.js'
+import {
+  getCachedOrFetch,
+  invalidateCategoriesCache,
+  invalidateProductListCache,
+} from '../services/catalogCache.js'
+import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
+
+async function invalidateProductCatalogCaches() {
+  await invalidateProductListCache()
+  await invalidateCategoriesCache()
+}
 
 // @desc    Create new product
 // @route   POST /api/v1/products
@@ -65,6 +76,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   indexProductEmbeddingInBackground(product._id, 2500)
 
   await product.populate('category', 'name')
+  await invalidateProductCatalogCaches()
 
   //send response
   res.json({
@@ -133,32 +145,46 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     filter.price = { $gte: priceRange[0], $lte: priceRange[1] }
   }
 
-  const startIndex = (page - 1) * limit
-  const endIndex = page * limit
-  const total = await Product.countDocuments(filter)
-
-  const products = await Product.find(filter)
-    .skip(startIndex)
-    .limit(limit)
-    .populate('category', 'name')
-    .populate('reviews')
-
-  const pagination = {}
-  if (endIndex < total) {
-    pagination.next = { page: page + 1, limit }
-  }
-  if (startIndex > 0) {
-    pagination.prev = { page: page - 1, limit }
-  }
-
-  res.json({
-    status: 'success',
-    total,
-    results: products.length,
-    pagination,
-    message: 'Products fetched successfully',
-    products,
+  const listKey = productsListCacheKey({
+    page,
+    limit,
+    brand: req.query.brand,
+    category: req.query.category,
+    color: req.query.color,
+    size: req.query.size,
+    price: req.query.price,
   })
+
+  const { data } = await getCachedOrFetch(listKey, CACHE_TTL.productsList, async () => {
+    const startIndex = (page - 1) * limit
+    const endIndex = page * limit
+    const total = await Product.countDocuments(filter)
+
+    const products = await Product.find(filter)
+      .skip(startIndex)
+      .limit(limit)
+      .populate('category', 'name')
+      .populate('reviews')
+
+    const pagination = {}
+    if (endIndex < total) {
+      pagination.next = { page: page + 1, limit }
+    }
+    if (startIndex > 0) {
+      pagination.prev = { page: page - 1, limit }
+    }
+
+    return {
+      status: 'success',
+      total,
+      results: products.length,
+      pagination,
+      message: 'Products fetched successfully',
+      products: products.map((p) => (p.toJSON ? p.toJSON() : p)),
+    }
+  })
+
+  res.json(data)
 })
 
 // @desc    Get single product
@@ -233,7 +259,10 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     }
   ).populate('category', 'name')
 
-  if (product) tagProductInBackground(product._id)
+  if (product) {
+    tagProductInBackground(product._id)
+    await invalidateProductCatalogCaches()
+  }
 
   res.json({
     status: 'success',
@@ -257,6 +286,7 @@ export const deleteProductCtrl = asyncHandler(async (req, res) => {
   await Brand.updateMany({}, { $pull: { products: product._id } })
   // Delete the product
   await Product.findByIdAndDelete(req.params.id)
+  await invalidateProductCatalogCaches()
   res.json({
     status: 'success',
     message: 'Product deleted successfully',
