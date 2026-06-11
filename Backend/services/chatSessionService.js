@@ -1,6 +1,8 @@
 import ChatSession from '../model/ChatSession.js'
 import { CHAT_HISTORY_MAX_ITEMS, CHAT_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
 import { clampChatText, clampSessionMessageText } from '../utils/chatMessageLimits.js'
+import { trimHistoryToTokenBudget } from '../utils/chatHistoryTrim.js'
+import { CHAT_HISTORY_TOKEN_BUDGET } from '../constants/chatLimits.js'
 import { normalizeCartQueue, stripCartQueueMarker } from './cartQueue.js'
 
 const MAX_SESSIONS_PER_USER = 50
@@ -133,13 +135,18 @@ export async function trimOldSessions(userId) {
   await ChatSession.deleteMany({ _id: { $in: ids } })
 }
 
-export function sessionHistoryForApi(session, maxMessages = CHAT_HISTORY_MAX_ITEMS) {
-  return (session?.messages || [])
+export function sessionHistoryForApi(
+  session,
+  maxMessages = CHAT_HISTORY_MAX_ITEMS,
+  tokenBudget = CHAT_HISTORY_TOKEN_BUDGET
+) {
+  const mapped = (session?.messages || [])
     .slice(-maxMessages)
     .map((m) => ({
       role: m.role === 'user' ? 'user' : 'assistant',
       content: clampChatText(stripCartQueueMarker(m.content), CHAT_MESSAGE_MAX_LENGTH),
     }))
+  return trimHistoryToTokenBudget(mapped, tokenBudget)
 }
 
 export function sessionCartQueueForAssist(session) {

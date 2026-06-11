@@ -1,5 +1,6 @@
 import { getCompiledGraph } from './graph.js'
 import { getLlmUsageContext, runWithLlmUsageContext } from '../llmUsageContext.js'
+import { prepareChatHistoryForLlm } from '../../utils/chatHistoryTrim.js'
 
 export { evaluateGuard, REFUSE_MESSAGES } from './guard.js'
 export { routeIntent, ROUTE_NAMES } from './router.js'
@@ -16,12 +17,7 @@ function withAgentPromptCache(fn) {
 export async function runChatGraph({ userId, userName, userText, history = [] }) {
   return withAgentPromptCache(async () => {
     const graph = getCompiledGraph()
-    const trimmedHistory = Array.isArray(history)
-      ? history.map((m) => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: String(m.content || ''),
-        }))
-      : []
+    const trimmedHistory = prepareChatHistoryForLlm(history)
 
     const result = await graph.invoke({
       userId,

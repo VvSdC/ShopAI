@@ -19,6 +19,7 @@ import {
 } from '../services/chatPostProcess.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 import { CHAT_HISTORY_MAX_ITEMS } from '../constants/chatLimits.js'
+import { prepareChatHistoryForLlm } from '../utils/chatHistoryTrim.js'
 
 export const chatMessageCtrl = asyncHandler(async (req, res) => {
   const { message, history, sessionId } = req.body
@@ -40,10 +41,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
 
   const trimmedHistory = session
     ? sessionHistoryForApi(session, CHAT_HISTORY_MAX_ITEMS)
-    : (history || []).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }))
+    : prepareChatHistoryForLlm(history || [])
 
   const userText = message
 
