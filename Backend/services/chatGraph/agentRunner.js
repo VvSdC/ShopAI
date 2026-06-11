@@ -1,7 +1,7 @@
 import { chatCompletion } from '../llmService.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { executeTool } from '../chatTools.js'
-import { buildAgentSystemPrompt } from './agentPrompts.js'
+import { getAgentSystemPrompt } from './agentPrompts.js'
 import { getToolsForRoute } from './toolSets.js'
 import { serializeToolResultForLlm } from './toolResultCompact.js'
 
@@ -12,7 +12,7 @@ const FALLBACK_REPLY =
 
 export async function runAgentWithTools(state, route) {
   const tools = getToolsForRoute(route)
-  const systemPrompt = buildAgentSystemPrompt(route, state.userName)
+  const systemPrompt = getAgentSystemPrompt(route, state.userName)
   const messages = [
     { role: 'system', content: systemPrompt },
     ...state.history,

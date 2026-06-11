@@ -52,6 +52,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
       source: 'chat',
       userId: req.userAuthId,
       sessionId: session ? String(session._id) : null,
+      agentPromptCache: new Map(),
     },
     async () => {
       const graphResult = await runChatGraph({

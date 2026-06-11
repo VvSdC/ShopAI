@@ -1,7 +1,7 @@
 import { REFUSE_MESSAGES } from './guard.js'
 import { runAgentWithTools } from './agentRunner.js'
 import { executeTool } from '../chatTools.js'
-import { buildAgentSystemPrompt } from './agentPrompts.js'
+import { getAgentSystemPrompt } from './agentPrompts.js'
 import { resolveProductIdFromContext } from './productContext.js'
 import { buildProductDetailReply, formatAgentReply } from '../chatPostProcess.js'
 import { serializeToolResultForLlm } from './toolResultCompact.js'
@@ -34,7 +34,7 @@ export async function productDetailNode(state) {
 
     if (!result.error) {
       const messages = [
-        { role: 'system', content: buildAgentSystemPrompt('product_detail', state.userName) },
+        { role: 'system', content: getAgentSystemPrompt('product_detail', state.userName) },
         ...state.history,
         { role: 'user', content: state.userText },
         {
