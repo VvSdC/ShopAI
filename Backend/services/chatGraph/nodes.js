@@ -4,6 +4,7 @@ import { executeTool } from '../chatTools.js'
 import { buildAgentSystemPrompt } from './agentPrompts.js'
 import { resolveProductIdFromContext } from './productContext.js'
 import { buildProductDetailReply, formatAgentReply } from '../chatPostProcess.js'
+import { serializeToolResultForLlm } from './toolResultCompact.js'
 
 export async function refuseNode(state) {
   const reply =
@@ -39,7 +40,7 @@ export async function productDetailNode(state) {
         {
           role: 'tool',
           tool_call_id: 'product_detail_direct',
-          content: JSON.stringify(result),
+          content: serializeToolResultForLlm('get_product_details', result),
         },
       ]
 

@@ -3,6 +3,7 @@ import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { executeTool } from '../chatTools.js'
 import { buildAgentSystemPrompt } from './agentPrompts.js'
 import { getToolsForRoute } from './toolSets.js'
+import { serializeToolResultForLlm } from './toolResultCompact.js'
 
 const MAX_TOOL_ROUNDS = 7
 
@@ -50,7 +51,7 @@ export async function runAgentWithTools(state, route) {
         messages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
-          content: JSON.stringify(result),
+          content: serializeToolResultForLlm(fnName, result),
         })
       }
       continue
