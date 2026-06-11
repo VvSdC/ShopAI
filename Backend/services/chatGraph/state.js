@@ -8,6 +8,7 @@ export const ChatGraphState = Annotation.Root({
   guardAllowed: Annotation({ default: () => true }),
   guardReason: Annotation(),
   route: Annotation({ default: () => 'general' }),
+  routeReason: Annotation({ default: () => '' }),
   messages: Annotation({ default: () => [] }),
   toolResults: Annotation({
     default: () => [],

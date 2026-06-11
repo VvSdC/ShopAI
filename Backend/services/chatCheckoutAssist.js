@@ -1,3 +1,4 @@
+/** Deterministic checkout fallback — orchestrated by chatDeterministicAssist.js after LangGraph. */
 import { listShippingAddresses } from './addressService.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'

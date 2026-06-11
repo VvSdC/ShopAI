@@ -1,4 +1,3 @@
-import Order from '../model/Order.js'
 import Product from '../model/Product.js'
 import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
@@ -30,6 +29,7 @@ import {
   submitReturnByReference,
   resolveOrderForUser,
 } from './orderActionsService.js'
+import { orderService } from './orderService.js'
 
 export const toolDefinitions = [
   {
@@ -413,61 +413,14 @@ export const toolDefinitions = [
 const toolExecutors = {
   async get_my_orders(userId, args) {
     const limit = Math.min(Math.max(args.limit || 5, 1), 10)
-    const orders = await Order.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-
-    if (!orders.length) return { message: 'You have no orders yet.' }
-
-    return orders.map((o) => ({
-      orderId: String(o._id),
-      orderNumber: o.orderNumber,
-      status: o.status,
-      paymentStatus: o.paymentStatus,
-      totalPrice: o.totalPrice,
-      currency: o.currency || 'INR',
-      itemCount: o.orderItems?.length || 0,
-      items: o.orderItems?.map((i) => ({
-        name: i.name,
-        qty: i.qty,
-        price: i.price,
-      })),
-      coupon: o.coupon || null,
-      orderedOn: o.createdAt,
-      deliveredAt: o.deliveredAt || null,
-    }))
+    return orderService.listForChat(userId, limit)
   },
 
   async get_order_details(userId, args) {
-    let order = null
-    if (args.order_id) {
-      order = await Order.findOne({ _id: args.order_id, user: userId })
-    } else if (args.order_number) {
-      order = await Order.findOne({ orderNumber: args.order_number, user: userId })
-    }
-
-    if (!order) return { error: 'Order not found. Make sure the order number is correct.' }
-
-    return {
-      orderId: String(order._id),
-      orderNumber: order.orderNumber,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      paymentMethod: order.paymentMethod,
-      totalPrice: order.totalPrice,
-      currency: order.currency || 'INR',
-      coupon: order.coupon || null,
-      deliveredAt: order.deliveredAt || null,
-      items: order.orderItems?.map((i) => ({
-        name: i.name,
-        qty: i.qty,
-        price: i.price,
-        size: i.size,
-        color: i.color,
-      })),
-      shippingAddress: order.shippingAddress,
-      orderedOn: order.createdAt,
-    }
+    return orderService.getDetailsForChat(userId, {
+      order_id: args.order_id,
+      order_number: args.order_number,
+    })
   },
 
   async search_products(_userId, args) {

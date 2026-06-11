@@ -1,7 +1,6 @@
 import Stripe from 'stripe'
 import Order from '../model/Order.js'
-import { processPaidOrder } from './orderFulfillment.js'
-import { persistPaymentReferences } from './orderRefund.js'
+import { orderService } from './orderService.js'
 import { expireCheckoutJob } from './checkoutQueue.js'
 
 const stripe = new Stripe(process.env.STRIPE_KEY)
@@ -45,27 +44,13 @@ function paidStatusPayload(order, { emailTo, emailSent } = {}) {
 export async function syncOrderPaymentFromStripe(order, session) {
   if (!session || !order) return { order, fulfillment: null }
 
-  const paymentRefs = await persistPaymentReferences(order._id, session)
-  const updated = await Order.findByIdAndUpdate(
+  const receiptEmail =
+    session.customer_details?.email || session.customer_email || null
+  const { order: refreshed, fulfillment } = await orderService.applyStripeCheckoutSession(
     order._id,
-    {
-      totalPrice: session.amount_total / 100,
-      currency: session.currency,
-      paymentMethod: session.payment_method_types?.[0] || 'card',
-      paymentStatus: session.payment_status,
-      ...paymentRefs,
-    },
-    { new: true }
+    session,
+    { receiptEmail }
   )
-
-  let fulfillment = null
-  if (session.payment_status === 'paid' && updated) {
-    const receiptEmail =
-      session.customer_details?.email || session.customer_email || null
-    fulfillment = await processPaidOrder(order._id, { receiptEmail })
-  }
-
-  const refreshed = await Order.findById(order._id)
   return { order: refreshed, fulfillment }
 }
 

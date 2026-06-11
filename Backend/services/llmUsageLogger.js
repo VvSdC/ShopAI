@@ -41,6 +41,7 @@ function buildUsageEntry({
   userId,
   sessionId,
   route,
+  routeReason,
 }) {
   const ctx = getLlmUsageContext()
   const tokens = extractTokenUsage(responseData)
@@ -51,6 +52,7 @@ function buildUsageEntry({
     userId: userId || ctx.userId || null,
     sessionId: sessionId || ctx.sessionId || null,
     route: route || ctx.route || null,
+    routeReason: routeReason ?? ctx.routeReason ?? null,
     provider: provider || 'unknown',
     model: model || null,
     promptTokens: tokens.promptTokens,
@@ -104,6 +106,19 @@ export async function shutdownLlmUsageLogger() {
     flushTimer = null
   }
   await flushLlmUsageBuffer()
+}
+
+/** One row per chat request — route decision for classifier/heuristic evaluation. */
+export function recordChatRouteDecision({ route, routeReason } = {}) {
+  recordLlmUsage({
+    provider: 'router',
+    model: null,
+    responseData: null,
+    latencyMs: 0,
+    span: 'route-decision',
+    route: route || null,
+    routeReason: routeReason || null,
+  })
 }
 
 export function recordLlmUsage(params) {

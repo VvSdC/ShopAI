@@ -108,6 +108,25 @@ sequenceDiagram
 
 ---
 
+## Two phases, one pipeline
+
+There is **one LLM path** (LangGraph). A second layer is **not** another chatbot — it is deterministic, rule-based code that runs **after** the agent when tools were skipped or incomplete.
+
+| Phase | Module | What it does |
+|-------|--------|----------------|
+| **1. LangGraph** | `services/chatGraph/` | Guard → route intent → agent with tools (up to 7 rounds) → format reply |
+| **2. Deterministic assist** | `services/chatDeterministicAssist.js` | Cart variant matching, multi-item queue, free-form address parsing, checkout/address picker when the model did not call tools |
+
+Disable phase 2 for LangGraph-only behavior:
+
+```env
+ENABLE_CHAT_DETERMINISTIC_ASSIST=false
+```
+
+Keep it **enabled** in production unless you are debugging agent tool-calling — it covers edge cases like “2 red shirts XL”, bulk “add bat and ball”, pasted addresses, and “yes” after a checkout prompt.
+
+---
+
 ## What can the chatbot do? (Tools)
 
 The assistant has **20 tools**, grouped by topic:

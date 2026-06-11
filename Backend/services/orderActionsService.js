@@ -1,7 +1,6 @@
-import Order from '../model/Order.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
 import { RETURN_REASONS } from '../constants/returnReasons.js'
-import { cancelOrderForUser } from './cancelService.js'
+import { orderService } from './orderService.js'
 import {
   getReturnEligibility,
   createReturnRequest,
@@ -9,13 +8,7 @@ import {
 import { normalizeOrderItems } from './orderLineItems.js'
 
 export async function resolveOrderForUser(userId, { order_id, order_number }) {
-  let order = null
-  if (order_id) {
-    order = await Order.findOne({ _id: order_id, user: userId })
-  } else if (order_number) {
-    order = await Order.findOne({ orderNumber: order_number, user: userId })
-  }
-  return order
+  return orderService.findByReference(userId, { order_id, order_number })
 }
 
 export function getOrderCancelReturnStatus(order) {
@@ -113,7 +106,7 @@ export async function cancelOrderByReference(userId, args) {
     }
   }
 
-  const result = await cancelOrderForUser(userId, order._id)
+  const result = await orderService.cancelForUser(userId, order._id)
   return {
     success: true,
     orderNumber: result.order.orderNumber,

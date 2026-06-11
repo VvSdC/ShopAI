@@ -12,6 +12,7 @@ const LlmUsageLogSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     sessionId: { type: String, default: null },
     route: { type: String, default: null },
+    routeReason: { type: String, default: null, maxlength: 500 },
     provider: { type: String, required: true },
     model: { type: String, default: null },
     promptTokens: { type: Number, default: 0 },
@@ -25,6 +26,7 @@ const LlmUsageLogSchema = new mongoose.Schema(
 
 LlmUsageLogSchema.index({ createdAt: -1 })
 LlmUsageLogSchema.index({ source: 1, createdAt: -1 })
+LlmUsageLogSchema.index({ span: 1, route: 1, createdAt: -1 })
 
 const LlmUsageLog = mongoose.model('LlmUsageLog', LlmUsageLogSchema)
 

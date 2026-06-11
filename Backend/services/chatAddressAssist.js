@@ -1,3 +1,4 @@
+/** Deterministic address parsing fallback — orchestrated by chatDeterministicAssist.js after LangGraph. */
 import User from '../model/User.js'
 import { executeTool } from './chatTools.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'

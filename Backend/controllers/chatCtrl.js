@@ -7,17 +7,15 @@ import {
   sessionHistoryForApi,
   sessionCartQueueForAssist,
 } from '../services/chatSessionService.js'
-import { runCheckoutAssist } from '../services/chatCheckoutAssist.js'
-import { runCartAssist } from '../services/chatCartAssist.js'
-import { runAddressAssist } from '../services/chatAddressAssist.js'
 import { runChatGraph } from '../services/chatGraph/index.js'
+import { runDeterministicChatAssist } from '../services/chatDeterministicAssist.js'
 import {
   buildChatResponse,
   sanitizeAssistantReply,
   applyCheckoutReply,
-  ensureCheckoutOnConfirm,
 } from '../services/chatPostProcess.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
+import { recordChatRouteDecision } from '../services/llmUsageLogger.js'
 import { CHAT_HISTORY_MAX_ITEMS } from '../constants/chatLimits.js'
 import { prepareChatHistoryForLlm } from '../utils/chatHistoryTrim.js'
 
@@ -59,7 +57,14 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
         userText,
         history: trimmedHistory,
       })
-      patchLlmUsageContext({ route: graphResult.route || null })
+      patchLlmUsageContext({
+        route: graphResult.route || null,
+        routeReason: graphResult.routeReason || null,
+      })
+      recordChatRouteDecision({
+        route: graphResult.route,
+        routeReason: graphResult.routeReason,
+      })
       return persistAndRespond(
         session,
         userText,
@@ -82,42 +87,18 @@ async function persistAndRespond(
   history = [],
   sessionCartQueue = null
 ) {
-  let reply = graphResult.reply
-  let toolResults = graphResult.toolResults || []
-  const messages = graphResult.messages || []
-
-  const cartAssist = await runCartAssist(userId, userText, history, toolResults, {
-    route: graphResult.route,
-    cartQueue: sessionCartQueue,
-  })
-  let finalToolResults = cartAssist.toolResults
-  if (cartAssist.reply) {
-    reply = cartAssist.reply
-  }
-
-  const addressAssist = await runAddressAssist(userId, userText, finalToolResults)
-  finalToolResults = addressAssist.toolResults
-  if (addressAssist.reply) {
-    reply = addressAssist.reply
-  }
-
-  const assist = await runCheckoutAssist(userId, userText, history, finalToolResults)
-  finalToolResults = assist.toolResults
-  if (assist.reply) {
-    reply = assist.reply
-  }
-
-  finalToolResults = await ensureCheckoutOnConfirm(
+  const { reply: assistedReply, toolResults, cartQueue } = await runDeterministicChatAssist({
     userId,
     userText,
-    messages,
-    finalToolResults
-  )
-  reply = sanitizeAssistantReply(applyCheckoutReply(reply, finalToolResults))
-  const payload = buildChatResponse(reply, finalToolResults)
+    history,
+    graphResult,
+    sessionCartQueue,
+  })
+
+  const reply = sanitizeAssistantReply(applyCheckoutReply(assistedReply, toolResults))
+  const payload = buildChatResponse(reply, toolResults)
   if (session) {
-    const cartQueuePatch =
-      cartAssist.cartQueue !== undefined ? cartAssist.cartQueue : undefined
+    const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
     await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
     await trimOldSessions(userId)
     payload.sessionId = String(session._id)

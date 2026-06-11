@@ -84,6 +84,11 @@ export const config = {
     runQueueWorkersInApi: envBool('RUN_QUEUE_WORKERS_IN_API', true),
   },
 
+  chat: {
+    /** Rule-based cart/checkout/address fallbacks after LangGraph (not a second LLM path). */
+    deterministicAssist: envBool('ENABLE_CHAT_DETERMINISTIC_ASSIST', true),
+  },
+
   cloudinary: {
     cloudName: env('CLOUDINARY_CLOUD_NAME', ''),
     apiKey: env('CLOUDINARY_API_KEY', ''),

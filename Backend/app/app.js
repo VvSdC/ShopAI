@@ -15,15 +15,14 @@ import orderRouter from '../routes/ordersRouter.js'
 import productsRouter from '../routes/productsRoute.js'
 import reviewRouter from '../routes/reviewRouter.js'
 import userRoutes from '../routes/usersRoute.js'
-import Order from '../model/Order.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
 import cartRouter from '../routes/cartRouter.js'
 import policyRouter from '../routes/policyRouter.js'
 import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
-import { processPaidOrder } from '../services/orderFulfillment.js'
-import { persistPaymentReferences } from '../services/orderRefund.js'
+import { orderService } from '../services/orderService.js'
+import { parseOrderId } from '../services/orderFulfillment.js'
 
 const app = express()
 
@@ -102,7 +101,7 @@ app.post(
       const totalAmount = session.amount_total
       const currency = session.currency
 
-      const parsedOrderId = orderId?.replace(/"/g, '')
+      const parsedOrderId = parseOrderId(orderId)
       console.log('✅ Payment completed — updating order:', parsedOrderId, { paymentStatus, paymentMethod, currency, totalAmount })
 
       if (!parsedOrderId) {
@@ -111,31 +110,20 @@ app.post(
       }
 
       try {
-        const paymentRefs = await persistPaymentReferences(parsedOrderId, session)
-
-        const updatedOrder = await Order.findByIdAndUpdate(
+        const receiptEmail =
+          session.customer_details?.email || session.customer_email || null
+        const { updatedOrder, fulfillment } = await orderService.applyStripeCheckoutSession(
           parsedOrderId,
-          {
-            totalPrice: totalAmount / 100,
-            currency,
-            paymentMethod,
-            paymentStatus,
-            ...paymentRefs,
-          },
-          { new: true }
+          session,
+          { receiptEmail }
         )
 
         if (updatedOrder) {
           console.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
-          if (paymentStatus === 'paid') {
-            const receiptEmail =
-              session.customer_details?.email || session.customer_email || null
-            const fulfillment = await processPaidOrder(parsedOrderId, { receiptEmail })
-            if (fulfillment.emailSent) {
-              console.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
-            } else if (fulfillment.processed && !fulfillment.emailSent) {
-              console.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
-            }
+          if (paymentStatus === 'paid' && fulfillment?.emailSent) {
+            console.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
+          } else if (fulfillment?.processed && !fulfillment?.emailSent) {
+            console.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
           }
         } else {
           console.error('❌ Order not found for ID:', parsedOrderId)

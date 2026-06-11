@@ -34,6 +34,7 @@ export async function runChatGraph({ userId, userName, userText, history = [] })
       toolsUsed: result.toolsUsed || [],
       messages: result.messages || [],
       route: result.route || 'general',
+      routeReason: result.routeReason || null,
       guardAllowed: result.guardAllowed !== false,
       guardReason: result.guardReason || null,
     }

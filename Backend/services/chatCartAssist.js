@@ -1,3 +1,4 @@
+/** Deterministic cart fallback — orchestrated by chatDeterministicAssist.js after LangGraph. */
 import Product from '../model/Product.js'
 import { executeTool } from './chatTools.js'
 import {
