@@ -13,7 +13,7 @@ import {
   resolveSizeForProduct,
   isBallLikeProduct,
 } from '../../services/cartVariantMatch.js'
-import { parseCartQueueFromHistory, embedCartQueue } from '../../services/cartQueue.js'
+import { resolveActiveCartQueue } from '../../services/cartQueue.js'
 
 const cricketHistory = [
   {
@@ -66,11 +66,10 @@ describe('cartVariantMatch', () => {
 })
 
 describe('cart queue', () => {
-  it('embeds and parses queue marker', () => {
-    const reply = embedCartQueue('Need color', {
+  it('resolves queue from session field', () => {
+    const queue = resolveActiveCartQueue([], {
       remaining: [{ productId: '507f1f77bcf86cd799439014', name: 'ball', qty: 2 }],
     })
-    const queue = parseCartQueueFromHistory([{ role: 'assistant', content: reply }])
     expect(queue.remaining).toHaveLength(1)
   })
 

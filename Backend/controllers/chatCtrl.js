@@ -5,6 +5,7 @@ import {
   appendMessages,
   trimOldSessions,
   sessionHistoryForApi,
+  sessionCartQueueForAssist,
 } from '../services/chatSessionService.js'
 import { runCheckoutAssist } from '../services/chatCheckoutAssist.js'
 import { runCartAssist } from '../services/chatCartAssist.js'
@@ -65,7 +66,8 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
         userText,
         graphResult,
         req.userAuthId,
-        trimmedHistory
+        trimmedHistory,
+        session ? sessionCartQueueForAssist(session) : null
       )
     }
   )
@@ -73,13 +75,21 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
   res.json(payload)
 })
 
-async function persistAndRespond(session, userText, graphResult, userId, history = []) {
+async function persistAndRespond(
+  session,
+  userText,
+  graphResult,
+  userId,
+  history = [],
+  sessionCartQueue = null
+) {
   let reply = graphResult.reply
   let toolResults = graphResult.toolResults || []
   const messages = graphResult.messages || []
 
   const cartAssist = await runCartAssist(userId, userText, history, toolResults, {
     route: graphResult.route,
+    cartQueue: sessionCartQueue,
   })
   let finalToolResults = cartAssist.toolResults
   if (cartAssist.reply) {
@@ -107,7 +117,9 @@ async function persistAndRespond(session, userText, graphResult, userId, history
   reply = sanitizeAssistantReply(applyCheckoutReply(reply, finalToolResults))
   const payload = buildChatResponse(reply, finalToolResults)
   if (session) {
-    await appendMessages(session, userText, reply, payload.checkout || null)
+    const cartQueuePatch =
+      cartAssist.cartQueue !== undefined ? cartAssist.cartQueue : undefined
+    await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
     await trimOldSessions(userId)
     payload.sessionId = String(session._id)
     payload.sessionTitle = session.title

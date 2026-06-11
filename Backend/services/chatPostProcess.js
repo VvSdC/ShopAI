@@ -4,6 +4,7 @@ import {
   conversationMentionsCheckoutPending,
 } from './chatIntentHelpers.js'
 import { isKitBundleQuery } from './chatGraph/productContext.js'
+import { stripCartQueueMarker } from './cartQueue.js'
 
 export function collectClientActions(toolResults) {
   const actions = []
@@ -95,7 +96,7 @@ export function isValidStripeCheckoutUrl(url) {
 
 export function sanitizeAssistantReply(reply) {
   if (!reply || typeof reply !== 'string') return reply
-  return reply
+  return stripCartQueueMarker(reply)
     .replace(/<\/?[Bb]utton[^>]*>[\s\S]*?<\/[Bb]utton>/gi, '')
     .replace(/\[Pay[^\]]*\]\([^)]+\)/gi, '')
     .replace(/https?:\/\/(?:www\.)?stripe\.com[^\s)\]]*/gi, '')

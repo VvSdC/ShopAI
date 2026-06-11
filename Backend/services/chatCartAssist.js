@@ -21,7 +21,7 @@ import {
 } from './cartVariantMatch.js'
 import { buildCartMissingPrompt } from './chatMissingFields.js'
 import { formatInr } from './chatPostProcess.js'
-import { embedCartQueue, parseCartQueueFromHistory } from './cartQueue.js'
+import { resolveActiveCartQueue } from './cartQueue.js'
 
 function cartAddsInResults(toolResults) {
   return toolResults.filter((r) => r?.success && r?.cart && r?.toolName === 'add_to_cart')
@@ -136,7 +136,7 @@ function buildQueueFromProducts(products, qtyDefault) {
   }
 }
 
-async function processCartQueue(userId, userText, history, toolResults, queue, purchase) {
+async function processCartQueue(userId, userText, history, toolResults, queue, purchase, cartQueue) {
   let results = [...toolResults]
   const remaining = [...(queue.remaining || [])]
 
@@ -149,7 +149,7 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
     }
 
     const isPending =
-      isVariantOnlyReply(userText, history) ||
+      isVariantOnlyReply(userText, history, cartQueue) ||
       getPendingCartProductName(history) === product.name
 
     const variantSource = isPending ? purchase : { qty: current.qty, size: null, color: null }
@@ -169,20 +169,20 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
 
     if (attempt.missing?.length) {
       const nextQueue = { remaining }
-      const reply = embedCartQueue(
-        `For **${product.name}** (qty ${current.qty}):\n\n${buildVariantPrompt(product, attempt.missing)}`,
-        nextQueue
-      )
-      return { toolResults: results, reply }
+      return {
+        toolResults: results,
+        reply: `For **${product.name}** (qty ${current.qty}):\n\n${buildVariantPrompt(product, attempt.missing)}`,
+        cartQueue: nextQueue,
+      }
     }
 
     if (attempt.error) {
-      return { toolResults: results, reply: attempt.error }
+      return { toolResults: results, reply: attempt.error, cartQueue: { remaining } }
     }
   }
 
   const reply = await buildCartConfirmationReply(userId, results)
-  return { toolResults: results, reply }
+  return { toolResults: results, reply, cartQueue: null }
 }
 
 export async function runCartAssist(userId, userText, history = [], toolResults = [], options = {}) {
@@ -191,6 +191,7 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     return {
       toolResults,
       reply: await buildCartConfirmationReply(userId, toolResults),
+      cartQueue: null,
     }
   }
 
@@ -198,11 +199,20 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     return { toolResults, reply: null }
   }
 
-  const existingQueue = parseCartQueueFromHistory(history)
+  const sessionQueue = options.cartQueue ?? null
+  const existingQueue = resolveActiveCartQueue(history, sessionQueue)
   const purchase = inferPurchaseFromContext(userText, history) || { qty: 1, size: null, color: null }
 
   if (existingQueue?.remaining?.length) {
-    return processCartQueue(userId, userText, history, toolResults, existingQueue, purchase)
+    return processCartQueue(
+      userId,
+      userText,
+      history,
+      toolResults,
+      existingQueue,
+      purchase,
+      sessionQueue ?? existingQueue
+    )
   }
 
   if (isBulkAddIntent(userText) && !isExplicitAddIntent(userText)) {
@@ -222,7 +232,7 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
 
   if (multi.length > 1 && isExplicitAddIntent(userText)) {
     const queue = buildQueueFromProducts(multi, qty)
-    return processCartQueue(userId, userText, history, toolResults, queue, purchase)
+    return processCartQueue(userId, userText, history, toolResults, queue, purchase, queue)
   }
 
   const productId = resolveProductIdFromContext(history, userText)
@@ -253,6 +263,7 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     return {
       toolResults: newResults,
       reply: await buildCartConfirmationReply(userId, newResults),
+      cartQueue: null,
     }
   }
 
@@ -268,7 +279,8 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     }
     return {
       toolResults,
-      reply: embedCartQueue(buildVariantPrompt(product, attempt.missing), queue),
+      reply: buildVariantPrompt(product, attempt.missing),
+      cartQueue: queue,
     }
   }
 

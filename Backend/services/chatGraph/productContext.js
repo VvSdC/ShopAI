@@ -1,4 +1,4 @@
-import { parseCartQueueFromHistory } from '../cartQueue.js'
+import { resolveActiveCartQueue } from '../cartQueue.js'
 
 function normalizeProductName(name) {
   return String(name || '')
@@ -198,9 +198,10 @@ export function getPendingCartProductName(history) {
   return null
 }
 
-export function isVariantOnlyReply(userText, history = []) {
+export function isVariantOnlyReply(userText, history = [], cartQueue = null) {
   const t = String(userText || '').toLowerCase()
-  if (!getPendingCartProductName(history) && !parseCartQueueFromHistory(history)) {
+  const activeQueue = resolveActiveCartQueue(history, cartQueue)
+  if (!getPendingCartProductName(history) && !activeQueue) {
     return false
   }
   const hasVariant =
@@ -323,14 +324,15 @@ export function resolveProductIdFromPending(history, pendingName) {
   return hit?.id || null
 }
 
-export function resolveProductIdFromContext(history, userText) {
+export function resolveProductIdFromContext(history, userText, cartQueue = null) {
   const items = activeCatalogProducts(history)
   if (!items.length) return null
 
   const text = String(userText || '')
 
   const pending = getPendingCartProductName(history)
-  if (pending && (isVariantOnlyReply(text, history) || parseCartQueueFromHistory(history))) {
+  const activeQueue = resolveActiveCartQueue(history, cartQueue)
+  if (pending && (isVariantOnlyReply(text, history, cartQueue) || activeQueue)) {
     const pendingId = resolveProductIdFromPending(history, pending)
     if (pendingId) return pendingId
   }

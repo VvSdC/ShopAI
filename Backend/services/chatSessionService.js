@@ -1,6 +1,7 @@
 import ChatSession from '../model/ChatSession.js'
 import { CHAT_HISTORY_MAX_ITEMS, CHAT_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
 import { clampChatText, clampSessionMessageText } from '../utils/chatMessageLimits.js'
+import { normalizeCartQueue, stripCartQueueMarker } from './cartQueue.js'
 
 const MAX_SESSIONS_PER_USER = 50
 const MAX_MESSAGES_PER_SESSION = 100
@@ -60,7 +61,13 @@ export async function deleteSession(userId, sessionId) {
   return result.deletedCount > 0
 }
 
-export async function appendMessages(session, userContent, assistantContent, checkout = null) {
+export async function appendMessages(
+  session,
+  userContent,
+  assistantContent,
+  checkout = null,
+  cartQueue = undefined
+) {
   if (!session.messages?.length) {
     session.title = deriveSessionTitle(userContent)
   } else if (session.title === 'New conversation') {
@@ -74,7 +81,7 @@ export async function appendMessages(session, userContent, assistantContent, che
 
   const assistantEntry = {
     role: 'assistant',
-    content: clampSessionMessageText(assistantContent),
+    content: clampSessionMessageText(stripCartQueueMarker(assistantContent)),
   }
   if (checkout?.checkoutUrl) {
     assistantEntry.checkout = {
@@ -90,6 +97,10 @@ export async function appendMessages(session, userContent, assistantContent, che
     session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION)
   }
 
+  if (cartQueue !== undefined) {
+    session.cartQueue = normalizeCartQueue(cartQueue)
+  }
+
   await session.save()
   return session
 }
@@ -97,7 +108,7 @@ export async function appendMessages(session, userContent, assistantContent, che
 export function mapSessionMessageForClient(message) {
   const out = {
     role: message.role,
-    content: message.content,
+    content: stripCartQueueMarker(message.content),
     createdAt: message.createdAt,
   }
   if (message.checkout?.checkoutUrl) {
@@ -127,6 +138,10 @@ export function sessionHistoryForApi(session, maxMessages = CHAT_HISTORY_MAX_ITE
     .slice(-maxMessages)
     .map((m) => ({
       role: m.role === 'user' ? 'user' : 'assistant',
-      content: clampChatText(m.content, CHAT_MESSAGE_MAX_LENGTH),
+      content: clampChatText(stripCartQueueMarker(m.content), CHAT_MESSAGE_MAX_LENGTH),
     }))
+}
+
+export function sessionCartQueueForAssist(session) {
+  return normalizeCartQueue(session?.cartQueue)
 }

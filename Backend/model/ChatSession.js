@@ -1,6 +1,15 @@
 import mongoose from 'mongoose'
 import { CHAT_SESSION_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
 
+const cartQueueItemSchema = new mongoose.Schema(
+  {
+    productId: { type: String, required: true },
+    name: { type: String, required: true },
+    qty: { type: Number, default: 1, min: 1 },
+  },
+  { _id: false }
+)
+
 const chatMessageSchema = new mongoose.Schema(
   {
     role: {
@@ -39,6 +48,12 @@ const ChatSessionSchema = new mongoose.Schema(
     messages: {
       type: [chatMessageSchema],
       default: [],
+    },
+    cartQueue: {
+      remaining: {
+        type: [cartQueueItemSchema],
+        default: undefined,
+      },
     },
   },
   { timestamps: true }
