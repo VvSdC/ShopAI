@@ -92,35 +92,38 @@ async function callModeration(reviewText, rating) {
   return parseResponse(content)
 }
 
-export function moderateReviewInBackground(reviewId) {
-  (async () => {
-    try {
-      const review = await Review.findById(reviewId)
-      if (!review || review.moderationStatus !== 'pending') return
+/** Run LLM moderation for one review (used by BullMQ worker and in-process fallback). */
+export async function moderateReview(reviewId) {
+  const review = await Review.findById(reviewId)
+  if (!review || review.moderationStatus !== 'pending') {
+    return { ok: true, skipped: true }
+  }
 
-      const result = await callModeration(review.message, review.rating)
+  const result = await callModeration(review.message, review.rating)
 
-      if (result.approved) {
-        review.moderationStatus = 'approved'
-        review.moderationReason = ''
-        review.tags = result.tags
-      } else {
-        review.moderationStatus = 'rejected'
-        review.moderationReason = result.reason || 'Your review was flagged by our moderation system.'
-        review.tags = []
-      }
+  if (result.approved) {
+    review.moderationStatus = 'approved'
+    review.moderationReason = ''
+    review.tags = result.tags
+  } else {
+    review.moderationStatus = 'rejected'
+    review.moderationReason = result.reason || 'Your review was flagged by our moderation system.'
+    review.tags = []
+  }
 
-      await review.save()
-    } catch (err) {
-      logger.error(`Background moderation failed for review ${reviewId}:`, err.message)
-      try {
-        await Review.findByIdAndUpdate(reviewId, {
-          moderationStatus: 'approved',
-          moderationReason: '',
-        })
-      } catch {
-        // last resort — leave as pending
-      }
-    }
-  })()
+  await review.save()
+  return { ok: true, status: review.moderationStatus }
+}
+
+export async function failOpenModerateReview(reviewId) {
+  try {
+    await Review.findByIdAndUpdate(reviewId, {
+      moderationStatus: 'approved',
+      moderationReason: '',
+    })
+    return { ok: true, failOpen: true }
+  } catch (err) {
+    logger.error(`Fail-open moderation update failed for review ${reviewId}:`, err.message)
+    return { ok: false }
+  }
 }

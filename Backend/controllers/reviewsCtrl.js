@@ -1,7 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Product from "../model/Product.js";
 import Review from "../model/Review.js";
-import { moderateReviewInBackground } from "../services/reviewModeration.js";
+import { moderateReviewInBackground } from "../services/moderationQueue.js";
 
 // @desc    Create new review
 // @route   POST /api/v1/reviews/:productID

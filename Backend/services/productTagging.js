@@ -46,42 +46,43 @@ function parseTags(raw) {
     .slice(0, 12)
 }
 
-export function tagProductInBackground(productId) {
-  (async () => {
-    try {
-      const product = await Product.findById(productId).populate('category', 'name')
-      if (!product) return
+export async function tagProduct(productId) {
+  try {
+    const product = await Product.findById(productId).populate('category', 'name')
+    if (!product) return { ok: true, skipped: true }
 
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are a product tagging system. Respond ONLY with a JSON array of strings. No markdown, no explanation.',
-        },
-        {
-          role: 'user',
-          content: buildTaggingPrompt(
-            product.name,
-            product.description,
-            categoryDisplayName(product.category),
-            product.brand
-          ),
-        },
-      ]
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a product tagging system. Respond ONLY with a JSON array of strings. No markdown, no explanation.',
+      },
+      {
+        role: 'user',
+        content: buildTaggingPrompt(
+          product.name,
+          product.description,
+          categoryDisplayName(product.category),
+          product.brand
+        ),
+      },
+    ]
 
-      const response = await chatCompletion(messages, null)
-      const content = response.choices?.[0]?.message?.content
+    const response = await chatCompletion(messages, null)
+    const content = response.choices?.[0]?.message?.content
 
-      if (!content) return
+    if (!content) return { ok: true, skipped: true }
 
-      const tags = content ? parseTags(content) : []
-      if (tags.length > 0) {
-        product.tags = tags
-        await product.save()
-      }
-    } catch (err) {
-      logger.error(`Background tagging failed for product ${productId}:`, err.message)
-    } finally {
-      indexProductEmbeddingInBackground(productId, 500)
+    const tags = parseTags(content)
+    if (tags.length > 0) {
+      product.tags = tags
+      await product.save()
     }
-  })()
+
+    return { ok: true, tagCount: tags.length }
+  } catch (err) {
+    logger.error(`Product tagging failed for ${productId}:`, err.message)
+    throw err
+  } finally {
+    indexProductEmbeddingInBackground(productId, 500)
+  }
 }
