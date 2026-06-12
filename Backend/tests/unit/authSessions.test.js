@@ -4,7 +4,11 @@ import request from 'supertest'
 import app from '../../app/app.js'
 import User from '../../model/User.js'
 import { generateAccessToken, generateRefreshToken } from '../../utils/generateToken.js'
-import { invalidateUserRefreshToken } from '../../utils/authSessions.js'
+import {
+  invalidateUserRefreshToken,
+  rotateRefreshToken,
+  verifyRefreshToken,
+} from '../../utils/authSessions.js'
 
 describe('invalidateUserRefreshToken', () => {
   it('clears refreshToken on the user document', async () => {
@@ -19,6 +23,74 @@ describe('invalidateUserRefreshToken', () => {
 
     const reloaded = await User.findById(user._id)
     expect(reloaded.refreshToken).toBe('')
+  })
+})
+
+describe('refresh token rotation', () => {
+  it('rotates refresh token on each successful refresh', async () => {
+    const user = await User.create({
+      fullname: 'Rotate User',
+      email: `rotate-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const initialRefresh = generateRefreshToken(user._id)
+    user.refreshToken = initialRefresh
+    await user.save()
+
+    const first = await request(app)
+      .post('/shopai/users/refresh')
+      .set('Cookie', [`shopai_refresh_token=${initialRefresh}`])
+
+    expect(first.status).toBe(200)
+    const firstCookie = first.headers['set-cookie']?.find((c) =>
+      c.startsWith('shopai_refresh_token=')
+    )
+    expect(firstCookie).toBeTruthy()
+
+    const afterFirst = await User.findById(user._id)
+    expect(afterFirst.refreshToken).not.toBe(initialRefresh)
+    expect(afterFirst.refreshToken).toBeTruthy()
+
+    const second = await request(app)
+      .post('/shopai/users/refresh')
+      .set('Cookie', first.headers['set-cookie'])
+
+    expect(second.status).toBe(200)
+    const afterSecond = await User.findById(user._id)
+    expect(afterSecond.refreshToken).not.toBe(afterFirst.refreshToken)
+  })
+
+  it('revokes all sessions when a superseded refresh token is reused', async () => {
+    const user = await User.create({
+      fullname: 'Theft Detect User',
+      email: `theft-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const stolenToken = generateRefreshToken(user._id)
+    user.refreshToken = stolenToken
+    await user.save()
+
+    const currentToken = generateRefreshToken(user._id)
+    user.refreshToken = currentToken
+    await user.save()
+
+    const res = await request(app)
+      .post('/shopai/users/refresh')
+      .set('Cookie', [`shopai_refresh_token=${stolenToken}`])
+
+    expect(res.status).toBeGreaterThanOrEqual(400)
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.refreshToken).toBe('')
+  })
+
+  it('verifyRefreshToken uses normalized config secret', () => {
+    const userId = '507f1f77bcf86cd799439011'
+    const token = generateRefreshToken(userId)
+    const decoded = verifyRefreshToken(token)
+    expect(decoded.id).toBe(userId)
   })
 })
 

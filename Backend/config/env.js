@@ -68,8 +68,8 @@ export const config = {
   },
 
   auth: {
-    jwtKey: env('JWT_KEY', ''),
-    jwtRefreshKey: env('JWT_REFRESH_KEY', ''),
+    jwtKey: envSecret('JWT_KEY', ''),
+    jwtRefreshKey: envSecret('JWT_REFRESH_KEY', ''),
   },
 
   stripe: {

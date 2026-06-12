@@ -1,4 +1,6 @@
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import config from "../config/env.js";
 
 export const generateAccessToken = (user) => {
   return jwt.sign(
@@ -8,11 +10,15 @@ export const generateAccessToken = (user) => {
       isAdmin: user.isAdmin,
       hasShippingAddress: user.hasShippingAddress,
     },
-    process.env.JWT_KEY,
+    config.auth.jwtKey,
     { expiresIn: "15m" }
   );
 };
 
 export const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_REFRESH_KEY, { expiresIn: "7d" });
+  return jwt.sign(
+    { id, jti: crypto.randomUUID() },
+    config.auth.jwtRefreshKey,
+    { expiresIn: "7d" }
+  );
 };

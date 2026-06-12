@@ -9,7 +9,13 @@ import {
   generateRefreshToken,
 } from "../utils/generateToken.js";
 import { sendPasswordResetOTPEmail, sendWelcomeEmail } from "../services/emailService.js";
-import { clearAuthCookies, invalidateUserRefreshToken } from "../utils/authSessions.js";
+import {
+  clearAuthCookies,
+  invalidateUserRefreshToken,
+  rotateRefreshToken,
+  verifyRefreshToken,
+} from "../utils/authSessions.js";
+import config from "../config/env.js";
 
 // Cookie options
 const accessCookieOptions = {
@@ -102,19 +108,23 @@ export const refreshTokenCtrl = asyncHandler(async (req, res) => {
   if (!refreshToken) {
     throw new Error("No refresh token, please login again");
   }
-  // Verify refresh token
-  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY);
-  if (!decoded) {
+
+  let decoded;
+  try {
+    decoded = verifyRefreshToken(refreshToken);
+  } catch {
     throw new Error("Invalid refresh token, please login again");
   }
-  // Check if user exists and refresh token matches
-  const user = await User.findById(decoded.id);
-  if (!user || user.refreshToken !== refreshToken) {
+
+  const rotation = await rotateRefreshToken(refreshToken, decoded.id, res);
+  if (!rotation) {
     throw new Error("Invalid refresh token, please login again");
   }
-  // Generate new access token
+
+  const { user, newRefreshToken } = rotation;
   const newAccessToken = generateAccessToken(user);
   res.cookie("shopai_token", newAccessToken, accessCookieOptions);
+  res.cookie("shopai_refresh_token", newRefreshToken, refreshCookieOptions);
   res.json({
     status: "success",
     message: "Token refreshed successfully",
@@ -129,7 +139,7 @@ export const logoutUserCtrl = asyncHandler(async (req, res) => {
   if (refreshToken) {
     // Verify and clear refresh token from DB
     try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_KEY);
+      const decoded = verifyRefreshToken(refreshToken);
       await User.findByIdAndUpdate(decoded.id, { refreshToken: "" });
     } catch (err) {
       // Token invalid, just clear cookies
@@ -150,7 +160,7 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
   // Token is already verified by isLoggedIn middleware
   // Decode claims from the access token cookie
   const token = req?.cookies?.shopai_token;
-  const decoded = jwt.verify(token, process.env.JWT_KEY);
+  const decoded = jwt.verify(token, config.auth.jwtKey);
   // Fetch latest user fields from DB to include email and createdAt
   const user = await User.findById(decoded.id).select(
     'fullname email isAdmin hasShippingAddress createdAt'

@@ -11,4 +11,9 @@ describe('env config', () => {
   it('does not throw validateConfig in non-production', () => {
     expect(() => validateConfig({ strict: false })).not.toThrow()
   })
+
+  it('loads JWT secrets from config.auth', () => {
+    expect(config.auth.jwtKey).toBeTruthy()
+    expect(config.auth.jwtRefreshKey).toBeTruthy()
+  })
 })
