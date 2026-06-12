@@ -4,7 +4,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
 import cookieParser from 'cookie-parser'
-import Stripe from 'stripe'
+import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import path from 'path'
 import { config } from '../config/env.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
@@ -65,17 +65,17 @@ const chatLimiter = rateLimit({
   message: { message: 'Chat rate limit reached. Please wait a moment.' },
 })
 
-const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null
 const endpointSecret = config.stripe.webhookSecret
 
 app.post(
   '/webhook',
   express.raw({ type: 'application/json' }),
   async (request, response) => {
-    if (!stripe) {
+    if (!hasStripeConfigured()) {
       return response.status(503).json({ error: 'Stripe is not configured' })
     }
 
+    const stripe = getStripeClient()
     const sig = request.headers['stripe-signature']
     let event
 

@@ -1,7 +1,5 @@
-import dotenv from 'dotenv'
-dotenv.config()
-import Stripe from 'stripe'
 import Order from '../model/Order.js'
+import { getStripeClient } from '../config/stripeClient.js'
 import Product from '../model/Product.js'
 import User from '../model/User.js'
 import {
@@ -14,8 +12,6 @@ import { productIdKey } from './cartService.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 import { enqueueCheckoutExpiry } from './checkoutQueue.js'
-
-const stripe = new Stripe(process.env.STRIPE_KEY)
 
 export async function resolveOrderCoupon(couponCode) {
   if (!couponCode) {
@@ -144,6 +140,7 @@ export async function createCheckoutSession({
     country: addr.country || 'IN',
   }
 
+  const stripe = getStripeClient()
   const stripeCustomer = await stripe.customers.create({
     name: user.fullname,
     email: user.email,

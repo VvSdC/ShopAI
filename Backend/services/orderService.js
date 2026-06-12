@@ -1,5 +1,5 @@
-import Stripe from 'stripe'
 import Order from '../model/Order.js'
+import { getStripeClient } from '../config/stripeClient.js'
 import User from '../model/User.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
 import { normalizeOrderItems } from './orderLineItems.js'
@@ -10,8 +10,6 @@ import {
 } from './orderFulfillment.js'
 import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
-
-const stripe = new Stripe(process.env.STRIPE_KEY)
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
 
@@ -201,7 +199,7 @@ export class OrderService {
   }
 
   async retrieveStripeSession(sessionId) {
-    return stripe.checkout.sessions.retrieve(sessionId)
+    return getStripeClient().checkout.sessions.retrieve(sessionId)
   }
 
   /**

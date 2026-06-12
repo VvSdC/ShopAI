@@ -1,15 +1,11 @@
-import dotenv from 'dotenv'
-dotenv.config()
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_KEY)
+import { getStripeClient } from '../config/stripeClient.js'
 
 export async function resolvePaymentIntentId(order) {
   if (order.stripePaymentIntentId) {
     return order.stripePaymentIntentId
   }
   if (order.stripeSessionId) {
-    const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId)
+    const session = await getStripeClient().checkout.sessions.retrieve(order.stripeSessionId)
     const pi = session.payment_intent
     return typeof pi === 'string' ? pi : pi?.id || null
   }
@@ -39,7 +35,7 @@ export async function createStripeRefund(order, amountInr) {
     throw new Error('Refund amount must be greater than zero')
   }
 
-  const refund = await stripe.refunds.create({
+  const refund = await getStripeClient().refunds.create({
     payment_intent: paymentIntentId,
     amount: amountPaise,
   })

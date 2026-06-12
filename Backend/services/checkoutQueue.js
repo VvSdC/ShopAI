@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
-import Stripe from 'stripe'
 import Order from '../model/Order.js'
 import { config } from '../config/env.js'
+import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
 
 const QUEUE_NAME = 'checkout-expiry'
@@ -9,11 +9,6 @@ const JOB_NAME = 'expire-checkout'
 
 function isPaidStatus(status) {
   return status === 'paid'
-}
-
-function stripeClient() {
-  if (!config.stripe.secretKey) return null
-  return new Stripe(config.stripe.secretKey)
 }
 
 /**
@@ -30,7 +25,7 @@ export async function expireCheckoutJob(orderId) {
     return { ok: true, skipped: true, reason: 'already_paid' }
   }
 
-  const stripe = stripeClient()
+  const stripe = hasStripeConfigured() ? getStripeClient() : null
   if (order.stripeSessionId && stripe) {
     try {
       const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId)

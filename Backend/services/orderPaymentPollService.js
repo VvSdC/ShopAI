@@ -1,9 +1,7 @@
-import Stripe from 'stripe'
 import Order from '../model/Order.js'
+import { getStripeClient } from '../config/stripeClient.js'
 import { orderService } from './orderService.js'
 import { expireCheckoutJob } from './checkoutQueue.js'
-
-const stripe = new Stripe(process.env.STRIPE_KEY)
 
 export const CHECKOUT_LINK_TTL_MS = 5 * 60 * 1000
 
@@ -91,7 +89,7 @@ export async function pollOrderPaymentStatus(userId, orderId) {
 
   if (order.stripeSessionId) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId)
+      const session = await getStripeClient().checkout.sessions.retrieve(order.stripeSessionId)
       if (session.payment_status === 'paid') {
         const { order: refreshed, fulfillment } = await syncOrderPaymentFromStripe(
           order,
