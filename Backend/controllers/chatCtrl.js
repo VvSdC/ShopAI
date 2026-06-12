@@ -3,7 +3,7 @@ import User from '../model/User.js'
 import {
   getSessionForUser,
   appendMessages,
-  trimOldSessions,
+  maybeTrimOldSessions,
   sessionHistoryForApi,
   sessionCartQueueForAssist,
 } from '../services/chatSessionService.js'
@@ -99,7 +99,7 @@ async function persistAndRespond(
   if (session) {
     const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
     await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
-    await trimOldSessions(userId)
+    await maybeTrimOldSessions(userId)
     payload.sessionId = String(session._id)
     payload.sessionTitle = session.title
   }

@@ -5,7 +5,7 @@ import { trimHistoryToTokenBudget } from '../utils/chatHistoryTrim.js'
 import { CHAT_HISTORY_TOKEN_BUDGET } from '../constants/chatLimits.js'
 import { normalizeCartQueue, stripCartQueueMarker } from './cartQueue.js'
 
-const MAX_SESSIONS_PER_USER = 50
+export const MAX_SESSIONS_PER_USER = 50
 const MAX_MESSAGES_PER_SESSION = 100
 
 export function buildWelcomeMessage(userName) {
@@ -133,6 +133,13 @@ export async function trimOldSessions(userId) {
   if (!sessions.length) return
   const ids = sessions.map((s) => s._id)
   await ChatSession.deleteMany({ _id: { $in: ids } })
+}
+
+/** Trim only when the user exceeds the session cap — avoids a full scan on every message. */
+export async function maybeTrimOldSessions(userId) {
+  const count = await ChatSession.countDocuments({ user: userId })
+  if (count <= MAX_SESSIONS_PER_USER) return
+  await trimOldSessions(userId)
 }
 
 export function sessionHistoryForApi(
