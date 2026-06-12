@@ -1,12 +1,12 @@
 import User from "../model/User.js";
+import { AppError } from "../utils/appError.js";
+
 const isAdmin = async (req, res, next) => {
   const user = await User.findById(req.userAuthId);
   if (user?.isAdmin) {
     next();
   } else {
-    const err = new Error("Access denied, admin only");
-    err.statusCode = 403;
-    next(err);
+    next(new AppError("Access denied, admin only", 403));
   }
 };
 
