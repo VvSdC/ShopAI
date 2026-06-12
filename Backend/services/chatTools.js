@@ -3,6 +3,10 @@ import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
+import {
+  countProductsByBrandName,
+  countProductsByCategoryId,
+} from './catalogProductCounts.js'
 import Coupon from '../model/Coupon.js'
 import { isCouponLive } from '../utils/couponDates.js'
 import {
@@ -463,19 +467,25 @@ const toolExecutors = {
   },
 
   async get_categories() {
-    const categories = await Category.find().select('name products image')
+    const [categories, counts] = await Promise.all([
+      Category.find().select('name image').lean(),
+      countProductsByCategoryId(),
+    ])
     return categories.map((c) => ({
       name: c.name,
-      productCount: c.products?.length || 0,
+      productCount: counts.get(String(c._id)) || 0,
       image: c.image || null,
     }))
   },
 
   async get_brands() {
-    const brands = await Brand.find().select('name products')
+    const [brands, counts] = await Promise.all([
+      Brand.find().select('name').lean(),
+      countProductsByBrandName(),
+    ])
     return brands.map((b) => ({
       name: b.name,
-      productCount: b.products?.length || 0,
+      productCount: counts.get(b.name) || 0,
     }))
   },
 

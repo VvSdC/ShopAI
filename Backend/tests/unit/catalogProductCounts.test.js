@@ -1,0 +1,71 @@
+import { describe, it, expect } from 'vitest'
+import mongoose from 'mongoose'
+import Category from '../../model/Category.js'
+import User from '../../model/User.js'
+import Product from '../../model/Product.js'
+import {
+  countProductsByBrandName,
+  countProductsByCategoryId,
+} from '../../services/catalogProductCounts.js'
+
+describe('catalogProductCounts', () => {
+  it('counts products by category and brand from Product collection', async () => {
+    const user = await User.create({
+      fullname: 'Count User',
+      email: `count-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const category = await Category.create({
+      name: `count-cat-${Date.now()}`,
+      user: user._id,
+      image: 'https://example.com/cat.jpg',
+    })
+
+    await Product.create({
+      name: `Count Product A ${Date.now()}`,
+      description: 'Test',
+      brand: 'nike',
+      category: category._id,
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/a.jpg'],
+      price: 100,
+      totalQty: 2,
+    })
+
+    await Product.create({
+      name: `Count Product B ${Date.now()}`,
+      description: 'Test',
+      brand: 'nike',
+      category: category._id,
+      sizes: ['L'],
+      colors: ['Red'],
+      user: user._id,
+      images: ['https://example.com/b.jpg'],
+      price: 200,
+      totalQty: 1,
+    })
+
+    await Product.create({
+      name: `Count Product C ${Date.now()}`,
+      description: 'Test',
+      brand: 'adidas',
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['S'],
+      colors: ['Green'],
+      user: user._id,
+      images: ['https://example.com/c.jpg'],
+      price: 50,
+      totalQty: 1,
+    })
+
+    const byCategory = await countProductsByCategoryId()
+    const byBrand = await countProductsByBrandName()
+
+    expect(byCategory.get(String(category._id))).toBe(2)
+    expect(byBrand.get('nike')).toBe(2)
+    expect(byBrand.get('adidas')).toBe(1)
+  })
+})

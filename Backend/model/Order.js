@@ -172,6 +172,7 @@ OrderSchema.index({ user: 1, createdAt: -1 })
 OrderSchema.index({ orderNumber: 1 }, { unique: true })
 OrderSchema.index({ status: 1 })
 OrderSchema.index({ paymentStatus: 1, checkoutExpiresAt: 1 })
+OrderSchema.index({ stripeSessionId: 1 }, { sparse: true })
 
 const Order = mongoose.model('Order', OrderSchema)
 

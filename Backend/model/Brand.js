@@ -13,12 +13,6 @@ const BrandSchema = new Schema(
       ref: "User",
       required: true,
     },
-    products: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-      },
-    ],
   },
   { timestamps: true }
 );

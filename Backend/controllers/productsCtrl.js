@@ -74,14 +74,6 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
     }
     throw err
   }
-  //push the product into category
-  categoryFound.products.push(product._id)
-  //resave
-  await categoryFound.save()
-  //push the product into brand
-  brandFound.products.push(product._id)
-  //resave
-  await brandFound.save()
 
   tagProductInBackground(product._id)
   indexProductEmbeddingInBackground(product._id, 2500)
@@ -290,12 +282,7 @@ export const deleteProductCtrl = asyncHandler(async (req, res) => {
   if (!product) {
     throw new Error('Product not found')
   }
-  // Delete all reviews for this product
   await Review.deleteMany({ product: product._id })
-  // Remove product reference from categories and brands
-  await Category.updateMany({}, { $pull: { products: product._id } })
-  await Brand.updateMany({}, { $pull: { products: product._id } })
-  // Delete the product
   await Product.findByIdAndDelete(req.params.id)
   await invalidateProductCatalogCaches()
   res.json({
