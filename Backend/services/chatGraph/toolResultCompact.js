@@ -75,6 +75,8 @@ export function compactProductDetail(product) {
 function compactCartItem(item) {
   if (!item || typeof item !== 'object') return item
   const { image, images, description, ...rest } = item
+  void image
+  void images
   return {
     ...rest,
     description: description ? truncateText(description, CART_DESCRIPTION_MAX) : description,

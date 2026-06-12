@@ -8,9 +8,14 @@ vi.mock('../../config/redisClient.js', () => ({
 }))
 
 describe('rateLimiters', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     mockCall.mockClear()
+    const { isRedisConfigured, getRateLimitRedisClient } = await import(
+      '../../config/redisClient.js'
+    )
+    isRedisConfigured.mockReset()
+    getRateLimitRedisClient.mockClear()
   })
 
   it('wires Redis-backed limiters when REDIS_URL is set', async () => {

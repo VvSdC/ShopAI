@@ -30,7 +30,7 @@ export async function runWithConcurrencyLimit(items, concurrency, worker) {
   let nextIndex = 0
 
   async function runWorker() {
-    while (true) {
+    for (;;) {
       const idx = nextIndex++
       if (idx >= items.length) return
       results[idx] = await worker(items[idx], idx)

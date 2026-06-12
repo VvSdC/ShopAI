@@ -15,7 +15,6 @@ import {
 } from './chatGraph/productContext.js'
 import {
   isBallLikeProduct,
-  listMissingVariantFields,
   productUsesApparelSizes,
   resolveColorForProduct,
   resolveSizeForProduct,

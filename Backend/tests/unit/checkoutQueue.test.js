@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import bcrypt from 'bcryptjs'
-import mongoose from 'mongoose'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
 import { expireCheckoutJob } from '../../services/checkoutQueue.js'

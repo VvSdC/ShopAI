@@ -290,10 +290,16 @@ export function inferPurchaseFromContext(userText, history = []) {
 
   if (!activeCatalogProducts(history).length) return null
 
-  const qtyIntent = inferQtyProductIntent(userText)
-  if (qtyIntent) return qtyIntent
-
   const { qty, size, color } = extractSizeColorQty(userText)
+  const qtyIntent = inferQtyProductIntent(userText)
+  if (qtyIntent) {
+    return {
+      qty: qty || qtyIntent.qty,
+      size: size ?? qtyIntent.size,
+      color: color ?? qtyIntent.color,
+    }
+  }
+
   if (qty || size || color) {
     return { qty: qty || 1, size, color }
   }

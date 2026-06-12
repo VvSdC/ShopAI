@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import mongoose from 'mongoose'
 import Category from '../../model/Category.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'

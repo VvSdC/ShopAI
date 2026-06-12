@@ -4,6 +4,7 @@ import config from '../config/env.js'
 
 beforeAll(async () => {
   if (mongoose.connection.readyState === 0) {
+    mongoose.set('strictQuery', false)
     await mongoose.connect(config.db.mongoUrl, {
       serverSelectionTimeoutMS: 10000,
     })

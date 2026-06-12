@@ -9,7 +9,6 @@ import {
   createAuthSession,
   getRefreshExpiresAt,
   invalidateUserRefreshToken,
-  rotateRefreshToken,
   verifyRefreshToken,
 } from '../../utils/authSessions.js'
 import { fetchCsrf, withCsrf, cookiePartsFromResponse } from '../helpers/csrf.js'
