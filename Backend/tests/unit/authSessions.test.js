@@ -3,26 +3,92 @@ import bcrypt from 'bcryptjs'
 import request from 'supertest'
 import app from '../../app/app.js'
 import User from '../../model/User.js'
+import { config } from '../../config/env.js'
 import { generateAccessToken, generateRefreshToken } from '../../utils/generateToken.js'
 import {
+  createAuthSession,
+  getRefreshExpiresAt,
   invalidateUserRefreshToken,
   rotateRefreshToken,
   verifyRefreshToken,
 } from '../../utils/authSessions.js'
 
+async function addSession(user, { token, deviceId = 'test-device' }) {
+  user.sessions = user.sessions || []
+  user.sessions.push({
+    token,
+    deviceId,
+    createdAt: new Date(),
+    expiresAt: getRefreshExpiresAt(),
+  })
+  await user.save()
+  return token
+}
+
 describe('invalidateUserRefreshToken', () => {
-  it('clears refreshToken on the user document', async () => {
+  it('clears all auth sessions on the user document', async () => {
     const user = await User.create({
       fullname: 'Session Revoke User',
       email: `revoke-${Date.now()}@test.com`,
       password: await bcrypt.hash('secret123', 10),
-      refreshToken: 'stale-refresh-token',
+      sessions: [
+        {
+          token: 'stale-refresh-token',
+          deviceId: 'device-a',
+          createdAt: new Date(),
+          expiresAt: getRefreshExpiresAt(),
+        },
+      ],
     })
 
     await invalidateUserRefreshToken(user)
 
     const reloaded = await User.findById(user._id)
-    expect(reloaded.refreshToken).toBe('')
+    expect(reloaded.sessions).toEqual([])
+  })
+})
+
+describe('multi-device auth sessions', () => {
+  it('keeps independent sessions per device on login', async () => {
+    const password = await bcrypt.hash('secret123', 10)
+    const user = await User.create({
+      fullname: 'Multi Device User',
+      email: `multi-device-${Date.now()}@test.com`,
+      password,
+    })
+
+    const { refreshToken: tokenA } = await createAuthSession(user._id, 'device-a')
+    const { refreshToken: tokenB } = await createAuthSession(user._id, 'device-b')
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.sessions).toHaveLength(2)
+    expect(reloaded.sessions.map((s) => s.deviceId).sort()).toEqual(['device-a', 'device-b'])
+
+    const refreshA = await request(app)
+      .post('/shopai/users/refresh')
+      .set('Cookie', [`shopai_refresh_token=${tokenA}`])
+
+    expect(refreshA.status).toBe(200)
+
+    const afterRefresh = await User.findById(user._id)
+    expect(afterRefresh.sessions).toHaveLength(2)
+    expect(afterRefresh.sessions.some((s) => s.token === tokenB)).toBe(true)
+  })
+
+  it('caps concurrent sessions at AUTH_MAX_SESSIONS', async () => {
+    const user = await User.create({
+      fullname: 'Cap Sessions User',
+      email: `cap-sessions-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const max = config.auth.maxSessions
+    for (let i = 0; i < max + 2; i++) {
+      await createAuthSession(user._id, `device-${i}`)
+    }
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.sessions.length).toBeLessThanOrEqual(max)
   })
 })
 
@@ -35,30 +101,27 @@ describe('refresh token rotation', () => {
     })
 
     const initialRefresh = generateRefreshToken(user._id)
-    user.refreshToken = initialRefresh
-    await user.save()
+    await addSession(user, { token: initialRefresh, deviceId: 'rotate-device' })
 
     const first = await request(app)
       .post('/shopai/users/refresh')
       .set('Cookie', [`shopai_refresh_token=${initialRefresh}`])
 
     expect(first.status).toBe(200)
-    const firstCookie = first.headers['set-cookie']?.find((c) =>
-      c.startsWith('shopai_refresh_token=')
-    )
-    expect(firstCookie).toBeTruthy()
 
     const afterFirst = await User.findById(user._id)
-    expect(afterFirst.refreshToken).not.toBe(initialRefresh)
-    expect(afterFirst.refreshToken).toBeTruthy()
+    const sessionAfterFirst = afterFirst.sessions.find((s) => s.deviceId === 'rotate-device')
+    expect(sessionAfterFirst.token).not.toBe(initialRefresh)
 
     const second = await request(app)
       .post('/shopai/users/refresh')
       .set('Cookie', first.headers['set-cookie'])
 
     expect(second.status).toBe(200)
+
     const afterSecond = await User.findById(user._id)
-    expect(afterSecond.refreshToken).not.toBe(afterFirst.refreshToken)
+    const sessionAfterSecond = afterSecond.sessions.find((s) => s.deviceId === 'rotate-device')
+    expect(sessionAfterSecond.token).not.toBe(sessionAfterFirst.token)
   })
 
   it('revokes all sessions when a superseded refresh token is reused', async () => {
@@ -69,11 +132,15 @@ describe('refresh token rotation', () => {
     })
 
     const stolenToken = generateRefreshToken(user._id)
-    user.refreshToken = stolenToken
-    await user.save()
-
     const currentToken = generateRefreshToken(user._id)
-    user.refreshToken = currentToken
+    user.sessions = [
+      {
+        token: currentToken,
+        deviceId: 'active-device',
+        createdAt: new Date(),
+        expiresAt: getRefreshExpiresAt(),
+      },
+    ]
     await user.save()
 
     const res = await request(app)
@@ -83,7 +150,7 @@ describe('refresh token rotation', () => {
     expect(res.status).toBeGreaterThanOrEqual(400)
 
     const reloaded = await User.findById(user._id)
-    expect(reloaded.refreshToken).toBe('')
+    expect(reloaded.sessions).toEqual([])
   })
 
   it('verifyRefreshToken uses normalized config secret', () => {
@@ -95,7 +162,7 @@ describe('refresh token rotation', () => {
 })
 
 describe('PUT /shopai/users/change-password', () => {
-  it('revokes refresh tokens after password change', async () => {
+  it('revokes all sessions after password change', async () => {
     const password = 'oldpass123'
     const user = await User.create({
       fullname: 'Change Password User',
@@ -104,8 +171,7 @@ describe('PUT /shopai/users/change-password', () => {
     })
 
     const refreshToken = generateRefreshToken(user._id)
-    user.refreshToken = refreshToken
-    await user.save()
+    await addSession(user, { token: refreshToken, deviceId: 'pw-device' })
 
     const accessToken = generateAccessToken(user)
 
@@ -117,7 +183,7 @@ describe('PUT /shopai/users/change-password', () => {
     expect(changeRes.status).toBe(200)
 
     const reloaded = await User.findById(user._id)
-    expect(reloaded.refreshToken).toBe('')
+    expect(reloaded.sessions).toEqual([])
 
     const refreshRes = await request(app)
       .post('/shopai/users/refresh')
@@ -128,7 +194,7 @@ describe('PUT /shopai/users/change-password', () => {
 })
 
 describe('POST /shopai/users/reset-password', () => {
-  it('revokes refresh tokens after OTP reset', async () => {
+  it('revokes all sessions after OTP reset', async () => {
     const user = await User.create({
       fullname: 'Reset Password User',
       email: `reset-pw-${Date.now()}@test.com`,
@@ -136,8 +202,7 @@ describe('POST /shopai/users/reset-password', () => {
     })
 
     const stolenRefreshToken = generateRefreshToken(user._id)
-    user.refreshToken = stolenRefreshToken
-    await user.save()
+    await addSession(user, { token: stolenRefreshToken, deviceId: 'reset-device' })
 
     const otp = user.createPasswordResetOTP()
     await user.save({ validateBeforeSave: false })
@@ -151,7 +216,7 @@ describe('POST /shopai/users/reset-password', () => {
     expect(res.status).toBe(200)
 
     const reloaded = await User.findById(user._id)
-    expect(reloaded.refreshToken).toBe('')
+    expect(reloaded.sessions).toEqual([])
 
     const refreshRes = await request(app)
       .post('/shopai/users/refresh')

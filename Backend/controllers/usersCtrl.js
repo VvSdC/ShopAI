@@ -6,12 +6,14 @@ import jwt from "jsonwebtoken";
 import Order from "../model/Order.js";
 import {
   generateAccessToken,
-  generateRefreshToken,
 } from "../utils/generateToken.js";
 import { sendPasswordResetOTPEmail, sendWelcomeEmail } from "../services/emailService.js";
 import {
   clearAuthCookies,
+  createAuthSession,
   invalidateUserRefreshToken,
+  revokeAuthSession,
+  resolveDeviceId,
   rotateRefreshToken,
   verifyRefreshToken,
 } from "../utils/authSessions.js";
@@ -30,6 +32,13 @@ const refreshCookieOptions = {
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
+const deviceCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
 };
 
 // @desc    Register user
@@ -88,13 +97,11 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
       throw new Error("Your account has been blocked due to malicious activity. Please contact support.");
     }
     const accessToken = generateAccessToken(userFound);
-    const refreshToken = generateRefreshToken(userFound?._id);
-    // Store refresh token in DB
-    userFound.refreshToken = refreshToken;
-    await userFound.save();
-    // Set httpOnly cookies
+    const deviceId = resolveDeviceId(req);
+    const { refreshToken } = await createAuthSession(userFound._id, deviceId);
     res.cookie("shopai_token", accessToken, accessCookieOptions);
     res.cookie("shopai_refresh_token", refreshToken, refreshCookieOptions);
+    res.cookie("shopai_device_id", deviceId, deviceCookieOptions);
     res.json({
       status: "success",
       message: "User logged in successfully",
@@ -144,7 +151,7 @@ export const logoutUserCtrl = asyncHandler(async (req, res) => {
     // Verify and clear refresh token from DB
     try {
       const decoded = verifyRefreshToken(refreshToken);
-      await User.findByIdAndUpdate(decoded.id, { refreshToken: "" });
+      await revokeAuthSession(decoded.id, refreshToken);
     } catch (err) {
       // Token invalid, just clear cookies
     }
@@ -183,7 +190,7 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 export const getUserProfileCtrl = asyncHandler(async (req, res) => {
   const user = await User.findById(req.userAuthId)
-    .select('-password -refreshToken')
+    .select('-password -sessions')
     .populate("orders");
   res.json({
     status: "success",
@@ -355,7 +362,7 @@ export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 
 export const getAllUsersCtrl = asyncHandler(async (req, res) => {
-  const users = await User.find().select('-password -refreshToken');
+  const users = await User.find().select('-password -sessions');
   res.json({
     status: "success",
     message: "All users fetched",

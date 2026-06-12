@@ -70,6 +70,7 @@ export const config = {
   auth: {
     jwtKey: envSecret('JWT_KEY', ''),
     jwtRefreshKey: envSecret('JWT_REFRESH_KEY', ''),
+    maxSessions: envInt('AUTH_MAX_SESSIONS', 5),
   },
 
   stripe: {

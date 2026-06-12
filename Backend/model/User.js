@@ -45,10 +45,14 @@ const UserShema = new Schema(
       type: Boolean,
       default: false,
     },
-    refreshToken: {
-      type: String,
-      default: "",
-    },
+    sessions: [
+      {
+        token: { type: String, required: true },
+        deviceId: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date, required: true },
+      },
+    ],
     hasShippingAddress: {
       type: Boolean,
       default: false,
@@ -82,6 +86,8 @@ UserShema.methods.createPasswordResetOTP = function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   return otp;
 };
+
+UserShema.index({ "sessions.token": 1 });
 
 //compile the schema to model
 const User = mongoose.model("User", UserShema);

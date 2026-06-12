@@ -8,7 +8,7 @@
  * @property {{ port: number, host: string, trustProxy: boolean }} server
  * @property {{ mongoUrl: string }} db
  * @property {{ origin: string, credentials: boolean }} cors
- * @property {{ jwtKey: string, jwtRefreshKey: string }} auth
+ * @property {{ jwtKey: string, jwtRefreshKey: string, maxSessions: number }} auth
  * @property {{ secretKey: string, webhookSecret: string }} stripe
  * @property {{ url: string, checkoutQueueEnabled: boolean, embeddingSyncQueueEnabled: boolean, runQueueWorkersInApi: boolean }} redis
  * @property {{ deterministicAssist: boolean }} chat
