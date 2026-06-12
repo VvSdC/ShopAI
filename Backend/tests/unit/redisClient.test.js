@@ -36,7 +36,7 @@ describe('redisClient shared app client', () => {
   })
 
   it('reuses one client for cache and rate-limit', async () => {
-    vi.doMock('../config/env.js', () => ({
+    vi.doMock('../../config/env.js', () => ({
       config: {
         redis: { url: 'redis://127.0.0.1:6379' },
         isTest: false,
@@ -44,7 +44,9 @@ describe('redisClient shared app client', () => {
     }))
 
     const Redis = (await import('ioredis')).default
-    const { getAppRedisClient, getRateLimitRedisClient } = await import('../config/redisClient.js')
+    const { getAppRedisClient, getRateLimitRedisClient } = await import(
+      '../../config/redisClient.js'
+    )
 
     const cacheClient = await getAppRedisClient()
     const rateLimitClient = getRateLimitRedisClient()
