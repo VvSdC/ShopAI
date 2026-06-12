@@ -208,6 +208,20 @@ export class OrderService {
    */
   async applyStripeCheckoutSession(orderId, session, { receiptEmail } = {}) {
     const id = parseOrderId(orderId)
+    const existingOrder = await Order.findById(id)
+    if (!existingOrder) {
+      return { order: null, updatedOrder: null, fulfillment: null }
+    }
+
+    if (existingOrder.paymentStatus === 'paid') {
+      return {
+        order: existingOrder,
+        updatedOrder: existingOrder,
+        fulfillment: null,
+        alreadyPaid: true,
+      }
+    }
+
     const paymentRefs = await persistPaymentReferences(id, session)
 
     const updatedOrder = await Order.findByIdAndUpdate(
