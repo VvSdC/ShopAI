@@ -1,16 +1,11 @@
 /**
- * Validates configured API keys (reads Backend/.env). Does not print secret values.
+ * Validates configured API keys (reads Backend/.env via config/env.js). Does not print secret values.
  * Usage: node scripts/test-keys.js
  */
-import dotenv from 'dotenv'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import mongoose from 'mongoose'
 import Stripe from 'stripe'
 import { v2 as cloudinary } from 'cloudinary'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-dotenv.config({ path: path.join(__dirname, '..', '.env') })
+import config from '../config/env.js'
 
 const results = []
 
@@ -20,15 +15,14 @@ function record(name, status, detail = '') {
   console.log(`[${icon}] ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
-function has(key) {
-  const v = process.env[key]
-  return v !== undefined && String(v).trim() !== ''
+function hasValue(value) {
+  return value !== undefined && String(value).trim() !== ''
 }
 
 async function testMongo() {
-  if (!has('MONGO_URL')) return record('MongoDB', 'fail', 'MONGO_URL missing')
+  if (!hasValue(config.db.mongoUrl)) return record('MongoDB', 'fail', 'MONGO_URL missing')
   try {
-    await mongoose.connect(process.env.MONGO_URL, { serverSelectionTimeoutMS: 8000 })
+    await mongoose.connect(config.db.mongoUrl, { serverSelectionTimeoutMS: 8000 })
     await mongoose.connection.db.admin().command({ ping: 1 })
     record('MongoDB', 'ok', mongoose.connection.host)
   } catch (err) {
@@ -39,9 +33,9 @@ async function testMongo() {
 }
 
 async function testStripe() {
-  if (!has('STRIPE_KEY')) return record('Stripe', 'skip', 'STRIPE_KEY not set')
+  if (!hasValue(config.stripe.secretKey)) return record('Stripe', 'skip', 'STRIPE_KEY not set')
   try {
-    const stripe = new Stripe(process.env.STRIPE_KEY)
+    const stripe = new Stripe(config.stripe.secretKey)
     await stripe.balance.retrieve()
     record('Stripe', 'ok')
   } catch (err) {
@@ -50,16 +44,17 @@ async function testStripe() {
 }
 
 function testCloudinary() {
-  if (!has('CLOUDINARY_CLOUD_NAME') || !has('CLOUDINARY_API_KEY') || !has('CLOUDINARY_API_SECRET_KEY')) {
+  const { cloudName, apiKey, apiSecret } = config.cloudinary
+  if (!hasValue(cloudName) || !hasValue(apiKey) || !hasValue(apiSecret)) {
     return record('Cloudinary', 'skip', 'keys incomplete')
   }
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET_KEY,
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
   })
   try {
-    const sig = cloudinary.utils.api_sign_request({ timestamp: Math.floor(Date.now() / 1000) }, process.env.CLOUDINARY_API_SECRET_KEY)
+    const sig = cloudinary.utils.api_sign_request({ timestamp: Math.floor(Date.now() / 1000) }, apiSecret)
     record('Cloudinary', sig ? 'ok' : 'fail', 'sign check')
   } catch (err) {
     record('Cloudinary', 'fail', err.message)
@@ -67,10 +62,10 @@ function testCloudinary() {
 }
 
 async function testResend() {
-  if (!has('RESEND_API_KEY')) return record('Resend', 'skip')
+  if (!hasValue(config.email.resendApiKey)) return record('Resend', 'skip')
   try {
     const res = await fetch('https://api.resend.com/domains', {
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      headers: { Authorization: `Bearer ${config.email.resendApiKey}` },
     })
     record('Resend', res.ok ? 'ok' : 'fail', res.ok ? '' : `HTTP ${res.status}`)
   } catch (err) {
@@ -79,10 +74,10 @@ async function testResend() {
 }
 
 async function testBrevo() {
-  if (!has('BREVO_API_KEY')) return record('Brevo', 'skip')
+  if (!hasValue(config.email.brevoApiKey)) return record('Brevo', 'skip')
   try {
     const res = await fetch('https://api.brevo.com/v3/account', {
-      headers: { 'api-key': process.env.BREVO_API_KEY },
+      headers: { 'api-key': config.email.brevoApiKey },
     })
     record('Brevo', res.ok ? 'ok' : 'fail', res.ok ? '' : `HTTP ${res.status}`)
   } catch (err) {
@@ -91,10 +86,10 @@ async function testBrevo() {
 }
 
 async function testOpenRouterChat() {
-  if (!has('OPENROUTER_API_KEY')) return record('OpenRouter (chat)', 'skip')
+  if (!hasValue(config.llm.openRouter.apiKey)) return record('OpenRouter (chat)', 'skip')
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models?output_modalities=text', {
-      headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
+      headers: { Authorization: `Bearer ${config.llm.openRouter.apiKey}` },
     })
     record('OpenRouter (chat)', res.ok ? 'ok' : 'fail', res.ok ? '' : `HTTP ${res.status}`)
   } catch (err) {
@@ -103,13 +98,13 @@ async function testOpenRouterChat() {
 }
 
 async function testOpenRouterEmbed() {
-  if (!has('OPENROUTER_API_KEY')) return record('OpenRouter (embed)', 'skip')
-  const model = process.env.OPENROUTER_EMBEDDING_MODEL || 'openai/text-embedding-3-small'
+  if (!hasValue(config.llm.openRouter.apiKey)) return record('OpenRouter (embed)', 'skip')
+  const model = config.search.embedding.openRouterModel
   try {
     const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${config.llm.openRouter.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ model, input: 'test' }),
@@ -122,13 +117,13 @@ async function testOpenRouterEmbed() {
 }
 
 async function testOpenRouterRerank() {
-  if (!has('OPENROUTER_API_KEY')) return record('OpenRouter (rerank)', 'skip')
-  const model = process.env.OPENROUTER_RERANK_MODEL || 'cohere/rerank-v3.5'
+  if (!hasValue(config.llm.openRouter.apiKey)) return record('OpenRouter (rerank)', 'skip')
+  const model = config.search.rerank.openRouterModel
   try {
     const res = await fetch('https://openrouter.ai/api/v1/rerank', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${config.llm.openRouter.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -145,9 +140,9 @@ async function testOpenRouterRerank() {
 }
 
 async function testGeminiChat() {
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  const key = config.llm.gemini.apiKey
   if (!key) return record('Gemini (chat)', 'skip')
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+  const model = config.llm.gemini.model
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
@@ -164,9 +159,9 @@ async function testGeminiChat() {
 }
 
 async function testGeminiEmbed() {
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  const key = config.llm.gemini.apiKey
   if (!key) return record('Gemini (embed)', 'skip')
-  const model = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004'
+  const model = config.search.embedding.geminiModel
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${key}`,
@@ -184,10 +179,10 @@ async function testGeminiEmbed() {
 }
 
 async function testMistral() {
-  if (!has('MISTRAL_API_KEY')) return record('Mistral', 'skip')
+  if (!hasValue(config.llm.mistral.apiKey)) return record('Mistral', 'skip')
   try {
     const res = await fetch('https://api.mistral.ai/v1/models', {
-      headers: { Authorization: `Bearer ${process.env.MISTRAL_API_KEY}` },
+      headers: { Authorization: `Bearer ${config.llm.mistral.apiKey}` },
     })
     record('Mistral', res.ok ? 'ok' : 'fail', res.ok ? '' : `HTTP ${res.status}`)
   } catch (err) {
@@ -196,10 +191,10 @@ async function testMistral() {
 }
 
 async function testGroq() {
-  if (!has('GROQ_API_KEY')) return record('Groq', 'skip')
+  if (!hasValue(config.llm.groq.apiKey)) return record('Groq', 'skip')
   try {
     const res = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
+      headers: { Authorization: `Bearer ${config.llm.groq.apiKey}` },
     })
     record('Groq', res.ok ? 'ok' : 'fail', res.ok ? '' : `HTTP ${res.status}`)
   } catch (err) {
@@ -208,13 +203,13 @@ async function testGroq() {
 }
 
 async function testHuggingFaceChat() {
-  if (!has('HUGGINGFACE_API_KEY')) return record('HuggingFace (chat)', 'skip')
-  const model = process.env.HUGGINGFACE_MODEL || 'Qwen/Qwen2.5-7B-Instruct'
+  if (!hasValue(config.llm.huggingFace.apiKey)) return record('HuggingFace (chat)', 'skip')
+  const model = config.llm.huggingFace.model
   try {
     const res = await fetch('https://router.huggingface.co/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        Authorization: `Bearer ${config.llm.huggingFace.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -230,14 +225,14 @@ async function testHuggingFaceChat() {
 }
 
 async function testHuggingFaceEmbed() {
-  if (!has('HUGGINGFACE_API_KEY')) return record('HuggingFace (embed)', 'skip')
-  const model = process.env.EMBEDDING_MODEL || 'BAAI/bge-m3'
+  if (!hasValue(config.llm.huggingFace.apiKey)) return record('HuggingFace (embed)', 'skip')
+  const model = config.search.embedding.model
   const url = `https://router.huggingface.co/hf-inference/models/${model}/pipeline/feature-extraction`
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        Authorization: `Bearer ${config.llm.huggingFace.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ inputs: 'shopai test embedding' }),
@@ -251,12 +246,12 @@ async function testHuggingFaceEmbed() {
 }
 
 async function testVoyageEmbed() {
-  if (!has('VOYAGE_API_KEY')) return record('Voyage (embed)', 'skip')
+  if (!hasValue(config.search.voyageApiKey)) return record('Voyage (embed)', 'skip')
   try {
     const res = await fetch('https://api.voyageai.com/v1/embeddings', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.VOYAGE_API_KEY}`,
+        Authorization: `Bearer ${config.search.voyageApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ input: ['test'], model: 'voyage-3-lite' }),
@@ -269,13 +264,13 @@ async function testVoyageEmbed() {
 }
 
 async function testVoyageRerank() {
-  if (!has('VOYAGE_API_KEY')) return record('Voyage (rerank)', 'skip')
-  const model = process.env.RERANK_MODEL || 'rerank-2.5'
+  if (!hasValue(config.search.voyageApiKey)) return record('Voyage (rerank)', 'skip')
+  const model = config.search.rerank.model
   try {
     const res = await fetch('https://api.voyageai.com/v1/rerank', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.VOYAGE_API_KEY}`,
+        Authorization: `Bearer ${config.search.voyageApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -292,12 +287,12 @@ async function testVoyageRerank() {
 }
 
 async function testJinaEmbed() {
-  if (!has('JINA_API_KEY')) return record('Jina (embed)', 'skip')
+  if (!hasValue(config.search.jinaApiKey)) return record('Jina (embed)', 'skip')
   try {
     const res = await fetch('https://api.jina.ai/v1/embeddings', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.JINA_API_KEY}`,
+        Authorization: `Bearer ${config.search.jinaApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -313,12 +308,12 @@ async function testJinaEmbed() {
 }
 
 async function testJinaRerank() {
-  if (!has('JINA_API_KEY')) return record('Jina (rerank)', 'skip')
+  if (!hasValue(config.search.jinaApiKey)) return record('Jina (rerank)', 'skip')
   try {
     const res = await fetch('https://api.jina.ai/v1/rerank', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.JINA_API_KEY}`,
+        Authorization: `Bearer ${config.search.jinaApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -335,12 +330,12 @@ async function testJinaRerank() {
 }
 
 async function testCohereRerank() {
-  if (!has('COHERE_API_KEY')) return record('Cohere (rerank)', 'skip')
+  if (!hasValue(config.search.cohereApiKey)) return record('Cohere (rerank)', 'skip')
   try {
     const res = await fetch('https://api.cohere.com/v2/rerank', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
+        Authorization: `Bearer ${config.search.cohereApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -357,7 +352,7 @@ async function testCohereRerank() {
 }
 
 function testJwt() {
-  const ok = has('JWT_KEY') && has('JWT_REFRESH_KEY')
+  const ok = hasValue(config.auth.jwtKey) && hasValue(config.auth.jwtRefreshKey)
   record('JWT secrets', ok ? 'ok' : 'fail', ok ? 'both set' : 'JWT_KEY or JWT_REFRESH_KEY missing')
 }
 

@@ -1,8 +1,9 @@
 import { Resend } from 'resend'
+import config from '../config/env.js'
 
-/** Read at send time — dotenv loads after ES module imports, so a top-level const would stay wrong. */
+/** Read at send time so config reflects env loaded after module init order. */
 function getFromAddress() {
-  return process.env.EMAIL_FROM || 'ShopAI <onboarding@resend.dev>'
+  return config.email.from || 'ShopAI <onboarding@resend.dev>'
 }
 
 function normalizeEmail(to) {
@@ -21,12 +22,12 @@ function parseFromAddress(from) {
 }
 
 function orderProviders() {
-  const pref = (process.env.EMAIL_PROVIDER || '').toLowerCase()
+  const pref = (config.email.provider || '').toLowerCase()
   const resend = {
     name: 'Resend',
-    key: () => process.env.RESEND_API_KEY,
+    key: () => config.email.resendApiKey,
     send: async ({ to, subject, html, text, from }) => {
-      const resendClient = new Resend(process.env.RESEND_API_KEY)
+      const resendClient = new Resend(config.email.resendApiKey)
       const { error } = await resendClient.emails.send({
         from,
         to,
@@ -39,7 +40,7 @@ function orderProviders() {
   }
   const brevo = {
     name: 'Brevo',
-    key: () => process.env.BREVO_API_KEY,
+    key: () => config.email.brevoApiKey,
     send: async ({ to, subject, html, text, from, tags }) => {
       const sender = parseFromAddress(from)
       if (sender.email.includes('resend.dev')) {
@@ -61,7 +62,7 @@ function orderProviders() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': process.env.BREVO_API_KEY,
+          'api-key': config.email.brevoApiKey,
         },
         body: JSON.stringify(payload),
       })
@@ -82,8 +83,8 @@ function orderProviders() {
     },
   }
 
-  const hasBrevo = !!process.env.BREVO_API_KEY
-  const hasResend = !!process.env.RESEND_API_KEY
+  const hasBrevo = !!config.email.brevoApiKey
+  const hasResend = !!config.email.resendApiKey
 
   if (pref === 'brevo' || (hasBrevo && !hasResend)) return [brevo, resend]
   if (pref === 'resend' || (hasResend && !hasBrevo)) return [resend, brevo]
@@ -189,7 +190,7 @@ export function sendWelcomeEmail(to, name) {
       </p>
       <p style="color:#4b5563;line-height:1.6;">Start exploring and find something you'll love.</p>
       <div style="text-align:center;margin-top:24px;">
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" style="${buttonStyle}">Start Shopping</a>
+        <a href="${config.cors.origin}" style="${buttonStyle}">Start Shopping</a>
       </div>
     `),
   })
@@ -293,7 +294,7 @@ function buildOrderConfirmationText(name, order) {
   const orderTotal = Number(order.totalPrice) || 0
   const discount = Math.max(0, itemsSubtotal - orderTotal)
   const orderNumber = order.orderNumber || order._id
-  const profileUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/customer-profile`
+  const profileUrl = `${config.cors.origin}/customer-profile`
 
   const lines = orderItems.map((item) => {
     const qty = Number(item.qty) || 1
@@ -354,7 +355,7 @@ export function sendOrderConfirmationEmail(to, name, order) {
   const discount = Math.max(0, itemsSubtotal - orderTotal)
   const orderNumber = order.orderNumber || order._id
   const orderDate = formatOrderDate(order.createdAt)
-  const profileUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/customer-profile`
+  const profileUrl = `${config.cors.origin}/customer-profile`
   const paymentLabel =
     order.paymentMethod && order.paymentMethod !== 'Not specified'
       ? order.paymentMethod.charAt(0).toUpperCase() + order.paymentMethod.slice(1)

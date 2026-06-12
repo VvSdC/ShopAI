@@ -3,14 +3,12 @@
  * Run: node scripts/migrate-product-category-refs.js
  */
 import mongoose from 'mongoose'
-import dotenv from 'dotenv'
+import config from '../config/env.js'
 import Product from '../model/Product.js'
 import Category from '../model/Category.js'
 
-dotenv.config()
-
 async function main() {
-  await mongoose.connect(process.env.MONGO_URL)
+  await mongoose.connect(config.db.mongoUrl)
   const products = await Product.collection.find({ category: { $type: 'string' } }).toArray()
 
   let updated = 0

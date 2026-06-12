@@ -12,6 +12,7 @@ import { productIdKey } from './cartService.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 import { enqueueCheckoutExpiry } from './checkoutQueue.js'
+import config from '../config/env.js'
 
 export async function resolveOrderCoupon(couponCode) {
   if (!couponCode) {
@@ -153,7 +154,7 @@ export async function createCheckoutSession({
     },
   })
 
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+  const baseUrl = config.cors.origin
   const checkoutSource = source === 'chat' ? 'chat' : 'cart'
   const successUrl =
     checkoutSource === 'chat'

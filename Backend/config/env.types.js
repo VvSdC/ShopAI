@@ -15,6 +15,7 @@
  * @property {{ cloudName: string, apiKey: string, apiSecret: string }} cloudinary
  * @property {{ provider: string, from: string, resendApiKey: string, brevoApiKey: string }} email
  * @property {Object} llm
+ * @property {Object} search
  * @property {Object} rateLimit
  */
 

@@ -22,22 +22,22 @@ import config from "../config/env.js";
 // Cookie options
 const accessCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  secure: config.isProduction,
+  sameSite: config.isProduction ? "strict" : "lax",
   maxAge: 15 * 60 * 1000, // 15 minutes
 };
 
 const refreshCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  secure: config.isProduction,
+  sameSite: config.isProduction ? "strict" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 const deviceCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  secure: config.isProduction,
+  sameSite: config.isProduction ? "strict" : "lax",
   maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
 };
 
