@@ -3,6 +3,45 @@ import { allocateOrderNumber } from '../utils/orderNumber.js'
 
 const Schema = mongoose.Schema
 
+/** Line item shape expected by normalizeOrderItems() / enrichNewOrderItem(). */
+const OrderItemSchema = new Schema(
+  {
+    _id: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, required: true, trim: true },
+    qty: { type: Number, required: true, min: 1 },
+    price: { type: Number, required: true, min: 0 },
+    totalPrice: { type: Number, min: 0 },
+    color: { type: String, required: true, trim: true },
+    size: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+    image: { type: String, default: '' },
+    lineId: { type: String, trim: true },
+    lineStatus: {
+      type: String,
+      enum: ['active', 'cancelled', 'returned'],
+      default: 'active',
+    },
+    cancelledQty: { type: Number, default: 0, min: 0 },
+    returnedQty: { type: Number, default: 0, min: 0 },
+  },
+  { _id: true }
+)
+
+/** Snapshot of the shipping address at checkout (matches createOrderSchema). */
+const ShippingAddressSchema = new Schema(
+  {
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, required: true, trim: true },
+    address: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    province: { type: String, required: true, trim: true },
+    postalCode: { type: String, required: true, trim: true },
+    country: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+)
+
 const OrderSchema = new Schema(
   {
     user: {
@@ -10,14 +49,16 @@ const OrderSchema = new Schema(
       ref: 'User',
       required: true,
     },
-    orderItems: [
-      {
-        type: Object,
-        required: true,
+    orderItems: {
+      type: [OrderItemSchema],
+      required: true,
+      validate: {
+        validator: (items) => Array.isArray(items) && items.length > 0,
+        message: 'Order must include at least one item',
       },
-    ],
+    },
     shippingAddress: {
-      type: Object,
+      type: ShippingAddressSchema,
       required: true,
     },
     orderNumber: {

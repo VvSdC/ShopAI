@@ -4,6 +4,7 @@ import mongoose from 'mongoose'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
 import { expireCheckoutJob } from '../../services/checkoutQueue.js'
+import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
 describe('expireCheckoutJob', () => {
   it('skips expiry when order is already paid', async () => {
@@ -15,8 +16,8 @@ describe('expireCheckoutJob', () => {
 
     const order = await Order.create({
       user: user._id,
-      orderItems: [{ name: 'Shirt', price: 100, qty: 1 }],
-      shippingAddress: { address: '1 Test St', city: 'Test', country: 'IN' },
+      orderItems: [testOrderItem({ name: 'Shirt', price: 100 })],
+      shippingAddress: testShippingAddress(),
       totalPrice: 100,
       paymentStatus: 'paid',
       stripeSessionId: 'cs_test_paid_skip',
@@ -38,8 +39,8 @@ describe('expireCheckoutJob', () => {
     const futureExpiry = new Date(Date.now() + 5 * 60 * 1000)
     const order = await Order.create({
       user: user._id,
-      orderItems: [{ name: 'Hat', price: 50, qty: 1 }],
-      shippingAddress: { address: '2 Test St', city: 'Test', country: 'IN' },
+      orderItems: [testOrderItem({ name: 'Hat', price: 50 })],
+      shippingAddress: testShippingAddress({ address: '2 Test St' }),
       totalPrice: 50,
       paymentStatus: 'Not paid',
       stripeSessionId: null,

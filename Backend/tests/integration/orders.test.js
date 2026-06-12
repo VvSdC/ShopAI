@@ -4,6 +4,7 @@ import app from '../../app/app.js'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
 import { generateAccessToken } from '../../utils/generateToken.js'
+import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
 describe('PUT /shopai/orders/update/:id', () => {
   it('rejects status updates for cancelled orders', async () => {
@@ -16,8 +17,8 @@ describe('PUT /shopai/orders/update/:id', () => {
 
     const order = await Order.create({
       user: admin._id,
-      orderItems: [{ name: 'Test', price: 100, qty: 1 }],
-      shippingAddress: { address: '1 Test St', city: 'Test', country: 'IN' },
+      orderItems: [testOrderItem({ name: 'Test', price: 100 })],
+      shippingAddress: testShippingAddress(),
       totalPrice: 100,
       paymentStatus: 'paid',
       status: 'cancelled',

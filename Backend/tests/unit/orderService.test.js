@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import mongoose from 'mongoose'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
+import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
 const processPaidOrder = vi.fn()
 
@@ -29,8 +30,8 @@ describe('orderService', () => {
 
     const order = await Order.create({
       user: user._id,
-      orderItems: [{ name: 'Ball', price: 100, qty: 1, _id: new mongoose.Types.ObjectId() }],
-      shippingAddress: { address: '1 Test St', city: 'Test', country: 'IN' },
+      orderItems: [testOrderItem({ name: 'Ball', price: 100 })],
+      shippingAddress: testShippingAddress(),
       totalPrice: 100,
       paymentStatus: 'paid',
       postPaymentProcessed: true,
@@ -65,8 +66,8 @@ describe('orderService', () => {
 
     const order = await Order.create({
       user: user._id,
-      orderItems: [{ name: 'Hat', price: 50, qty: 1 }],
-      shippingAddress: { address: '1 Test St', city: 'Test', country: 'IN' },
+      orderItems: [testOrderItem({ name: 'Hat', price: 50 })],
+      shippingAddress: testShippingAddress(),
       totalPrice: 50,
       paymentStatus: 'paid',
       status: 'cancelled',
