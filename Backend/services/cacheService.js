@@ -1,49 +1,16 @@
 import logger from '../utils/logger.js'
-import Redis from 'ioredis'
-import { config } from '../config/env.js'
-
-let client = null
-let connectAttempted = false
-let redisReady = false
-
-async function ensureClient() {
-  if (!config.redis.url || config.isTest) return null
-
-  if (!client) {
-    client = new Redis(config.redis.url, {
-      maxRetriesPerRequest: 2,
-      enableReadyCheck: true,
-      lazyConnect: true,
-    })
-    client.on('ready', () => {
-      redisReady = true
-    })
-    client.on('error', (err) => {
-      redisReady = false
-      logger.warn('[cache] Redis error:', err.message)
-    })
-    client.on('end', () => {
-      redisReady = false
-    })
-  }
-
-  if (!connectAttempted) {
-    connectAttempted = true
-    try {
-      await client.connect()
-      redisReady = true
-    } catch (err) {
-      logger.warn('[cache] Redis unavailable, falling back to Mongo:', err.message)
-      redisReady = false
-      return null
-    }
-  }
-
-  return redisReady ? client : null
-}
+import {
+  getAppRedisClient,
+  isAppRedisReady,
+  shutdownAppRedisClient,
+} from '../config/redisClient.js'
 
 export function isAvailable() {
-  return Boolean(config.redis.url) && redisReady && !config.isTest
+  return isAppRedisReady()
+}
+
+async function ensureClient() {
+  return getAppRedisClient()
 }
 
 export async function get(key) {
@@ -108,14 +75,5 @@ export async function delByPrefix(prefix) {
 }
 
 export async function shutdownCache() {
-  if (client) {
-    try {
-      await client.quit()
-    } catch {
-      // ignore
-    }
-    client = null
-    connectAttempted = false
-    redisReady = false
-  }
+  await shutdownAppRedisClient()
 }

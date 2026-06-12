@@ -83,7 +83,7 @@ export class OrderService {
     const [total, orders] = await Promise.all([
       Order.countDocuments({}),
       Order.find({})
-        .populate('user')
+        .populate('user', 'fullname email phone')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(safeLimit),

@@ -1,6 +1,8 @@
 import { CACHE_KEYS, CACHE_TTL } from '../constants/cacheKeys.js'
 import { get, set, del, delByPrefix } from './cacheService.js'
 
+/** Catalog cache helpers — all Redis I/O goes through cacheService → shared app Redis client. */
+
 export async function getCachedOrFetch(key, ttlSeconds, fetchFn) {
   const cached = await get(key)
   if (cached != null) return { data: cached, cacheHit: true }
