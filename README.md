@@ -45,11 +45,11 @@ Your built-in shopping companion — not a generic chatbot.
 
 Everything you expect from a modern shop — polished and ready to use.
 
-- **Curated catalog** across categories, brands, colors, and sizes
-- **Smart search & filters** so you can narrow down exactly what you need
+- **Curated catalog** across categories, brands, colors, and sizes — fast to load even as your catalog grows
+- **Smart search & filters** — keyword plus meaning-based hybrid search, reranked so the best matches rise to the top
 - **Trending picks & category highlights** on the homepage
-- **Rich product pages** with multiple images, stock info, and customer reviews
-- **Persistent cart** that stays in sync when you’re signed in
+- **Rich product pages** with multiple images, live stock info, and customer reviews
+- **Persistent cart** that stays in sync when you’re signed in (including when the assistant updates it)
 
 ### Deals That Actually Work
 
@@ -61,9 +61,10 @@ Everything you expect from a modern shop — polished and ready to use.
 
 - **Secure payments** powered by Stripe
 - **Prices enforced on the server** — what you see is what you pay
-- **Stock checked before checkout** so you’re never surprised at the last step
+- **Stock reserved atomically when you pay** — no overselling; cancelled orders release inventory correctly
+- **Checkout that recovers** — if you close the tab, payment polling and background jobs still reconcile your order
 - **Order updates** from placement through dispatch and delivery
-- **Email confirmations** when you order and when your status changes
+- **Email confirmations** when you order (with resend if needed)
 
 ### Reviews You Can Rely On
 
@@ -83,9 +84,10 @@ Everything you expect from a modern shop — polished and ready to use.
 Run the business from one dashboard:
 
 - **Products, categories, brands & inventory** — full control over what you sell
-- **Orders & customers** — update fulfillment, view sales, manage accounts
-- **Coupons & promotions** — create time-bound offers that show up for shoppers
+- **Orders & customers** — update fulfillment, cancel with automatic refunds where policy allows, view sales
+- **Coupons & promotions** — create time-bound offers; expiry syncs to storefront and assistant automatically
 - **Sales insights** — totals, trends, and order value at a glance
+- **Developer Analytics** — smoke-test AI providers, run chat eval suites, and inspect token usage and routing in production
 
 ---
 
@@ -97,8 +99,8 @@ Run the business from one dashboard:
 | **Product discovery** | Keyword search only | AI tagging + conversational search that understands context |
 | **Getting help** | FAQ pages or ticket forms | Personal AI assistant with access to your real orders and cart |
 | **Reviews** | Manual moderation or none | Automatic AI moderation + instant summary tags for shoppers |
-| **Reliability** | Single AI or email provider | Built-in fallbacks so assistance and notifications keep working |
-| **Trust** | Opaque automation | Clear AI disclosure, server-verified prices, and secure Stripe checkout |
+| **Reliability** | Single AI or email provider | Multi-provider LLM fallback, deterministic cart/checkout safety nets, and batched ops for production scale |
+| **Trust** | Opaque automation | Clear AI disclosure, server-verified prices, secure Stripe checkout, and admin analytics on assistant routing |
 
 **The difference in one line:** ShopAI doesn’t bolt AI onto a storefront — **shopping and assistance are the same experience.**
 

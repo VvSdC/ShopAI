@@ -77,20 +77,24 @@ There is **no WebSocket chat streaming** today. Each chat message is a single HT
 ### Typical chat message
 
 1. Logged-in user sends `POST /shopai/chat/message` with `message` and optional `sessionId`.
-2. `chatCtrl.js` loads user + session history, calls `runChatGraph()`.
+2. `chatCtrl.js` trims history to a **token budget**, loads session, calls `runChatGraph()` inside an LLM usage context.
 3. LangGraph runs **guard → router → specialized agent → format**.
-4. Agent may loop on tools (up to 7 rounds) — search, cart, orders, checkout, etc.
-5. Post-processing: checkout assist, auto-checkout on confirmation, reply sanitization, client actions.
-6. Response JSON: `reply`, optional `clientActions`, `cartSummary`, `checkout`, `sessionId`.
+4. Agent may loop on tools (up to 7 rounds) — search, cart, orders, checkout, etc. Tool results are **compacted** before they enter the LLM message history.
+5. **Deterministic assist** (`chatDeterministicAssist.js`) — rule-based fallbacks when the agent skips tools (cart variants, pasted addresses, checkout picker). Disable with `ENABLE_CHAT_DETERMINISTIC_ASSIST=false`.
+6. Reply sanitization, checkout-backed reply, client actions; route + `routeReason` logged for observability.
+7. Response JSON: `reply`, optional `clientActions`, `cartSummary`, `checkout`, `sessionId`.
 
 ### Background jobs (not user-facing)
 
 | Job | When | What |
 |-----|------|------|
 | Product AI tagging | Product create/update | Adds searchable tags (`ProductTagging`) |
-| Embedding sync | Server startup + after tagging | Builds `searchDocument` + bi-encoder vectors |
-| Stripe webhooks | Payment events | Updates order payment status |
+| Embedding sync | Startup queue or in-process fallback | Builds `searchDocument` + bi-encoder vectors (`embeddingSyncQueue.js`) |
+| Checkout expiry | After Stripe session created | BullMQ job expires unpaid checkout if the tab closes (`checkoutQueue.js`) |
+| Coupon cache bust | Coupon create/update + at `endDate` | Invalidates `coupons:active` precisely at boundaries |
+| Stripe webhooks | Payment events | `orderService.applyStripeCheckoutSession()` → fulfillment |
 | Chat eval suite | Admin triggers from Developer Analytics | Background job with polling status |
+| LLM usage flush | Every 5s or 100 records | Batched `LlmUsageLog` inserts (`llmUsageLogger.js`) |
 
 ---
 
@@ -138,6 +142,34 @@ flowchart LR
 - Each agent only receives the tools it needs — smaller context, fewer wrong tool calls.
 - Tool results are real DB/API data; the formatter enforces **strict product listings** from `search_products` output.
 
+### Chat pipeline: one LLM path, two phases
+
+| Phase | Module | Role |
+|-------|--------|------|
+| **1. LangGraph** | `services/chatGraph/` | Guard, intent router, specialized agent + tools |
+| **2. Deterministic assist** | `services/chatDeterministicAssist.js` | Cart/checkout/address fallbacks when tools were skipped — **not** a second LLM |
+
+Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md) (two-phase section).
+
+### Token & context optimizations
+
+| Technique | Where | Purpose |
+|-----------|--------|---------|
+| Tool result compaction | `chatGraph/toolResultCompact.js` | Strip images, embeddings, long descriptions from tool messages before LLM history |
+| System prompt cache | `getAgentSystemPrompt()` + request-scoped `agentPromptCache` | Same `(route, userName)` prompt built once per HTTP request |
+| Token-budget history | `utils/chatHistoryTrim.js` | Drop oldest turns when history exceeds `CHAT_HISTORY_TOKEN_BUDGET` (default 8000 est. tokens) |
+| Batched usage logs | `llmUsageLogger.js` | `insertMany` buffer instead of per-call writes |
+
+### Route observability
+
+Each chat request logs routing to `LlmUsageLog`:
+
+- `patchLlmUsageContext({ route, routeReason })` after the graph runs
+- `recordChatRouteDecision()` — one `span: 'route-decision'` row per message for classifier/heuristic evaluation
+- Agent LLM spans inherit `route` + `routeReason` from context set in `routerNode`
+
+Query production: filter `span: 'route-decision'` or group `byRoute` in Developer Analytics.
+
 ### LLM provider fallback
 
 `llmService.js` tries providers in order until one succeeds:
@@ -161,8 +193,10 @@ Chat eval and live chat both call `runChatGraph()` so behavior stays aligned.
 | `services/chatGraph/agentRunner.js` | Per-agent LLM + tool loop |
 | `services/chatGraph/agentPrompts.js` | Scoped system prompts |
 | `services/chatPostProcess.js` | Sanitize, catalog reply, checkout reply helpers |
-| `controllers/chatCtrl.js` | HTTP layer, sessions, checkout assist |
+| `controllers/chatCtrl.js` | HTTP layer, sessions, usage context |
+| `services/chatDeterministicAssist.js` | Post-graph cart/checkout/address fallbacks |
 | `services/chatSessionService.js` | Persist conversations |
+| `utils/chatHistoryTrim.js` | Token-budget history trimming |
 
 Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md)
 
@@ -219,6 +253,61 @@ Further detail: [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md)
 
 ---
 
+## Redis, BullMQ & response cache
+
+Optional **`REDIS_URL`** powers job queues and a shared response cache. Without Redis, the API falls back to MongoDB for reads and client poll + webhooks for checkout.
+
+### BullMQ queues
+
+| Queue | Flag | Purpose |
+|-------|------|---------|
+| Checkout expiry | `ENABLE_CHECKOUT_QUEUE=true` | Expire unpaid Stripe sessions when `checkoutExpiresAt` passes |
+| Embedding sync | `ENABLE_EMBEDDING_SYNC_QUEUE=true` | Deferred embedding backfill on startup |
+| Coupon cache bust | (auto when Redis set) | `DEL` coupon keys at `startDate` / `endDate` |
+
+Run workers in the API (`RUN_QUEUE_WORKERS_IN_API=true`, local dev) or as a separate process:
+
+```bash
+cd Backend && npm run start:worker
+```
+
+Graceful shutdown: workers → LLM usage flush → Redis cache quit → HTTP server.
+
+### Response cache (`cacheService.js`)
+
+Invalidate-on-mutation plus safety TTL. All callers use `cacheService` — never raw Redis.
+
+| Key pattern | TTL | Invalidated on |
+|-------------|-----|----------------|
+| `catalog:categories:all` | 60s | Category CRUD + product CRUD |
+| `catalog:brands:all` | 60s | Brand CRUD |
+| `catalog:colors:all` | 60s | Color CRUD |
+| `coupons:active`, `coupons:code:*` | 120s | Coupon CRUD + BullMQ at `endDate` |
+| `products:list:*` | 300s | Product CRUD only (not orders) |
+
+**Not cached:** search/chat results, store policy, per-product stock-sensitive reads.
+
+---
+
+## Orders & fulfillment
+
+Canonical order logic lives in **`services/orderService.js`** (`orderService` singleton). Controllers, chat tools, webhooks, and payment polling all call it — no duplicated Stripe update + fulfillment blocks.
+
+| Concern | Module |
+|---------|--------|
+| CRUD, cancel, stats, chat summaries | `orderService.js` |
+| Paid-order stock + confirmation email | `orderFulfillment.js` |
+| Stripe refunds / payment refs | `orderRefund.js` |
+| Checkout session creation | `orderCheckout.js` |
+| Payment poll + manual expire | `orderPaymentPollService.js` |
+| Chat cancel/return orchestration | `orderActionsService.js` |
+
+**Payment sync path:** `orderService.applyStripeCheckoutSession()` — used by webhook, verify-payment, and poll.
+
+**Stock:** atomic reservation on pay (`stockService.js`); `releaseStock` on cancel.
+
+---
+
 ## Developer Analytics
 
 Admin-only UI at `/admin/developer-analytics` (requires admin role).
@@ -247,6 +336,8 @@ Eval cases live in `Backend/services/chatEvalCases.js`. Each case runs through *
 
 **Stripe:** `STRIPE_KEY` + webhook secret for checkout; use `npm start` in Backend to run server + `stripe listen`.
 
+**Redis (optional):** `REDIS_URL` enables cache + queues. See `Backend/.env.example` for `ENABLE_CHECKOUT_QUEUE`, `ENABLE_EMBEDDING_SYNC_QUEUE`, `RUN_QUEUE_WORKERS_IN_API`, `ENABLE_CHAT_DETERMINISTIC_ASSIST`.
+
 Run tests: `cd Backend && npm test`
 
 ---
@@ -267,10 +358,14 @@ Run tests: `cd Backend && npm test`
 
 | Concern | Entry |
 |---------|--------|
-| Chat message | `POST /shopai/chat/message` → `chatCtrl.js` → `runChatGraph()` |
+| Chat message | `POST /shopai/chat/message` → `chatCtrl.js` → `runChatGraph()` → `runDeterministicChatAssist()` |
 | Product search | `GET /api/v1/products?q=` → `searchProducts()` |
+| Product browse (cached) | `GET /api/v1/products` (no `q`) → `productsCtrl` + Redis cache |
 | Chat product search | Tool `search_products` → `searchProductsForChat()` |
-| LLM calls | `services/llmService.js` |
+| Orders | `services/orderService.js` |
+| LLM calls + usage logs | `services/llmService.js`, `services/llmUsageLogger.js` |
 | Graph compile | `services/chatGraph/graph.js` |
+| Cache | `services/cacheService.js`, `services/catalogCache.js` |
+| Queues | `services/queueWorkers.js`, `worker.js` |
 | Embeddings | `services/search/embeddingService.js` |
 | Reranking | `services/search/rerankService.js` |
