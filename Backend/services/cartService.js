@@ -19,12 +19,23 @@ function lineKey(item) {
   return `${productIdKey(item._id)}|${item.color}|${item.size}`
 }
 
+function isDuplicateKeyError(err) {
+  return err?.code === 11000
+}
+
 async function findOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId })
-  if (!cart) {
-    cart = await Cart.create({ user: userId, items: [], couponCode: null })
+  if (cart) return cart
+
+  try {
+    return await Cart.create({ user: userId, items: [], couponCode: null })
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      cart = await Cart.findOne({ user: userId })
+      if (cart) return cart
+    }
+    throw err
   }
-  return cart
 }
 
 async function resolveCouponDiscount(couponCode) {
