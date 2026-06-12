@@ -8,6 +8,7 @@ import {
   isCheckoutIntent,
   isDiscoveryIntent,
 } from '../../services/chatGraph/router.js'
+import { classifyIntent } from '../../services/chatGraph/intentClassifier.js'
 
 const shirtListingHistory = [
   {
@@ -159,5 +160,77 @@ describe('chatGraph router', () => {
 
   it('routes identity questions to general', () => {
     expect(routeIntent('Hello!')).toBe('general')
+  })
+})
+
+describe('classifyIntent (heuristic short-circuit)', () => {
+  beforeEach(async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    chatCompletion.mockReset()
+  })
+
+  it('skips LLM for greetings', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    const result = await classifyIntent('Hello!')
+    expect(result.route).toBe('general')
+    expect(result.reason).toBe('heuristic_greeting')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('skips LLM for product search', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    const result = await classifyIntent('Show me cricket bats available in the store.')
+    expect(result.route).toBe('retrieval')
+    expect(result.reason).toBe('heuristic_retrieval')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('skips LLM for order history', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    const result = await classifyIntent('Show my orders')
+    expect(result.route).toBe('order_summary')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('skips LLM for order cancellation', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    const result = await classifyIntent('cancel order #123')
+    expect(result.route).toBe('order_update')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('skips LLM for checkout when product is in context', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    const result = await classifyIntent('Add 2 to cart', shirtListingHistory)
+    expect(result.route).toBe('checkout')
+    expect(result.reason).toBe('heuristic_checkout')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
+
+  it('calls LLM for ambiguous affirmative replies', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    chatCompletion.mockResolvedValue({
+      choices: [{ message: { content: '{"route":"checkout","reason":"confirmed checkout"}' } }],
+    })
+
+    const checkoutHistory = [
+      { role: 'assistant', content: 'Ready to checkout. Shall I proceed with payment?' },
+    ]
+    const result = await classifyIntent('yes', checkoutHistory)
+    expect(result.route).toBe('checkout')
+    expect(result.reason).toBe('confirmed checkout')
+    expect(chatCompletion).toHaveBeenCalledOnce()
+  })
+
+  it('falls back to heuristic when LLM fails', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    chatCompletion.mockRejectedValue(new Error('All LLM providers failed'))
+
+    const result = await classifyIntent('yes', [
+      { role: 'assistant', content: 'Proceed to payment?' },
+    ])
+    expect(result.route).toBe('general')
+    expect(result.reason).toBe('ambiguous_affirmative')
+    expect(chatCompletion).toHaveBeenCalledOnce()
   })
 })

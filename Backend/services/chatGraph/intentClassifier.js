@@ -1,6 +1,10 @@
 import { chatCompletion } from '../llmService.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
-import { ROUTE_NAMES, routeIntentHeuristic, hasKnownProductInHistory } from './routerHeuristic.js'
+import {
+  ROUTE_NAMES,
+  classifyIntentHeuristic,
+  hasKnownProductInHistory,
+} from './routerHeuristic.js'
 import { extractProductsFromHistory } from './productContext.js'
 
 function formatHistorySnippet(history, limit = 6) {
@@ -29,7 +33,7 @@ function parseClassifierJson(raw) {
   return null
 }
 
-export async function classifyIntent(userText, history = []) {
+async function classifyIntentWithLlm(userText, history = []) {
   const productsDiscussed = hasKnownProductInHistory(history)
   const productNames = extractProductsFromHistory(history)
     .map((p) => p.name)
@@ -67,24 +71,33 @@ ${formatHistorySnippet(history)}
 Latest customer message:
 ${userText}`
 
+  patchLlmUsageContext({ span: 'intent-router' })
+  const response = await chatCompletion(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    null
+  )
+  const content = response.choices?.[0]?.message?.content
+  return parseClassifierJson(content)
+}
+
+export async function classifyIntent(userText, history = []) {
+  const heuristic = classifyIntentHeuristic(userText, history)
+  if (heuristic.confidence === 'high') {
+    return { route: heuristic.route, reason: heuristic.reason }
+  }
+
   try {
-    patchLlmUsageContext({ span: 'intent-router' })
-    const response = await chatCompletion(
-      [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      null
-    )
-    const content = response.choices?.[0]?.message?.content
-    const parsed = parseClassifierJson(content)
+    const parsed = await classifyIntentWithLlm(userText, history)
     if (parsed) return parsed
   } catch (err) {
     console.warn('[intentClassifier] LLM routing failed:', err.message)
   }
 
   return {
-    route: routeIntentHeuristic(userText, history),
-    reason: 'heuristic_fallback',
+    route: heuristic.route,
+    reason: heuristic.reason || 'heuristic_fallback',
   }
 }

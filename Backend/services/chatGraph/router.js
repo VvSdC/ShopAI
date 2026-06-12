@@ -2,7 +2,7 @@ import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { classifyIntent } from './intentClassifier.js'
 import { ROUTE_NAMES, routeIntentHeuristic } from './routerHeuristic.js'
 
-export { ROUTE_NAMES, routeIntentHeuristic, hasKnownProductInHistory, isCheckoutIntent, isDiscoveryIntent } from './routerHeuristic.js'
+export { ROUTE_NAMES, routeIntentHeuristic, classifyIntentHeuristic, hasKnownProductInHistory, isCheckoutIntent, isDiscoveryIntent } from './routerHeuristic.js'
 export { routeIntentHeuristic as routeIntent } from './routerHeuristic.js'
 
 export async function routerNode(state) {
