@@ -161,6 +161,7 @@ export const config = {
     embeddingVersion: envInt('SEARCH_EMBEDDING_VERSION', 1),
     autoSyncEmbeddings: envBool('SEARCH_AUTO_SYNC_EMBEDDINGS', true),
     syncDelayMs: envInt('SEARCH_SYNC_DELAY_MS', 1200),
+    syncConcurrency: envInt('SEARCH_SYNC_CONCURRENCY', 5),
     syncStartupDelayMs: envInt('SEARCH_SYNC_STARTUP_DELAY_MS', 5000),
     syncMaxPerRun: envInt('SEARCH_SYNC_MAX_PER_RUN', 0),
   },

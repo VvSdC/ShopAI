@@ -20,24 +20,43 @@ export function productNeedsEmbedding(product, spec = getEmbeddingSpec()) {
   return false
 }
 
+/** Run async workers with a fixed concurrency cap (p-limit style, no extra dependency). */
+export async function runWithConcurrencyLimit(items, concurrency, worker) {
+  if (!items.length) return []
+
+  const limit = Math.max(1, concurrency)
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (true) {
+      const idx = nextIndex++
+      if (idx >= items.length) return
+      results[idx] = await worker(items[idx], idx)
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runWorker())
+  )
+  return results
+}
+
 /**
- * Index products that are missing or stale embeddings. Runs sequentially to respect API limits.
- * Scans the catalog with a cursor (batchSize 500) — never loads all products into memory.
+ * Index products that are missing or stale embeddings.
+ * Scans with a cursor (batchSize 500), then indexes with a concurrency-limited pool.
  */
 export async function syncMissingProductEmbeddings(options = {}) {
   const {
-    delayMs = config.search.syncDelayMs,
+    concurrency = config.search.syncConcurrency,
     maxProducts = config.search.syncMaxPerRun,
   } = options
 
   const spec = getEmbeddingSpec()
   const total = await Product.countDocuments({})
 
+  const toProcess = []
   let pending = 0
-  let indexed = 0
-  let failed = 0
-  let reachedProcessLimit = false
-  let loggedStart = false
 
   const cursor = Product.find({})
     .select('_id name embedding embeddedAt embeddingVersion embeddingModel')
@@ -48,34 +67,26 @@ export async function syncMissingProductEmbeddings(options = {}) {
     if (!productNeedsEmbedding(product, spec)) continue
 
     pending += 1
-
-    if (reachedProcessLimit) continue
-
-    if (maxProducts > 0 && indexed + failed >= maxProducts) {
-      reachedProcessLimit = true
-      continue
-    }
-
-    if (!loggedStart) {
-      const capNote = maxProducts > 0 ? ` (up to ${maxProducts} this run)` : ''
-      console.log(
-        `[search] Auto-sync: indexing stale product embeddings${capNote}`
-      )
-      loggedStart = true
-    }
-
-    const result = await indexProductEmbedding(product._id)
-    if (result.ok) indexed += 1
-    else failed += 1
-
-    if (delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-    }
+    if (maxProducts > 0 && toProcess.length >= maxProducts) continue
+    toProcess.push(product._id)
   }
 
-  if (pending === 0) {
+  if (toProcess.length === 0) {
     return { total, pending: 0, indexed: 0, failed: 0 }
   }
+
+  const capNote = maxProducts > 0 ? ` (up to ${maxProducts} this run)` : ''
+  console.log(
+    `[search] Auto-sync: indexing ${toProcess.length} product(s) at concurrency ${concurrency}${capNote}`
+  )
+
+  const outcomes = await runWithConcurrencyLimit(toProcess, concurrency, async (productId) => {
+    const result = await indexProductEmbedding(productId)
+    return Boolean(result.ok)
+  })
+
+  const indexed = outcomes.filter(Boolean).length
+  const failed = outcomes.length - indexed
 
   console.log(`[search] Auto-sync done: ${indexed} ok, ${failed} failed`)
   return {

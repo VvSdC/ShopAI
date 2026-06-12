@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url'
 import mongoose from 'mongoose'
 import Product from '../model/Product.js'
 import { indexProductEmbedding } from '../services/search/vectorIndexService.js'
+import { runWithConcurrencyLimit } from '../services/search/embeddingSyncService.js'
 import { config } from '../config/env.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -16,21 +17,26 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') })
 
 await mongoose.connect(config.db.mongoUrl)
 const products = await Product.find({}).select('_id name')
-console.log(`Force reindexing ${products.length} products...`)
+console.log(
+  `Force reindexing ${products.length} products (concurrency ${config.search.syncConcurrency})...`
+)
 
-let ok = 0
-let fail = 0
-for (const p of products) {
-  const result = await indexProductEmbedding(p._id)
-  if (result.ok) {
-    ok += 1
-    console.log(`  OK ${p.name} (${result.dims} dims)`)
-  } else {
-    fail += 1
-    console.log(`  FAIL ${p.name}: ${result.reason}`)
+const outcomes = await runWithConcurrencyLimit(
+  products,
+  config.search.syncConcurrency,
+  async (product) => {
+    const result = await indexProductEmbedding(product._id)
+    if (result.ok) {
+      console.log(`  OK ${product.name} (${result.dims} dims)`)
+      return true
+    }
+    console.log(`  FAIL ${product.name}: ${result.reason}`)
+    return false
   }
-  await new Promise((r) => setTimeout(r, config.search.syncDelayMs))
-}
+)
+
+const ok = outcomes.filter(Boolean).length
+const fail = outcomes.length - ok
 
 console.log(`Done: ${ok} ok, ${fail} failed`)
 await mongoose.disconnect()
