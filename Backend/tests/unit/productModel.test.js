@@ -1,0 +1,45 @@
+import { describe, it, expect } from 'vitest'
+import mongoose from 'mongoose'
+import Product from '../../model/Product.js'
+import User from '../../model/User.js'
+
+async function createTestProduct(overrides = {}) {
+  const user =
+    overrides.user ||
+    (await User.create({
+      fullname: 'Product Model User',
+      email: `product-model-${Date.now()}-${Math.random()}@test.com`,
+      password: 'hashed',
+    }))
+
+  return Product.create({
+    name: `Product ${Date.now()}-${Math.random()}`,
+    description: 'Test description',
+    brand: 'TestBrand',
+    category: new mongoose.Types.ObjectId(),
+    sizes: ['M'],
+    colors: ['Blue'],
+    user: user._id,
+    images: ['https://example.com/img.jpg'],
+    price: 100,
+    totalQty: 2,
+    ...overrides,
+  })
+}
+
+describe('Product model', () => {
+  it('enforces unique product names at the database level', async () => {
+    const name = `Unique Name ${Date.now()}`
+    const user = await User.create({
+      fullname: 'Dup Product User',
+      email: `dup-product-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    await createTestProduct({ name, user: user._id })
+
+    await expect(
+      createTestProduct({ name, user: user._id })
+    ).rejects.toMatchObject({ code: 11000 })
+  })
+})

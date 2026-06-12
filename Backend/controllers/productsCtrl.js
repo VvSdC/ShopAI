@@ -20,6 +20,10 @@ async function invalidateProductCatalogCaches() {
   await invalidateCategoriesCache()
 }
 
+function isDuplicateKeyError(err) {
+  return err?.code === 11000
+}
+
 // @desc    Create new product
 // @route   POST /api/v1/products
 // @access  Private/Admin
@@ -50,19 +54,26 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
       'Category not found, please create category first or check category name'
     )
   }
-  //create the product
-  const product = await Product.create({
-    name,
-    description,
-    category: categoryFound._id,
-    sizes,
-    colors,
-    user: req.userAuthId,
-    price,
-    totalQty,
-    brand,
-    images: convertedImgs,
-  })
+  let product
+  try {
+    product = await Product.create({
+      name,
+      description,
+      category: categoryFound._id,
+      sizes,
+      colors,
+      user: req.userAuthId,
+      price,
+      totalQty,
+      brand,
+      images: convertedImgs,
+    })
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      throw new Error('Product Already Exists')
+    }
+    throw err
+  }
   //push the product into category
   categoryFound.products.push(product._id)
   //resave
