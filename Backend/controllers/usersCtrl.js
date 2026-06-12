@@ -54,7 +54,11 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     phone,
     country,
   });
-  sendWelcomeEmail(user.email, user.fullname);
+  try {
+    await sendWelcomeEmail(user.email, user.fullname);
+  } catch (err) {
+    console.error("Welcome email failed:", err?.message || err);
+  }
 
   res.status(201).json({
     status: "success",
