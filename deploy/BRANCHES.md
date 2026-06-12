@@ -16,15 +16,24 @@ git push -u origin backend
 git push -u origin frontend
 ```
 
-## Render (backend branch)
+## Render (recommended — `main` branch)
 
-- **Branch:** `backend`
-- **Root directory:** *(leave empty — app is at repo root)*
+- **Branch:** `main`
+- **Root directory:** `Backend`
 - **Build:** `npm install`
 - **Start:** `npm run start:server`
 - **Health check:** `/health`
 
-Set env vars in dashboard: `MONGO_URL`, `JWT_*`, `STRIPE_*`, `FRONTEND_URL`, LLM keys, etc.
+Use the repo-root `render.yaml` (Blueprint) or match those settings manually in the Render dashboard.
+
+Set env vars in dashboard: `MONGO_URL`, `JWT_*`, `STRIPE_*`, `FRONTEND_URL`, `API_PUBLIC_URL`, LLM keys, etc.  
+For BullMQ in production: `RUN_QUEUE_WORKERS_IN_API=false` and run `npm run start:worker` on a separate Background Worker (same `Backend` root).
+
+## Render (legacy — `backend` split branch)
+
+- **Branch:** `backend`
+- **Root directory:** *(empty — app copied to repo root)*
+- Same build/start/health as above. Regenerate with `deploy/scripts/sync-split-branches.ps1` if you still use this branch.
 
 ## Netlify (frontend branch)
 

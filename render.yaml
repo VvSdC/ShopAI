@@ -1,20 +1,40 @@
-# Render Blueprint — use with branch: backend (app at repository root)
+# Render Blueprint — deploy from main; API root is Backend/
+# Docs: https://render.com/docs/blueprint-spec
 services:
   - type: web
     name: shopai-api
     runtime: node
-    branch: backend
+    branch: main
+    rootDir: Backend
     buildCommand: npm install
     startCommand: npm run start:server
-    healthCheckPath: /health    envVars:
+    healthCheckPath: /health
+    envVars:
       - key: NODE_ENV
         value: production
       - key: HOST
         value: 0.0.0.0
       - key: TRUST_PROXY
         value: true
-      - key: PORT
-        value: 2030
-      # Set these in the Render dashboard (or sync from env group):
-      # MONGO_URL, JWT_KEY, JWT_REFRESH_KEY, FRONTEND_URL,
-      # STRIPE_KEY, STRIPE_WEBHOOK_SECRET, OPENROUTER_API_KEY, etc.
+      # Render injects PORT — do not set it here.
+      # Required in dashboard: MONGO_URL, JWT_KEY, JWT_REFRESH_KEY, FRONTEND_URL,
+      # STRIPE_KEY, STRIPE_WEBHOOK_SECRET, at least one LLM key, CLOUDINARY_*.
+      # Recommended: API_PUBLIC_URL=https://YOUR-SERVICE.onrender.com
+      # Optional Redis: REDIS_URL + ENABLE_CHECKOUT_QUEUE / ENABLE_EMBEDDING_SYNC_QUEUE /
+      # ENABLE_MODERATION_QUEUE / ENABLE_PRODUCT_TAGGING_QUEUE
+      # Production queues: RUN_QUEUE_WORKERS_IN_API=false and add a Background Worker
+      # (see shopai-worker below) with npm run start:worker
+
+  # Optional — enable when REDIS_URL and queue flags are set (paid Background Worker).
+  # - type: worker
+  #   name: shopai-worker
+  #   runtime: node
+  #   branch: main
+  #   rootDir: Backend
+  #   buildCommand: npm install
+  #   startCommand: npm run start:worker
+  #   envVars:
+  #     - key: NODE_ENV
+  #       value: production
+  #     - key: RUN_QUEUE_WORKERS_IN_API
+  #       value: false

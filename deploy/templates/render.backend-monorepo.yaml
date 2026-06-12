@@ -1,0 +1,17 @@
+# Copy to repo root as render.yaml when deploying from main (rootDir: Backend)
+services:
+  - type: web
+    name: shopai-api
+    runtime: node
+    branch: main
+    rootDir: Backend
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: true

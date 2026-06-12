@@ -76,6 +76,30 @@ Frontend (separate folder): `cd ../Frontend && npm install && npm start`
 
 ---
 
+## Deploy (Render, from `main`)
+
+| Setting | Value |
+|---------|--------|
+| Branch | `main` |
+| Root directory | `Backend` |
+| Build | `npm install` |
+| Start | `npm run start:server` |
+| Health check | `/health` |
+
+Repo-root [`render.yaml`](../render.yaml) matches these settings. **Do not set `PORT`** — Render injects it.
+
+**Required env vars:** `MONGO_URL`, `JWT_KEY`, `JWT_REFRESH_KEY`, `FRONTEND_URL`, `STRIPE_KEY`, `STRIPE_WEBHOOK_SECRET`, at least one LLM key (`OPENROUTER_API_KEY`, `GEMINI_API_KEY`, etc.), `CLOUDINARY_*` for uploads.
+
+**Recommended:** `API_PUBLIC_URL=https://your-service.onrender.com` (CSP / connect-src).
+
+**Stripe webhook:** `https://your-service.onrender.com/webhook`
+
+**Frontend API URL (later):** `REACT_APP_API_URL=https://your-service.onrender.com/shopai`
+
+With Redis, set `REDIS_URL` and queue flags; keep `RUN_QUEUE_WORKERS_IN_API=false` on the web service and add a Render **Background Worker** (`npm run start:worker`, same `Backend` root).
+
+---
+
 ## Environment
 
 See [`.env.example`](.env.example). Notable flags:
