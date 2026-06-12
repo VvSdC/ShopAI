@@ -14,15 +14,50 @@ export function verifyRefreshToken(token) {
   return jwt.verify(token, config.auth.jwtRefreshKey)
 }
 
+function signDeviceId(deviceId) {
+  const signature = crypto
+    .createHmac('sha256', config.auth.jwtRefreshKey)
+    .update(deviceId)
+    .digest('hex')
+  return `${deviceId}.${signature}`
+}
+
+function verifySignedDeviceId(rawValue) {
+  if (!rawValue || typeof rawValue !== 'string') return null
+  const trimmed = rawValue.trim()
+  const dotIndex = trimmed.lastIndexOf('.')
+  if (dotIndex <= 0) return null
+
+  const deviceId = trimmed.slice(0, dotIndex).slice(0, 128)
+  const signature = trimmed.slice(dotIndex + 1)
+  if (!deviceId || !/^[0-9a-f-]{36}$/i.test(deviceId) || !signature) return null
+
+  const expected = crypto
+    .createHmac('sha256', config.auth.jwtRefreshKey)
+    .update(deviceId)
+    .digest('hex')
+
+  try {
+    const sigBuf = Buffer.from(signature, 'hex')
+    const expectedBuf = Buffer.from(expected, 'hex')
+    if (sigBuf.length !== expectedBuf.length) return null
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null
+  } catch {
+    return null
+  }
+
+  return deviceId
+}
+
+/** Issue the httpOnly device cookie value (UUID + HMAC). */
+export function formatDeviceIdCookie(deviceId) {
+  return signDeviceId(deviceId)
+}
+
+/** Resolve device id from signed server cookie only — never trust client headers. */
 export function resolveDeviceId(req) {
-  const fromHeader = req?.headers?.['x-device-id']
-  if (fromHeader && String(fromHeader).trim()) {
-    return String(fromHeader).trim().slice(0, 128)
-  }
-  const fromCookie = req?.cookies?.shopai_device_id
-  if (fromCookie && String(fromCookie).trim()) {
-    return String(fromCookie).trim().slice(0, 128)
-  }
+  const fromCookie = verifySignedDeviceId(req?.cookies?.shopai_device_id)
+  if (fromCookie) return fromCookie
   return crypto.randomUUID()
 }
 

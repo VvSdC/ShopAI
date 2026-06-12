@@ -14,6 +14,7 @@ import {
   invalidateUserRefreshToken,
   revokeAuthSession,
   resolveDeviceId,
+  formatDeviceIdCookie,
   rotateRefreshToken,
   verifyRefreshToken,
 } from "../utils/authSessions.js";
@@ -102,7 +103,7 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
     const { refreshToken } = await createAuthSession(userFound._id, deviceId);
     res.cookie("shopai_token", accessToken, accessCookieOptions);
     res.cookie("shopai_refresh_token", refreshToken, refreshCookieOptions);
-    res.cookie("shopai_device_id", deviceId, deviceCookieOptions);
+    res.cookie("shopai_device_id", formatDeviceIdCookie(deviceId), deviceCookieOptions);
     res.json({
       status: "success",
       message: "User logged in successfully",

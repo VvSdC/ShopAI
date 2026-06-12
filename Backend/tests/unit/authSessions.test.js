@@ -7,8 +7,10 @@ import { config } from '../../config/env.js'
 import { generateAccessToken, generateRefreshToken } from '../../utils/generateToken.js'
 import {
   createAuthSession,
+  formatDeviceIdCookie,
   getRefreshExpiresAt,
   invalidateUserRefreshToken,
+  resolveDeviceId,
   verifyRefreshToken,
 } from '../../utils/authSessions.js'
 import { fetchCsrf, withCsrf, cookiePartsFromResponse } from '../helpers/csrf.js'
@@ -24,6 +26,33 @@ async function addSession(user, { token, deviceId = 'test-device' }) {
   await user.save()
   return token
 }
+
+describe('resolveDeviceId', () => {
+  it('ignores client x-device-id header and uses signed cookie', () => {
+    const deviceId = '550e8400-e29b-41d4-a716-446655440000'
+    const signed = formatDeviceIdCookie(deviceId)
+    const req = {
+      headers: { 'x-device-id': 'attacker-controlled-id' },
+      cookies: { shopai_device_id: signed },
+    }
+    expect(resolveDeviceId(req)).toBe(deviceId)
+  })
+
+  it('rejects tampered device cookie and issues a new UUID', () => {
+    const req = {
+      headers: { 'x-device-id': 'attacker-controlled-id' },
+      cookies: { shopai_device_id: '550e8400-e29b-41d4-a716-446655440000.deadbeef' },
+    }
+    const id = resolveDeviceId(req)
+    expect(id).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(id).not.toBe('attacker-controlled-id')
+  })
+
+  it('issues a new UUID when no valid device cookie exists', () => {
+    const id = resolveDeviceId({ headers: {}, cookies: {} })
+    expect(id).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+})
 
 describe('invalidateUserRefreshToken', () => {
   it('clears all auth sessions on the user document', async () => {

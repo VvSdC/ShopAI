@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import config from '../config/env.js'
 
 export const CSRF_COOKIE_NAME = 'shopai_csrf'
+/** Must match Frontend/src/utils/csrfConstants.js (lowercase HTTP header name). */
 export const CSRF_HEADER_NAME = 'x-csrf-token'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -35,6 +36,17 @@ function tokensMatch(headerToken, cookieToken) {
     return false
   }
   return crypto.timingSafeEqual(a, b)
+}
+
+/** Case-insensitive lookup — safe outside Express header normalization. */
+function readCsrfHeaderToken(req) {
+  const headers = req.headers
+  if (!headers || typeof headers !== 'object') return undefined
+  if (headers[CSRF_HEADER_NAME] != null) return headers[CSRF_HEADER_NAME]
+  for (const [name, value] of Object.entries(headers)) {
+    if (name.toLowerCase() === CSRF_HEADER_NAME) return value
+  }
+  return undefined
 }
 
 function usesCookieAuth(req) {
@@ -75,7 +87,7 @@ export function validateCsrf(req, res, next) {
   }
 
   const cookieToken = req.cookies?.[CSRF_COOKIE_NAME]
-  const headerToken = req.headers[CSRF_HEADER_NAME]
+  const headerToken = readCsrfHeaderToken(req)
 
   if (!tokensMatch(String(headerToken || ''), String(cookieToken || ''))) {
     return res.status(403).json({ message: 'Invalid or missing CSRF token' })

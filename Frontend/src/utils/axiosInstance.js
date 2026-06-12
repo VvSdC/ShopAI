@@ -1,5 +1,6 @@
 import axios from 'axios'
 import baseURL from './baseURL'
+import { CSRF_HEADER_NAME } from './csrfConstants'
 
 const axiosInstance = axios.create({
   baseURL,
@@ -24,7 +25,7 @@ axiosInstance.interceptors.request.use(async (config) => {
   if (isMutatingMethod(config.method)) {
     const token = await ensureCsrfToken()
     config.headers = config.headers || {}
-    config.headers['X-CSRF-Token'] = token
+    config.headers[CSRF_HEADER_NAME] = token
   }
   return config
 })
@@ -41,7 +42,7 @@ axiosInstance.interceptors.response.use(
         originalRequest._csrfRetry = true
         const token = await ensureCsrfToken()
         originalRequest.headers = originalRequest.headers || {}
-        originalRequest.headers['X-CSRF-Token'] = token
+        originalRequest.headers[CSRF_HEADER_NAME] = token
         return axiosInstance(originalRequest)
       }
     }
