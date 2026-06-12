@@ -22,6 +22,7 @@ import { isLoggedIn } from "../middlewares/isLoggedin.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import { validate } from "../middlewares/validate.js";
 import { csrfTokenHandler } from "../middlewares/csrfProtection.js";
+import { authLimiter } from "../config/rateLimiters.js";
 import {
   registerSchema,
   loginSchema,
@@ -42,9 +43,9 @@ registerRoute.post("/", validate(registerSchema), registerUserCtrl);
 
 userRoutes.post("/refresh", refreshTokenCtrl);
 userRoutes.post("/logout", logoutUserCtrl);
-userRoutes.post("/forgot-password", forgotPasswordCtrl);
-userRoutes.post("/verify-otp", verifyOTPCtrl);
-userRoutes.post("/reset-password", validate(resetPasswordSchema), resetPasswordCtrl);
+userRoutes.post("/forgot-password", authLimiter, forgotPasswordCtrl);
+userRoutes.post("/verify-otp", authLimiter, verifyOTPCtrl);
+userRoutes.post("/reset-password", authLimiter, validate(resetPasswordSchema), resetPasswordCtrl);
 userRoutes.put("/change-password", isLoggedIn, validate(changePasswordSchema), changePasswordCtrl);
 userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);
