@@ -56,6 +56,8 @@ export const config = {
     port: envInt('PORT', 2030),
     host: env('HOST', '0.0.0.0'),
     trustProxy: envBool('TRUST_PROXY', nodeEnv === 'production'),
+    /** Public API base URL for CSP connectSrc (e.g. http://localhost:2030). */
+    publicUrl: env('API_PUBLIC_URL', ''),
   },
 
   db: {

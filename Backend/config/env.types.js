@@ -5,7 +5,7 @@
  * @property {boolean} isProduction
  * @property {boolean} isDevelopment
  * @property {boolean} isTest
- * @property {{ port: number, host: string, trustProxy: boolean }} server
+ * @property {{ port: number, host: string, trustProxy: boolean, publicUrl: string }} server
  * @property {{ mongoUrl: string }} db
  * @property {{ origin: string, credentials: boolean }} cors
  * @property {{ jwtKey: string, jwtRefreshKey: string, maxSessions: number }} auth

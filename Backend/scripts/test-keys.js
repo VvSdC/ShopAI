@@ -3,9 +3,9 @@
  * Usage: node scripts/test-keys.js
  */
 import mongoose from 'mongoose'
-import Stripe from 'stripe'
 import { v2 as cloudinary } from 'cloudinary'
 import config from '../config/env.js'
+import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 
 const results = []
 
@@ -33,9 +33,9 @@ async function testMongo() {
 }
 
 async function testStripe() {
-  if (!hasValue(config.stripe.secretKey)) return record('Stripe', 'skip', 'STRIPE_KEY not set')
+  if (!hasStripeConfigured()) return record('Stripe', 'skip', 'STRIPE_KEY not set')
   try {
-    const stripe = new Stripe(config.stripe.secretKey)
+    const stripe = getStripeClient()
     await stripe.balance.retrieve()
     record('Stripe', 'ok')
   } catch (err) {

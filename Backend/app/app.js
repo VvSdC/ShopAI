@@ -3,6 +3,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
+import { buildHelmetOptions } from '../config/helmetConfig.js'
+import { validateCsrf } from '../middlewares/csrfProtection.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
 import path from 'path'
@@ -28,9 +30,7 @@ const app = express()
 
 app.set('trust proxy', config.server.trustProxy ? 1 : false)
 
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}))
+app.use(helmet(buildHelmetOptions()))
 
 app.use(compression())
 
@@ -40,6 +40,8 @@ app.use(cors({
 }))
 
 app.use(cookieParser())
+
+app.use(validateCsrf)
 
 const endpointSecret = config.stripe.webhookSecret
 

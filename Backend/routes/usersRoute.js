@@ -21,6 +21,7 @@ import {
 import { isLoggedIn } from "../middlewares/isLoggedin.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import { validate } from "../middlewares/validate.js";
+import { csrfTokenHandler } from "../middlewares/csrfProtection.js";
 import {
   registerSchema,
   loginSchema,
@@ -29,6 +30,8 @@ import {
 } from "../validations/authSchemas.js";
 
 const userRoutes = express.Router();
+
+userRoutes.get("/csrf-token", csrfTokenHandler);
 
 /** Mounted in app.js with authLimiter only (before apiLimiter). */
 export const loginRoute = express.Router();

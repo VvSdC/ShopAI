@@ -12,6 +12,7 @@ import {
   rotateRefreshToken,
   verifyRefreshToken,
 } from '../../utils/authSessions.js'
+import { fetchCsrf, withCsrf, cookiePartsFromResponse } from '../helpers/csrf.js'
 
 async function addSession(user, { token, deviceId = 'test-device' }) {
   user.sessions = user.sessions || []
@@ -64,9 +65,13 @@ describe('multi-device auth sessions', () => {
     expect(reloaded.sessions).toHaveLength(2)
     expect(reloaded.sessions.map((s) => s.deviceId).sort()).toEqual(['device-a', 'device-b'])
 
-    const refreshA = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', [`shopai_refresh_token=${tokenA}`])
+    const csrf = await fetchCsrf(app)
+
+    const refreshA = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${tokenA}`]
+    )
 
     expect(refreshA.status).toBe(200)
 
@@ -103,9 +108,13 @@ describe('refresh token rotation', () => {
     const initialRefresh = generateRefreshToken(user._id)
     await addSession(user, { token: initialRefresh, deviceId: 'rotate-device' })
 
-    const first = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', [`shopai_refresh_token=${initialRefresh}`])
+    const csrf = await fetchCsrf(app)
+
+    const first = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${initialRefresh}`]
+    )
 
     expect(first.status).toBe(200)
 
@@ -113,9 +122,11 @@ describe('refresh token rotation', () => {
     const sessionAfterFirst = afterFirst.sessions.find((s) => s.deviceId === 'rotate-device')
     expect(sessionAfterFirst.token).not.toBe(initialRefresh)
 
-    const second = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', first.headers['set-cookie'])
+    const rotateCookies = cookiePartsFromResponse(first)
+    const second = await withCsrf(request(app).post('/shopai/users/refresh'), {
+      csrfToken: csrf.csrfToken,
+      cookieParts: [...csrf.cookieParts, ...rotateCookies],
+    })
 
     expect(second.status).toBe(200)
 
@@ -143,9 +154,13 @@ describe('refresh token rotation', () => {
     ]
     await user.save()
 
-    const res = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', [`shopai_refresh_token=${stolenToken}`])
+    const csrf = await fetchCsrf(app)
+
+    const res = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${stolenToken}`]
+    )
 
     expect(res.status).toBeGreaterThanOrEqual(400)
 
@@ -185,9 +200,13 @@ describe('PUT /shopai/users/change-password', () => {
     const reloaded = await User.findById(user._id)
     expect(reloaded.sessions).toEqual([])
 
-    const refreshRes = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', [`shopai_refresh_token=${refreshToken}`])
+    const csrf = await fetchCsrf(app)
+
+    const refreshRes = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${refreshToken}`]
+    )
 
     expect(refreshRes.status).toBeGreaterThanOrEqual(400)
   })
@@ -207,20 +226,27 @@ describe('POST /shopai/users/reset-password', () => {
     const otp = user.createPasswordResetOTP()
     await user.save({ validateBeforeSave: false })
 
-    const res = await request(app).post('/shopai/users/reset-password').send({
-      email: user.email,
-      otp,
-      password: 'resetpass789',
-    })
+    const csrf = await fetchCsrf(app)
+
+    const res = await withCsrf(
+      request(app).post('/shopai/users/reset-password').send({
+        email: user.email,
+        otp,
+        password: 'resetpass789',
+      }),
+      csrf
+    )
 
     expect(res.status).toBe(200)
 
     const reloaded = await User.findById(user._id)
     expect(reloaded.sessions).toEqual([])
 
-    const refreshRes = await request(app)
-      .post('/shopai/users/refresh')
-      .set('Cookie', [`shopai_refresh_token=${stolenRefreshToken}`])
+    const refreshRes = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${stolenRefreshToken}`]
+    )
 
     expect(refreshRes.status).toBeGreaterThanOrEqual(400)
   })

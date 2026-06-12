@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
-import baseURL from '../../../utils/baseURL'
+import axiosInstance from '../../../utils/axiosInstance'
 
 const STEPS = { EMAIL: 0, OTP: 1, NEW_PASSWORD: 2, DONE: 3 }
 
@@ -20,7 +19,7 @@ const ForgotPassword = () => {
     setLoading(true)
     setError('')
     try {
-      await axios.post(`${baseURL}/users/forgot-password`, { email })
+      await axiosInstance.post('/users/forgot-password', { email })
       setStep(STEPS.OTP)
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong.')
@@ -63,7 +62,7 @@ const ForgotPassword = () => {
     setLoading(true)
     setError('')
     try {
-      await axios.post(`${baseURL}/users/verify-otp`, { email, otp: otpString })
+      await axiosInstance.post('/users/verify-otp', { email, otp: otpString })
       setStep(STEPS.NEW_PASSWORD)
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid or expired OTP')
@@ -79,7 +78,7 @@ const ForgotPassword = () => {
     if (password !== confirmPassword) return setError('Passwords do not match')
     setLoading(true)
     try {
-      await axios.post(`${baseURL}/users/reset-password`, {
+      await axiosInstance.post('/users/reset-password', {
         email,
         otp: otpString,
         password,
@@ -96,7 +95,7 @@ const ForgotPassword = () => {
     setLoading(true)
     setError('')
     try {
-      await axios.post(`${baseURL}/users/forgot-password`, { email })
+      await axiosInstance.post('/users/forgot-password', { email })
       setOtp(['', '', '', '', '', ''])
       setError('')
       otpRefs.current[0]?.focus()
