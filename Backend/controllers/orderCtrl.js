@@ -100,11 +100,16 @@ export const getUserOrdersCtrl = asyncHandler(async (req, res) => {
 })
 
 export const getAllordersCtrl = asyncHandler(async (req, res) => {
-  const orders = await orderService.listAll()
+  const page = parseInt(req.query.page) || 1
+  const limit = parseInt(req.query.limit) || 5
+
+  const { orders, pagination } = await orderService.listAll({ page, limit })
+
   res.json({
     success: true,
     message: 'All orders',
     orders,
+    pagination,
   })
 })
 

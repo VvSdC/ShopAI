@@ -75,8 +75,29 @@ export class OrderService {
     }
   }
 
-  async listAll() {
-    return Order.find().populate('user')
+  async listAll({ page = 1, limit = 5 } = {}) {
+    const safePage = Math.max(1, page)
+    const safeLimit = Math.min(Math.max(1, limit), 50)
+    const skip = (safePage - 1) * safeLimit
+
+    const [total, orders] = await Promise.all([
+      Order.countDocuments({}),
+      Order.find({})
+        .populate('user')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(safeLimit),
+    ])
+
+    return {
+      orders,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit) || 0,
+      },
+    }
   }
 
   async getSalesStats() {

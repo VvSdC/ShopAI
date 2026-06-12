@@ -79,6 +79,38 @@ describe('orderService', () => {
     })
   })
 
+  it('paginates admin listAll like listForUser', async () => {
+    const totalBefore = await Order.countDocuments({})
+    const user = await User.create({
+      fullname: 'Admin List User',
+      email: `admin-list-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    for (let i = 0; i < 3; i++) {
+      await Order.create({
+        user: user._id,
+        orderItems: [testOrderItem({ name: `Item ${i}`, price: 10 + i })],
+        shippingAddress: testShippingAddress(),
+        totalPrice: 10 + i,
+      })
+    }
+
+    const expectedTotal = totalBefore + 3
+    const page1 = await orderService.listAll({ page: 1, limit: 2 })
+    expect(page1.orders).toHaveLength(2)
+    expect(page1.pagination).toEqual({
+      page: 1,
+      limit: 2,
+      total: expectedTotal,
+      totalPages: Math.ceil(expectedTotal / 2),
+    })
+
+    const page2 = await orderService.listAll({ page: 2, limit: 2 })
+    expect(page2.orders).toHaveLength(Math.min(2, expectedTotal - 2))
+    expect(page2.pagination.page).toBe(2)
+  })
+
   it('formats chat order summaries consistently', () => {
     const formatted = orderService.formatOrderForChat({
       _id: new mongoose.Types.ObjectId(),

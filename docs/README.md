@@ -156,7 +156,7 @@ Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md) (two-pha
 | Technique | Where | Purpose |
 |-----------|--------|---------|
 | Tool result compaction | `chatGraph/toolResultCompact.js` | Strip images, embeddings, long descriptions from tool messages before LLM history |
-| System prompt cache | `getAgentSystemPrompt()` + request-scoped `agentPromptCache` | Same `(route, userName)` prompt built once per HTTP request |
+| System prompt cache | `getAgentSystemPrompt()` + module-scoped `promptCache` | Same `(route, userName)` prompt built once per process |
 | Token-budget history | `utils/chatHistoryTrim.js` | Drop oldest turns when history exceeds `CHAT_HISTORY_TOKEN_BUDGET` (default 8000 est. tokens) |
 | Batched usage logs | `llmUsageLogger.js` | `insertMany` buffer instead of per-call writes |
 
