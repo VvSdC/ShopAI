@@ -82,7 +82,11 @@ export const config = {
     url: env('REDIS_URL', ''),
     checkoutQueueEnabled: envBool('ENABLE_CHECKOUT_QUEUE', false),
     embeddingSyncQueueEnabled: envBool('ENABLE_EMBEDDING_SYNC_QUEUE', false),
-    runQueueWorkersInApi: envBool('RUN_QUEUE_WORKERS_IN_API', true),
+    // Default false in production — run `node worker.js` as a separate process.
+    runQueueWorkersInApi: envBool(
+      'RUN_QUEUE_WORKERS_IN_API',
+      nodeEnv !== 'production'
+    ),
   },
 
   chat: {

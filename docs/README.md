@@ -266,9 +266,17 @@ Optional **`REDIS_URL`** powers job queues and a shared response cache. Without 
 | Embedding sync | `ENABLE_EMBEDDING_SYNC_QUEUE=true` | Deferred embedding backfill on startup |
 | Coupon cache bust | (auto when Redis set) | `DEL` coupon keys at `startDate` / `endDate` |
 
-Run workers in the API (`RUN_QUEUE_WORKERS_IN_API=true`, local dev) or as a separate process:
+**Worker placement**
+
+| Environment | `RUN_QUEUE_WORKERS_IN_API` | What to run |
+|-------------|---------------------------|-------------|
+| Local dev / test | `true` (default) | `npm run dev` — workers inside API |
+| Production | `false` (default when `NODE_ENV=production`) | API: `npm run start:server` **and** worker: `npm run start:worker` |
+
+Do not run checkout expiry, embedding sync, and coupon-cache workers in the same Node process as production HTTP traffic unless you explicitly set `RUN_QUEUE_WORKERS_IN_API=true` (not recommended — slow jobs compete with request handling).
 
 ```bash
+# Production worker process (separate from API)
 cd Backend && npm run start:worker
 ```
 

@@ -19,9 +19,16 @@ async function startServer() {
   scheduleEmbeddingSyncOnStartup()
 
   if (config.redis.runQueueWorkersInApi) {
+    if (config.isProduction) {
+      console.warn(
+        '[queues] RUN_QUEUE_WORKERS_IN_API=true in production — BullMQ workers share the API event loop. Prefer false + npm run start:worker'
+      )
+    }
     await startAllQueueWorkers()
   } else {
-    console.log('[queues] Workers disabled in API — run node worker.js separately')
+    console.log(
+      '[queues] Workers disabled in API — run `npm run start:worker` (or node worker.js) as a separate process'
+    )
   }
 
   let shuttingDown = false

@@ -82,7 +82,7 @@ See [`.env.example`](.env.example). Notable flags:
 
 - `REDIS_URL` — cache + BullMQ (optional locally)
 - `ENABLE_CHECKOUT_QUEUE` / `ENABLE_EMBEDDING_SYNC_QUEUE`
-- `RUN_QUEUE_WORKERS_IN_API` — `true` in dev, `false` + `start:worker` on Render
+- `RUN_QUEUE_WORKERS_IN_API` — defaults **`true`** in dev/test, **`false`** in production (`NODE_ENV=production`). In production run **`npm run start:worker`** as a separate process (Render background worker, second dyno, etc.) so embedding sync and checkout expiry do not block HTTP requests.
 - `ENABLE_CHAT_DETERMINISTIC_ASSIST` — post-graph cart/checkout safety nets (default `true`)
 
 ---
