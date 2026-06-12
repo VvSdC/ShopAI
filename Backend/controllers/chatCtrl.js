@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
 import {
   getSessionForUser,
+  createSession,
   appendMessages,
   maybeTrimOldSessions,
   sessionHistoryForApi,
@@ -17,10 +18,9 @@ import {
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 import { recordChatRouteDecision } from '../services/llmUsageLogger.js'
 import { CHAT_HISTORY_MAX_ITEMS } from '../constants/chatLimits.js'
-import { prepareChatHistoryForLlm } from '../utils/chatHistoryTrim.js'
 
 export const chatMessageCtrl = asyncHandler(async (req, res) => {
-  const { message, history, sessionId } = req.body
+  const { message, sessionId } = req.body
 
   const user = await User.findById(req.userAuthId).select('fullname')
   if (!user) {
@@ -35,11 +35,11 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
       res.status(404)
       throw new Error('Conversation not found')
     }
+  } else {
+    session = await createSession(req.userAuthId, user.fullname)
   }
 
-  const trimmedHistory = session
-    ? sessionHistoryForApi(session, CHAT_HISTORY_MAX_ITEMS)
-    : prepareChatHistoryForLlm(history || [])
+  const trimmedHistory = sessionHistoryForApi(session, CHAT_HISTORY_MAX_ITEMS)
 
   const userText = message
 
@@ -55,6 +55,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
         userName: user.fullname,
         userText,
         history: trimmedHistory,
+        historyPrepared: true,
       })
       patchLlmUsageContext({
         route: graphResult.route || null,
@@ -70,7 +71,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
         graphResult,
         req.userAuthId,
         trimmedHistory,
-        session ? sessionCartQueueForAssist(session) : null
+        sessionCartQueueForAssist(session)
       )
     }
   )
@@ -96,12 +97,10 @@ async function persistAndRespond(
 
   const reply = sanitizeAssistantReply(applyCheckoutReply(assistedReply, toolResults))
   const payload = buildChatResponse(reply, toolResults)
-  if (session) {
-    const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
-    await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
-    await maybeTrimOldSessions(userId)
-    payload.sessionId = String(session._id)
-    payload.sessionTitle = session.title
-  }
+  const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
+  await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
+  await maybeTrimOldSessions(userId)
+  payload.sessionId = String(session._id)
+  payload.sessionTitle = session.title
   return payload
 }

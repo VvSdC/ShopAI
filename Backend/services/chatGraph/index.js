@@ -5,9 +5,15 @@ export { evaluateGuard, REFUSE_MESSAGES } from './guard.js'
 export { routeIntent, ROUTE_NAMES } from './router.js'
 export { ROUTE_TOOL_NAMES } from './toolSets.js'
 
-export async function runChatGraph({ userId, userName, userText, history = [] }) {
+export async function runChatGraph({
+  userId,
+  userName,
+  userText,
+  history = [],
+  historyPrepared = false,
+}) {
   const graph = getCompiledGraph()
-  const trimmedHistory = prepareChatHistoryForLlm(history)
+  const trimmedHistory = historyPrepared ? history : prepareChatHistoryForLlm(history)
 
   const result = await graph.invoke({
     userId,

@@ -58,6 +58,7 @@ export default function ChatWidget() {
   const [isLoading, setIsLoading] = useState(false)
 
   const [cartHint, setCartHint] = useState('')
+  const [sessionId, setSessionId] = useState(null)
 
   const messagesEndRef = useRef(null)
 
@@ -129,9 +130,10 @@ export default function ChatWidget() {
 
     try {
 
-      const historyForApi = updatedMessages.slice(-20).slice(0, -1)
-
-      const data = await sendMessage({ text, history: historyForApi })
+      const data = await sendMessage({ text, sessionId: sessionId ?? undefined })
+      if (data.sessionId) {
+        setSessionId(data.sessionId)
+      }
 
       const { cartSummary } = handleClientActions(data)
 

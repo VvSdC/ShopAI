@@ -22,20 +22,15 @@ export function useShopAIChatActions() {
     [dispatch]
   )
 
-  const sendMessage = useCallback(
-    async ({ text, sessionId, history }) => {
-      const payload = { message: text }
-      if (sessionId) {
-        payload.sessionId = sessionId
-      } else if (history?.length) {
-        payload.history = history
-      }
+  const sendMessage = useCallback(async ({ text, sessionId }) => {
+    const payload = { message: text }
+    if (sessionId) {
+      payload.sessionId = sessionId
+    }
 
-      const { data } = await axiosInstance.post('/chat/message', payload)
-      return data
-    },
-    []
-  )
+    const { data } = await axiosInstance.post('/chat/message', payload)
+    return data
+  }, [])
 
   return { sendMessage, handleClientActions }
 }

@@ -161,12 +161,14 @@ The customer always sees **“ShopAI”** — internal model names are not expos
 
 ## Sessions and history
 
-| Mode | Behavior |
-|------|----------|
-| **With `sessionId`** | Messages are stored in MongoDB (`ChatSession`). The customer can open old chats from the sidebar. |
-| **Without `sessionId`** | The frontend may send a short `history` array; only the last portion is sent to the AI (capped for cost and speed). |
+All chat turns are stored in MongoDB (`ChatSession`). The server loads and trims history from the session — **client-supplied `history` is not accepted** (prevents prompt injection and duplicate trimming).
 
-Creating a new session adds a **welcome message** from the assistant so the UI is never empty.
+| Request | Behavior |
+|---------|----------|
+| **`sessionId` provided** | Loads that conversation for the logged-in user. |
+| **No `sessionId`** | Creates a new session automatically (used by the compact widget on first message). The response includes `sessionId` for follow-up turns. |
+
+Creating a session adds a **welcome message** from the assistant so the UI is never empty. The full-screen assistant page creates sessions via `POST /chat/sessions` and always sends `sessionId`.
 
 ---
 
