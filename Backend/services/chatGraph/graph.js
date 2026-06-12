@@ -12,7 +12,9 @@ function buildGraph() {
     .addNode('format', formatNode)
 
   for (const route of ROUTE_NAMES) {
-    workflow.addNode(route, makeAgentNode(route))
+    const handler =
+      route === 'product_detail' ? productDetailNode : makeAgentNode(route)
+    workflow.addNode(route, handler)
   }
 
   workflow.addEdge(START, 'guard')

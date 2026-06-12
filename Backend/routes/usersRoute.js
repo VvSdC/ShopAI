@@ -30,8 +30,13 @@ import {
 
 const userRoutes = express.Router();
 
-userRoutes.post("/register", validate(registerSchema), registerUserCtrl);
-userRoutes.post("/login", validate(loginSchema), loginUserCtrl);
+/** Mounted in app.js with authLimiter only (before apiLimiter). */
+export const loginRoute = express.Router();
+loginRoute.post("/", validate(loginSchema), loginUserCtrl);
+
+export const registerRoute = express.Router();
+registerRoute.post("/", validate(registerSchema), registerUserCtrl);
+
 userRoutes.post("/refresh", refreshTokenCtrl);
 userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.post("/forgot-password", forgotPasswordCtrl);

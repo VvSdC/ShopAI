@@ -2,31 +2,48 @@ import Product from '../../model/Product.js'
 import { config } from '../../config/env.js'
 import { cosineSimilarity } from './embeddingService.js'
 
-const SELECT =
-  'name brand category price totalQty totalSold colors sizes images description tags searchDocument embedding'
+/** Display fields for search results — never includes embedding vectors. */
+const PRODUCT_FIELDS =
+  'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
 
+function localCandidateLimit(limit) {
+  return Math.min(Math.max(limit * 4, limit), config.search.vectorCandidates)
+}
+
+/**
+ * Dev / fallback path: score embeddings in-process, then hydrate top hits without
+ * pulling embedding arrays into the final result set.
+ */
 export async function vectorSearchLocal(queryVector, filter, limit) {
-  const products = await Product.find({
+  const candidates = await Product.find({
     ...filter,
     embedding: { $exists: true, $ne: [] },
   })
-    .select(SELECT)
-    .limit(Math.min(limit * 4, 200))
+    .select('_id embedding')
+    .limit(localCandidateLimit(limit))
     .lean()
 
-  const scored = products
-    .map((product) => ({
-      product,
-      score: cosineSimilarity(queryVector, product.embedding),
+  const topIds = candidates
+    .map((doc) => ({
+      _id: doc._id,
+      score: cosineSimilarity(queryVector, doc.embedding),
     }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(({ product }) => product)
+    .map(({ _id }) => _id)
 
-  return scored
+  if (topIds.length === 0) return []
+
+  const products = await Product.find({ _id: { $in: topIds } })
+    .select(PRODUCT_FIELDS)
+    .lean()
+
+  const byId = new Map(products.map((p) => [String(p._id), p]))
+  return topIds.map((id) => byId.get(String(id))).filter(Boolean)
 }
 
+/** Atlas ANN — computation stays in the database; embeddings are not returned. */
 export async function vectorSearchAtlas(queryVector, filter, limit) {
   const pipeline = [
     {

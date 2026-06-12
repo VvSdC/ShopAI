@@ -14,7 +14,7 @@ import colorRouter from '../routes/colorRouter.js'
 import orderRouter from '../routes/ordersRouter.js'
 import productsRouter from '../routes/productsRoute.js'
 import reviewRouter from '../routes/reviewRouter.js'
-import userRoutes from '../routes/usersRoute.js'
+import userRoutes, { loginRoute, registerRoute } from '../routes/usersRoute.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
 import cartRouter from '../routes/cartRouter.js'
@@ -153,9 +153,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join('public', 'index.html'))
 })
 
+app.use('/shopai/users/login', authLimiter, loginRoute)
+app.use('/shopai/users/register', authLimiter, registerRoute)
 app.use('/shopai/users/', apiLimiter, userRoutes)
-app.use('/shopai/users/login', authLimiter)
-app.use('/shopai/users/register', authLimiter)
 app.use('/shopai/products/', apiLimiter, productsRouter)
 app.use('/shopai/categories/', apiLimiter, categoriesRouter)
 app.use('/shopai/brands/', apiLimiter, brandsRouter)
