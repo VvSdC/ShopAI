@@ -157,6 +157,7 @@ export const config = {
     cohereApiKey: env('COHERE_API_KEY', ''),
     vectorIndex: env('ATLAS_VECTOR_INDEX', 'product_vector_index'),
     vectorCandidates: envInt('SEARCH_VECTOR_CANDIDATES', 100),
+    localVectorCandidateCap: envInt('SEARCH_LOCAL_VECTOR_CAP', 500),
     vectorLimit: envInt('SEARCH_VECTOR_LIMIT', 50),
     keywordLimit: envInt('SEARCH_KEYWORD_LIMIT', 50),
     rrfK: envInt('SEARCH_RRF_K', 60),

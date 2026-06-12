@@ -42,15 +42,64 @@ describe('vectorSearchLocal', () => {
       .mockReturnValueOnce(chainHydrate)
 
     const { vectorSearchLocal } = await import('../../services/search/vectorSearch.js')
-    const results = await vectorSearchLocal([1, 0], {}, 1)
+    const results = await vectorSearchLocal([1, 0], { brand: 'Acme' }, 1)
 
     expect(chainEmbedding.select).toHaveBeenCalledWith('_id embedding')
+    expect(chainEmbedding.limit).toHaveBeenCalledWith(4)
     expect(chainHydrate.select).toHaveBeenCalledWith(
       expect.not.stringContaining('embedding')
     )
     expect(results).toHaveLength(1)
     expect(results[0].name).toBe('Alpha')
     expect(results[0].embedding).toBeUndefined()
+  })
+
+  it('samples candidates when no catalog pre-filter is present', async () => {
+    const idA = '507f1f77bcf86cd799439011'
+
+    mockAggregate.mockResolvedValue([{ _id: idA, embedding: [1, 0] }])
+
+    const chainHydrate = {
+      select: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([{ _id: idA, name: 'Sampled' }]),
+    }
+    mockFind.mockReturnValueOnce(chainHydrate)
+
+    const { vectorSearchLocal } = await import('../../services/search/vectorSearch.js')
+    const results = await vectorSearchLocal([1, 0], {}, 1)
+
+    expect(mockAggregate).toHaveBeenCalledWith([
+      { $match: { embedding: { $exists: true, $ne: [] } } },
+      { $sample: { size: 4 } },
+      { $project: { _id: 1, embedding: 1 } },
+    ])
+    expect(mockFind).toHaveBeenCalledTimes(1)
+    expect(results[0].name).toBe('Sampled')
+  })
+
+  it('caps local candidates at SEARCH_LOCAL_VECTOR_CAP', async () => {
+    vi.resetModules()
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        db: { mongoUrl: 'mongodb://127.0.0.1:27017/shop' },
+        search: {
+          vectorCandidates: 2000,
+          localVectorCandidateCap: 500,
+          vectorIndex: 'product_vector_index',
+        },
+      },
+    }))
+
+    mockAggregate.mockResolvedValue([])
+
+    const { vectorSearchLocal } = await import('../../services/search/vectorSearch.js')
+    await vectorSearchLocal([1, 0], {}, 200)
+
+    expect(mockAggregate).toHaveBeenCalledWith([
+      { $match: { embedding: { $exists: true, $ne: [] } } },
+      { $sample: { size: 500 } },
+      { $project: { _id: 1, embedding: 1 } },
+    ])
   })
 })
 

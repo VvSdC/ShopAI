@@ -8,7 +8,41 @@ const PRODUCT_FIELDS =
   'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
 
 function localCandidateLimit(limit) {
-  return Math.min(Math.max(limit * 4, limit), config.search.vectorCandidates)
+  const scaled = Math.max(limit * 4, limit)
+  return Math.min(
+    scaled,
+    config.search.vectorCandidates,
+    config.search.localVectorCandidateCap
+  )
+}
+
+function hasCatalogPreFilter(filter = {}) {
+  return Boolean(
+    filter.category ||
+      filter.brand ||
+      filter.colors ||
+      filter.sizes ||
+      filter.price ||
+      filter.$expr
+  )
+}
+
+async function loadLocalCandidates(filter, candidateLimit) {
+  const match = {
+    ...filter,
+    embedding: { $exists: true, $ne: [] },
+  }
+
+  if (hasCatalogPreFilter(filter)) {
+    return Product.find(match).select('_id embedding').limit(candidateLimit).lean()
+  }
+
+  // Broad catalog: sample a bounded set instead of loading arbitrary first N docs.
+  return Product.aggregate([
+    { $match: match },
+    { $sample: { size: candidateLimit } },
+    { $project: { _id: 1, embedding: 1 } },
+  ])
 }
 
 /**
@@ -16,13 +50,8 @@ function localCandidateLimit(limit) {
  * pulling embedding arrays into the final result set.
  */
 export async function vectorSearchLocal(queryVector, filter, limit) {
-  const candidates = await Product.find({
-    ...filter,
-    embedding: { $exists: true, $ne: [] },
-  })
-    .select('_id embedding')
-    .limit(localCandidateLimit(limit))
-    .lean()
+  const candidateLimit = localCandidateLimit(limit)
+  const candidates = await loadLocalCandidates(filter, candidateLimit)
 
   const topIds = candidates
     .map((doc) => ({
