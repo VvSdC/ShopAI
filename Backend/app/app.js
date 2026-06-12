@@ -2,9 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
-import rateLimit from 'express-rate-limit'
 import cookieParser from 'cookie-parser'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
+import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
 import path from 'path'
 import { config } from '../config/env.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
@@ -40,30 +40,6 @@ app.use(cors({
 }))
 
 app.use(cookieParser())
-
-const apiLimiter = rateLimit({
-  windowMs: config.rateLimit.api.windowMs,
-  max: config.rateLimit.api.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many requests, please try again later.' },
-})
-
-const authLimiter = rateLimit({
-  windowMs: config.rateLimit.auth.windowMs,
-  max: config.rateLimit.auth.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many login attempts, please try again later.' },
-})
-
-const chatLimiter = rateLimit({
-  windowMs: config.rateLimit.chat.windowMs,
-  max: config.rateLimit.chat.max,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Chat rate limit reached. Please wait a moment.' },
-})
 
 const endpointSecret = config.stripe.webhookSecret
 
