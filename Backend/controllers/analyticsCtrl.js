@@ -51,12 +51,12 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
     throw new Error('User not found')
   }
 
-  const job = createChatEvalJob(req.userAuthId)
+  const job = await createChatEvalJob(req.userAuthId)
   res.status(202).json({ success: true, jobId: job.id })
 
   ;(async () => {
     try {
-      patchChatEvalJob(job.id, { status: 'running' })
+      await patchChatEvalJob(job.id, { status: 'running' })
 
       const payload = await runWithLlmUsageContext(
         { source: 'eval', userId: req.userAuthId },
@@ -69,7 +69,7 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
           )
       )
 
-      patchChatEvalJob(job.id, {
+      await patchChatEvalJob(job.id, {
         status: 'completed',
         total: payload.results.length,
         completed: payload.results.length,
@@ -79,7 +79,7 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
         finishedAt: new Date().toISOString(),
       })
     } catch (err) {
-      patchChatEvalJob(job.id, {
+      await patchChatEvalJob(job.id, {
         status: 'failed',
         error: err.message || 'Evaluation run failed',
         finishedAt: new Date().toISOString(),
@@ -89,7 +89,7 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
 })
 
 export const getChatEvalStatusCtrl = asyncHandler(async (req, res) => {
-  const job = getChatEvalJob(req.params.jobId, req.userAuthId)
+  const job = await getChatEvalJob(req.params.jobId, req.userAuthId)
   if (!job) {
     res.status(404)
     throw new Error('Evaluation job not found')

@@ -1,24 +1,45 @@
-import crypto from 'crypto'
+import EvalJob from '../model/EvalJob.js'
 
-const jobs = new Map()
 const MAX_JOBS = 20
 
-function trimJobs() {
-  if (jobs.size <= MAX_JOBS) return
-  const oldest = [...jobs.values()].sort(
-    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-  )
-  while (jobs.size > MAX_JOBS && oldest.length) {
-    jobs.delete(oldest.shift().id)
+function mapEvalJob(doc) {
+  if (!doc) return null
+  const row = doc.toObject ? doc.toObject() : doc
+  return {
+    id: row.jobId,
+    userId: String(row.user),
+    status: row.status,
+    total: row.total,
+    completed: row.completed,
+    currentCase: row.currentCase ?? null,
+    results: row.results ?? [],
+    summary: row.summary ?? null,
+    error: row.error ?? null,
+    startedAt: row.startedAt?.toISOString?.() || row.startedAt,
+    finishedAt: row.finishedAt?.toISOString?.() || row.finishedAt || null,
   }
 }
 
-export function createChatEvalJob(userId) {
-  trimJobs()
-  const id = crypto.randomUUID()
-  const job = {
-    id,
-    userId: String(userId),
+async function trimOldJobs() {
+  const count = await EvalJob.countDocuments()
+  if (count < MAX_JOBS) return
+
+  const toRemove = count - MAX_JOBS + 1
+  const oldest = await EvalJob.find()
+    .sort({ startedAt: 1 })
+    .limit(toRemove)
+    .select('_id')
+
+  if (oldest.length) {
+    await EvalJob.deleteMany({ _id: { $in: oldest.map((doc) => doc._id) } })
+  }
+}
+
+export async function createChatEvalJob(userId) {
+  await trimOldJobs()
+
+  const doc = await EvalJob.create({
+    user: userId,
     status: 'queued',
     total: 0,
     completed: 0,
@@ -26,24 +47,26 @@ export function createChatEvalJob(userId) {
     results: [],
     summary: null,
     error: null,
-    startedAt: new Date().toISOString(),
+    startedAt: new Date(),
     finishedAt: null,
+  })
+
+  return mapEvalJob(doc)
+}
+
+export async function getChatEvalJob(jobId, userId) {
+  const doc = await EvalJob.findOne({ jobId, user: userId })
+  return mapEvalJob(doc)
+}
+
+export async function patchChatEvalJob(jobId, patch) {
+  const update = { ...patch }
+  if (patch.finishedAt && typeof patch.finishedAt === 'string') {
+    update.finishedAt = new Date(patch.finishedAt)
   }
-  jobs.set(id, job)
-  return job
-}
 
-export function getChatEvalJob(jobId, userId) {
-  const job = jobs.get(jobId)
-  if (!job || job.userId !== String(userId)) return null
-  return job
-}
-
-export function patchChatEvalJob(jobId, patch) {
-  const job = jobs.get(jobId)
-  if (!job) return null
-  Object.assign(job, patch)
-  return job
+  const doc = await EvalJob.findOneAndUpdate({ jobId }, { $set: update }, { new: true })
+  return mapEvalJob(doc)
 }
 
 export function publicChatEvalJob(job) {
