@@ -8,7 +8,7 @@ import {
   mapProductSearchResult,
   trimToRelevantProducts,
 } from '../productSearch.js'
-import { embedText } from './embeddingService.js'
+import { embedSearchQuery } from './embeddingService.js'
 import { vectorSearch } from './vectorSearch.js'
 import { reciprocalRankFusion, applyRerankOrder } from './hybridRanker.js'
 import { rerankDocuments } from './rerankService.js'
@@ -85,7 +85,7 @@ export async function searchProducts(args = {}) {
   let vectorResults = []
 
   try {
-    const { vector } = await embedText(query)
+    const { vector } = await embedSearchQuery(query)
     vectorResults = await vectorSearch(vector, mongoFilter, config.search.vectorLimit)
   } catch (err) {
     logger.warn('[search] vector path skipped:', err.message)

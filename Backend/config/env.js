@@ -164,6 +164,7 @@ export const config = {
     keywordLimit: envInt('SEARCH_KEYWORD_LIMIT', 50),
     rrfK: envInt('SEARCH_RRF_K', 60),
     embeddingVersion: envInt('SEARCH_EMBEDDING_VERSION', 1),
+    queryEmbedCacheTtlSec: envInt('SEARCH_QUERY_EMBED_CACHE_TTL', 3600),
     autoSyncEmbeddings: envBool('SEARCH_AUTO_SYNC_EMBEDDINGS', true),
     syncDelayMs: envInt('SEARCH_SYNC_DELAY_MS', 1200),
     syncConcurrency: envInt('SEARCH_SYNC_CONCURRENCY', 5),

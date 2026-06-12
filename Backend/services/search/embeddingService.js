@@ -1,5 +1,7 @@
 import logger from '../../utils/logger.js'
 import { config } from '../../config/env.js'
+import * as cache from '../cacheService.js'
+import { queryEmbeddingCacheKey } from '../../constants/cacheKeys.js'
 
 function meanPool(tokenEmbeddings) {
   if (!Array.isArray(tokenEmbeddings) || tokenEmbeddings.length === 0) return []
@@ -148,6 +150,37 @@ export async function embedText(text) {
     }
   }
   throw lastError || new Error('No embedding provider configured')
+}
+
+/**
+ * Embed a customer search query with Redis cache (1h TTL by default).
+ * Product indexing should use embedText() directly — documents are not repeated queries.
+ */
+export async function embedSearchQuery(text) {
+  const trimmed = text?.trim()
+  if (!trimmed) throw new Error('Empty text for embedding')
+
+  const cacheKey = queryEmbeddingCacheKey(trimmed, config.search.embeddingVersion)
+  const ttl = config.search.queryEmbedCacheTtlSec
+
+  const cached = await cache.get(cacheKey)
+  if (cached?.vector?.length) {
+    return {
+      vector: cached.vector,
+      provider: cached.provider,
+      model: cached.model,
+      cached: true,
+    }
+  }
+
+  const result = await embedText(trimmed)
+  await cache.set(
+    cacheKey,
+    { vector: result.vector, provider: result.provider, model: result.model },
+    ttl
+  )
+
+  return { ...result, cached: false }
 }
 
 export function cosineSimilarity(a, b) {

@@ -7,6 +7,7 @@ export const CACHE_KEYS = {
   couponsActive: 'coupons:active',
   couponCode: (code) => `coupons:code:${String(code || '').toUpperCase().trim()}`,
   productsListPrefix: 'products:list:',
+  queryEmbeddingPrefix: 'search:query-embed:',
 }
 
 export const CACHE_TTL = {
@@ -16,6 +17,24 @@ export const CACHE_TTL = {
   couponsActive: 120,
   couponCode: 120,
   productsList: 300,
+  queryEmbedding: 3600,
+}
+
+export function normalizeSearchQueryForCache(text) {
+  return String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+export function queryEmbeddingCacheKey(text, embeddingVersion) {
+  const normalized = normalizeSearchQueryForCache(text)
+  const hash = crypto
+    .createHash('sha256')
+    .update(normalized)
+    .digest('hex')
+    .slice(0, 32)
+  return `${CACHE_KEYS.queryEmbeddingPrefix}v${embeddingVersion}:${hash}`
 }
 
 export function productsListCacheKey(query) {
