@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { Dialog, Menu, Transition } from '@headlessui/react'
+import { Dialog, Transition } from '@headlessui/react'
 import { Link, Outlet } from 'react-router-dom'
 import {
   Bars3CenterLeftIcon,

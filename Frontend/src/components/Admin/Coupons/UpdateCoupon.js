@@ -11,7 +11,7 @@ import {
   updateCouponAction,
 } from "../../../redux/slices/coupons/couponsSlice";
 import { useDispatch, useSelector } from "react-redux";
-import { serializeCouponDates, startOfDay } from "../../../utils/couponDates";
+import { serializeCouponDates } from "../../../utils/couponDates";
 
 export default function UpdateCoupon() {
   //get coupon from url

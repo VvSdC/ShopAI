@@ -110,7 +110,6 @@ export default function OrderPayment() {
 
   const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
   const { coupon: appliedCoupon } = useSelector((state) => state?.coupons)
-  const couponCode = appliedCoupon?.coupon?.code
   const { loading: orderLoading, error: orderErr } = useSelector((state) => state?.orders)
 
   const availableItems = cartItems?.filter((item) => !item.unavailable) || []

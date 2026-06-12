@@ -1,9 +1,5 @@
 import { CalendarIcon } from "@heroicons/react/20/solid";
 
-function classNames(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export default function CustomerDetails({ email, dateJoined, fullName }) {
   return (
     <div className="lg:flex lg:items-center lg:justify-between">

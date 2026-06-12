@@ -1,10 +1,8 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axiosInstance from '../../../utils/axiosInstance'
 
-import baseURL from '../../../utils/baseURL'
 import {
   resetErrAction,
-  resetSuccessAction,
 } from '../globalActions/globalActions'
 //initialState
 const initialState = {
