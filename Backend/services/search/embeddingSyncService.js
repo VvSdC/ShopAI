@@ -2,6 +2,8 @@ import Product from '../../model/Product.js'
 import { config } from '../../config/env.js'
 import { indexProductEmbedding } from './vectorIndexService.js'
 
+const SYNC_BATCH_SIZE = 500
+
 export function getEmbeddingSpec() {
   return {
     version: config.search.embeddingVersion,
@@ -20,6 +22,7 @@ export function productNeedsEmbedding(product, spec = getEmbeddingSpec()) {
 
 /**
  * Index products that are missing or stale embeddings. Runs sequentially to respect API limits.
+ * Scans the catalog with a cursor (batchSize 500) — never loads all products into memory.
  */
 export async function syncMissingProductEmbeddings(options = {}) {
   const {
@@ -28,26 +31,40 @@ export async function syncMissingProductEmbeddings(options = {}) {
   } = options
 
   const spec = getEmbeddingSpec()
-  const candidates = await Product.find({})
-    .select('_id name embedding embeddedAt embeddingVersion embeddingModel')
-    .lean()
+  const total = await Product.countDocuments({})
 
-  const pending = candidates.filter((p) => productNeedsEmbedding(p, spec))
-  const toProcess = maxProducts > 0 ? pending.slice(0, maxProducts) : pending
-
-  if (toProcess.length === 0) {
-    return { total: candidates.length, pending: 0, indexed: 0, failed: 0 }
-  }
-
-  console.log(
-    `[search] Auto-sync: indexing ${toProcess.length} product(s) (missing or stale embeddings)`
-  )
-
+  let pending = 0
   let indexed = 0
   let failed = 0
+  let reachedProcessLimit = false
+  let loggedStart = false
 
-  for (const p of toProcess) {
-    const result = await indexProductEmbedding(p._id)
+  const cursor = Product.find({})
+    .select('_id name embedding embeddedAt embeddingVersion embeddingModel')
+    .lean()
+    .cursor({ batchSize: SYNC_BATCH_SIZE })
+
+  for await (const product of cursor) {
+    if (!productNeedsEmbedding(product, spec)) continue
+
+    pending += 1
+
+    if (reachedProcessLimit) continue
+
+    if (maxProducts > 0 && indexed + failed >= maxProducts) {
+      reachedProcessLimit = true
+      continue
+    }
+
+    if (!loggedStart) {
+      const capNote = maxProducts > 0 ? ` (up to ${maxProducts} this run)` : ''
+      console.log(
+        `[search] Auto-sync: indexing stale product embeddings${capNote}`
+      )
+      loggedStart = true
+    }
+
+    const result = await indexProductEmbedding(product._id)
     if (result.ok) indexed += 1
     else failed += 1
 
@@ -56,10 +73,14 @@ export async function syncMissingProductEmbeddings(options = {}) {
     }
   }
 
+  if (pending === 0) {
+    return { total, pending: 0, indexed: 0, failed: 0 }
+  }
+
   console.log(`[search] Auto-sync done: ${indexed} ok, ${failed} failed`)
   return {
-    total: candidates.length,
-    pending: pending.length,
+    total,
+    pending,
     indexed,
     failed,
   }
