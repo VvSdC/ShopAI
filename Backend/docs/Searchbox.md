@@ -86,8 +86,31 @@ flowchart TB
 
 - The **query text** is turned into an embedding via `services/search/embeddingService.js`.  
 - `services/search/vectorSearch.js` finds similar products:
-  - **MongoDB Atlas** (`mongodb+srv://`): uses Atlas **Vector Search** index (`ATLAS_VECTOR_INDEX`, default `product_vector_index`) on field `embedding`.  
-  - **Otherwise (local/dev):** loads products with embeddings and compares using **cosine similarity** in application code.
+  - **MongoDB Atlas** (`mongodb+srv://`): uses Atlas **Vector Search** (`$vectorSearch`) against index `ATLAS_VECTOR_INDEX` (default `product_vector_index`) on field `embedding`.  
+  - **Otherwise (local/dev):** loads a bounded sample of products with embeddings and compares using **cosine similarity** in application code.
+
+> **Atlas index setup (required for production vector search)**  
+> `$vectorSearch` does **not** use Mongoose `schema.index()` or a standard B-tree on `embedding`. You must create a **Vector Search** index in the [Atlas UI](https://www.mongodb.com/docs/atlas/atlas-vector-search/create-index/) or via the Atlas Search API on the `products` collection.  
+> Example index definition (adjust `numDimensions` to match `EMBEDDING_DIMENSION`, default `1024`):
+>
+> ```json
+> {
+>   "name": "product_vector_index",
+>   "type": "vectorSearch",
+>   "definition": {
+>     "fields": [
+>       {
+>         "type": "vector",
+>         "path": "embedding",
+>         "numDimensions": 1024,
+>         "similarity": "cosine"
+>       }
+>     ]
+>   }
+> }
+> ```
+>
+> Set `ATLAS_VECTOR_INDEX` in `.env` to the index name you choose. Without this index, Atlas deployments fall back to in-process cosine similarity (same as local dev).
 
 ### 4. Merge with RRF
 
@@ -222,7 +245,9 @@ Both use `searchProducts()` in `services/search/searchService.js`.
 | `RERANK_PROVIDER` | `voyage` | Primary reranker |
 | `RERANK_ENABLED` | `true` | Turn reranking on/off |
 | `RERANK_TOP_N` | `30` | How many candidates to rerank |
-| `ATLAS_VECTOR_INDEX` | `product_vector_index` | Atlas index name |
+| `ATLAS_VECTOR_INDEX` | `product_vector_index` | Atlas **Vector Search** index name (create in Atlas UI/API — not via Mongoose) |
+| `EMBEDDING_DIMENSION` | `1024` | Vector dimensions — must match the Atlas index `numDimensions` |
+| `SEARCH_LOCAL_VECTOR_CAP` | `500` | Max products scored in-process when Atlas/local fallback runs |
 | `SEARCH_RRF_K` | `60` | RRF constant |
 | `SEARCH_KEYWORD_LIMIT` | `50` | Max keyword candidates |
 | `SEARCH_VECTOR_LIMIT` | `50` | Max vector candidates |

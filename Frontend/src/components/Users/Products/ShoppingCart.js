@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   changeOrderItemQty,
+  clearMergeConflicts,
   getCartItemsFromLocalStorageAction,
   removeOrderItemQty,
   validateCartAction,
@@ -347,7 +348,9 @@ export default function ShoppingCart() {
   const { coupon, loading: couponLoading, error: couponError, isAdded } = useSelector(
     (state) => state?.coupons
   )
-  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
+  const { cartItems, stockWarnings, mergeConflicts, validating } = useSelector(
+    (state) => state?.carts
+  )
 
   const availableItems = cartItems?.filter((item) => !item.unavailable) || []
   const hasUnavailable = cartItems?.some((item) => item.unavailable)
@@ -451,6 +454,36 @@ export default function ShoppingCart() {
           <ArrowLeftIcon className="h-4 w-4" />
           Continue shopping
         </Link>
+
+        {mergeConflicts?.length > 0 && (
+          <div className="mt-4 rounded-lg border border-sky-300 bg-sky-50 p-4 lg:mt-0">
+            <div className="flex gap-3">
+              <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-sky-700" />
+              <div className="flex-1 text-sm">
+                <p className="font-semibold text-sky-950">Cart synced with your account</p>
+                <p className="mt-1 text-sky-900/90">
+                  Items only on this device were added. Where the same product variant existed in
+                  both places, your account cart quantity was kept.
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-sky-900/90">
+                  {mergeConflicts.map((w, i) => (
+                    <li key={i}>
+                      <span className="font-medium capitalize">{w.name}</span> ({w.color}, {w.size}) —{' '}
+                      {w.reason}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => dispatch(clearMergeConflicts())}
+                  className="mt-3 font-semibold text-sky-950 underline hover:no-underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {stockWarnings?.length > 0 && (
           <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 lg:mt-0">

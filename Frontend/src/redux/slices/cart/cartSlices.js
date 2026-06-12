@@ -10,9 +10,45 @@ const initialState = {
   isUpdated: false,
   isDelete: false,
   stockWarnings: [],
+  mergeConflicts: [],
   validating: false,
   serverCouponCode: null,
   serverTotal: null,
+}
+
+function cartLineKey(item) {
+  if (!item?._id) return ''
+  return `${String(item._id)}|${item.color}|${item.size}`
+}
+
+/** Split guest local cart into lines safe to upload vs qty mismatches (server wins). */
+export function partitionLocalCartForMerge(localItems, serverItems) {
+  const serverByKey = new Map((serverItems || []).map((item) => [cartLineKey(item), item]))
+  const itemsToSync = []
+  const mergeConflicts = []
+
+  for (const local of localItems || []) {
+    if (!local?._id || !local?.color || !local?.size) continue
+    const key = cartLineKey(local)
+    const serverLine = serverByKey.get(key)
+    if (!serverLine) {
+      itemsToSync.push(local)
+      continue
+    }
+    if (Number(serverLine.qty) !== Number(local.qty)) {
+      mergeConflicts.push({
+        _id: local._id,
+        color: local.color,
+        size: local.size,
+        name: local.name || serverLine.name,
+        localQty: local.qty,
+        serverQty: serverLine.qty,
+        reason: `This device had ${local.qty}, your account cart has ${serverLine.qty}. We kept the account quantity.`,
+      })
+    }
+  }
+
+  return { itemsToSync, mergeConflicts }
 }
 
 function mapServerCartItems(items) {
@@ -75,11 +111,10 @@ export const syncAndLoadCartAction = createAsyncThunk(
       const { data: initial } = await axiosInstance.get('/cart')
       const serverItems = mapServerCartItems(initial.cart?.items)
       const localItems = readLocalCart()
+      const { itemsToSync, mergeConflicts } = partitionLocalCartForMerge(localItems, serverItems)
 
-      // Only merge local → server when the server cart is empty (e.g. guest cart before login).
-      // If chat/API already updated the server cart, re-syncing localStorage would double quantities.
-      if (serverItems.length === 0 && localItems.length > 0) {
-        await axiosInstance.post('/cart/sync', { items: localItems })
+      if (itemsToSync.length > 0) {
+        await axiosInstance.post('/cart/sync', { items: itemsToSync })
       }
 
       const { data } = await axiosInstance.get('/cart')
@@ -93,6 +128,7 @@ export const syncAndLoadCartAction = createAsyncThunk(
         fromServer: true,
         serverCouponCode: data.cart?.couponCode || null,
         serverTotal: data.cart?.total ?? null,
+        mergeConflicts,
       }
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -317,11 +353,19 @@ function handleCartFulfilled(state, action) {
   if (action.payload?.serverTotal !== undefined) {
     state.serverTotal = action.payload.serverTotal
   }
+  if (action.payload?.mergeConflicts !== undefined) {
+    state.mergeConflicts = action.payload.mergeConflicts
+  }
 }
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
+  reducers: {
+    clearMergeConflicts(state) {
+      state.mergeConflicts = []
+    },
+  },
   extraReducers: (builder) => {
     builder.addCase(addOrderToCartaction.pending, (state) => {
       state.loading = true
@@ -380,5 +424,7 @@ const cartSlice = createSlice({
 })
 
 const cartReducer = cartSlice.reducer
+
+export const { clearMergeConflicts } = cartSlice.actions
 
 export default cartReducer

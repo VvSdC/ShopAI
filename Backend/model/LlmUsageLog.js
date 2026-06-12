@@ -28,6 +28,7 @@ const LlmUsageLogSchema = new mongoose.Schema(
 LlmUsageLogSchema.index({ createdAt: -1 })
 LlmUsageLogSchema.index({ source: 1, createdAt: -1 })
 LlmUsageLogSchema.index({ span: 1, route: 1, createdAt: -1 })
+LlmUsageLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 })
 
 const LlmUsageLog = mongoose.model('LlmUsageLog', LlmUsageLogSchema)
 

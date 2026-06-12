@@ -76,6 +76,8 @@ const ProductSchema = new Schema(
       default: '',
     },
     embedding: {
+      // Stored for local cosine fallback and Atlas $vectorSearch (requires a separate
+      // Atlas Vector Search index — not a Mongoose schema.index() call).
       type: [Number],
       default: undefined,
     },
@@ -129,7 +131,6 @@ ProductSchema.index({ category: 1 })
 ProductSchema.index({ brand: 1 })
 ProductSchema.index({ price: 1 })
 ProductSchema.index({ tags: 1 })
-ProductSchema.index({ embedding: 1 }, { sparse: true })
 
 const Product = mongoose.model('Product', ProductSchema)
 

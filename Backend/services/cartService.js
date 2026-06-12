@@ -302,12 +302,10 @@ export async function syncLocalItems(userId, items) {
       const key = lineKey(newLine)
       const existingIndex = cart.items.findIndex((line) => lineKey(line) === key)
       if (existingIndex >= 0) {
-        cart.items[existingIndex].qty = finalQty
-        cart.items[existingIndex].price = product.price
-        cart.items[existingIndex].totalPrice = product.price * finalQty
-      } else {
-        cart.items.push(newLine)
+        // Existing server line wins — sync only adds missing variants.
+        continue
       }
+      cart.items.push(newLine)
     } catch {
       // skip invalid or unavailable items during sync
     }
