@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import Order from '../model/Order.js'
 import User from '../model/User.js'
 import { sendOrderConfirmationEmail } from './emailService.js'
@@ -31,7 +32,7 @@ export async function sendOrderConfirmation(order, options = {}) {
   const email = resolveRecipientEmail(customer, receiptEmail)
 
   if (!email) {
-    console.error(
+    logger.error(
       'Order confirmation email skipped — no email for order',
       order.orderNumber,
       'userId=',
@@ -57,7 +58,7 @@ export async function sendOrderConfirmation(order, options = {}) {
     }
   }
 
-  console.log(`Sending order confirmation #${order.orderNumber} to ${email}`)
+  logger.log(`Sending order confirmation #${order.orderNumber} to ${email}`)
   const emailResult = await sendOrderConfirmationEmail(
     email,
     customer?.fullname || 'Customer',
@@ -71,12 +72,12 @@ export async function sendOrderConfirmation(order, options = {}) {
 
   if (emailResult?.success) {
     update.confirmationEmailSent = true
-    console.log(
+    logger.log(
       `Order confirmation sent #${order.orderNumber} via ${emailResult.provider}`,
       emailResult.messageId ? `(id: ${emailResult.messageId})` : ''
     )
   } else {
-    console.error(
+    logger.error(
       `Order confirmation failed #${order.orderNumber} to ${email}:`,
       emailResult?.error
     )
@@ -136,7 +137,7 @@ export async function processPaidOrder(orderId, options = {}) {
       await adjustStockForOrder(orderItems)
     } catch (err) {
       await Order.findByIdAndUpdate(id, { postPaymentProcessed: false })
-      console.error(
+      logger.error(
         `[fulfillment] stock reservation failed for order ${claimed.orderNumber}:`,
         err.message
       )

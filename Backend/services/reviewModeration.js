@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { chatCompletion } from './llmService.js'
 import Review from '../model/Review.js'
 
@@ -111,7 +112,7 @@ export function moderateReviewInBackground(reviewId) {
 
       await review.save()
     } catch (err) {
-      console.error(`Background moderation failed for review ${reviewId}:`, err.message)
+      logger.error(`Background moderation failed for review ${reviewId}:`, err.message)
       try {
         await Review.findByIdAndUpdate(reviewId, {
           moderationStatus: 'approved',

@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import Order from '../model/Order.js'
 import { config } from '../config/env.js'
@@ -36,7 +37,7 @@ export async function expireCheckoutJob(orderId) {
         await stripe.checkout.sessions.expire(order.stripeSessionId)
       }
     } catch (err) {
-      console.warn(`[checkoutQueue] Stripe expire failed for ${orderId}:`, err.message)
+      logger.warn(`[checkoutQueue] Stripe expire failed for ${orderId}:`, err.message)
     }
   }
 
@@ -90,14 +91,14 @@ export async function enqueueCheckoutExpiry(orderId, delayMs) {
     )
     return true
   } catch (err) {
-    console.warn(`[checkoutQueue] enqueue failed for ${orderId}:`, err.message)
+    logger.warn(`[checkoutQueue] enqueue failed for ${orderId}:`, err.message)
     return false
   }
 }
 
 export async function startCheckoutExpiryWorker() {
   if (!isCheckoutQueueEnabled()) {
-    console.log(
+    logger.log(
       '[checkoutQueue] Worker disabled — set REDIS_URL and ENABLE_CHECKOUT_QUEUE=true to enable'
     )
     return null
@@ -116,10 +117,10 @@ export async function startCheckoutExpiryWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[checkoutQueue] Job ${job?.id} failed:`, err.message)
+    logger.error(`[checkoutQueue] Job ${job?.id} failed:`, err.message)
   })
 
-  console.log('[checkoutQueue] Expiry worker started')
+  logger.log('[checkoutQueue] Expiry worker started')
   return worker
 }
 

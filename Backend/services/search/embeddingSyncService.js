@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { config } from '../../config/env.js'
 import { indexProductEmbedding } from './vectorIndexService.js'
@@ -76,7 +77,7 @@ export async function syncMissingProductEmbeddings(options = {}) {
   }
 
   const capNote = maxProducts > 0 ? ` (up to ${maxProducts} this run)` : ''
-  console.log(
+  logger.log(
     `[search] Auto-sync: indexing ${toProcess.length} product(s) at concurrency ${concurrency}${capNote}`
   )
 
@@ -88,7 +89,7 @@ export async function syncMissingProductEmbeddings(options = {}) {
   const indexed = outcomes.filter(Boolean).length
   const failed = outcomes.length - indexed
 
-  console.log(`[search] Auto-sync done: ${indexed} ok, ${failed} failed`)
+  logger.log(`[search] Auto-sync done: ${indexed} ok, ${failed} failed`)
   return {
     total,
     pending,

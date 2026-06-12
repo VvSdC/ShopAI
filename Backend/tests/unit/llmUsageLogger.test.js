@@ -15,6 +15,14 @@ vi.mock('../../services/llmUsageContext.js', () => ({
   getLlmUsageContext: () => ({}),
 }))
 
+vi.mock('../../utils/requestContext.js', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    getRequestId: () => '11111111-2222-4333-8444-555555555555',
+  }
+})
+
 describe('llmUsageLogger', () => {
   beforeEach(async () => {
     vi.resetModules()
@@ -91,5 +99,23 @@ describe('llmUsageLogger', () => {
     expect(entry.route).toBe('retrieval')
     expect(entry.routeReason).toBe('browse cricket bats')
     expect(entry.totalTokens).toBe(0)
+  })
+
+  it('includes requestId from request context', async () => {
+    const { recordLlmUsage, flushLlmUsageBuffer } = await import(
+      '../../services/llmUsageLogger.js'
+    )
+    const LlmUsageLog = (await import('../../model/LlmUsageLog.js')).default
+
+    recordLlmUsage({
+      provider: 'OpenRouter',
+      model: 'test',
+      responseData: { usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } },
+      latencyMs: 1,
+    })
+    await flushLlmUsageBuffer()
+
+    const entry = LlmUsageLog.insertMany.mock.calls.at(-1)[0][0]
+    expect(entry.requestId).toBe('11111111-2222-4333-8444-555555555555')
   })
 })

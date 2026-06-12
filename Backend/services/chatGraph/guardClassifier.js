@@ -1,4 +1,5 @@
 import { chatCompletion } from '../llmService.js'
+import logger from '../../utils/logger.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
 
 const VALID_REASONS = new Set(['injection', 'off_topic'])
@@ -80,9 +81,9 @@ ${text}`
     )
     const parsed = parseGuardJson(response.choices?.[0]?.message?.content)
     if (parsed) return parsed
-    console.warn('[guardClassifier] Unparseable LLM response, allowing message')
+    logger.warn('[guardClassifier] Unparseable LLM response, allowing message')
   } catch (err) {
-    console.warn('[guardClassifier] LLM safety check failed, allowing message:', err.message)
+    logger.warn('[guardClassifier] LLM safety check failed, allowing message:', err.message)
   }
 
   return { allowed: true }

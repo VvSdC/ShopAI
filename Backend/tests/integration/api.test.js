@@ -8,6 +8,7 @@ describe('GET /health', () => {
     expect(res.status).toBe(200)
     expect(res.body.status).toBe('ok')
     expect(res.body.env).toBe('test')
+    expect(res.headers['x-request-id']).toBeTruthy()
   })
 })
 

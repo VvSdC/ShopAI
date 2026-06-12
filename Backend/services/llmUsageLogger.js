@@ -1,6 +1,8 @@
 import LlmUsageLog from '../model/LlmUsageLog.js'
 import { config } from '../config/env.js'
 import { getLlmUsageContext } from './llmUsageContext.js'
+import { getRequestId } from '../utils/requestContext.js'
+import logger from '../utils/logger.js'
 
 const FLUSH_INTERVAL_MS = 5000
 const FLUSH_BATCH_SIZE = 100
@@ -51,6 +53,7 @@ function buildUsageEntry({
     span: span || ctx.span || 'completion',
     userId: userId || ctx.userId || null,
     sessionId: sessionId || ctx.sessionId || null,
+    requestId: getRequestId() || ctx.requestId || null,
     route: route || ctx.route || null,
     routeReason: routeReason ?? ctx.routeReason ?? null,
     provider: provider || 'unknown',
@@ -68,7 +71,7 @@ function schedulePeriodicFlush() {
 
   flushTimer = setInterval(() => {
     flushLlmUsageBuffer().catch((err) => {
-      console.warn('[llmUsage] periodic flush failed:', err.message)
+      logger.warn('[llmUsage] periodic flush failed:', err.message)
     })
   }, FLUSH_INTERVAL_MS)
 
@@ -87,14 +90,14 @@ export async function flushLlmUsageBuffer() {
     await LlmUsageLog.insertMany(batch, { ordered: false })
     return batch.length
   } catch (err) {
-    console.warn('[llmUsage] batch insert failed:', err.message)
+    logger.warn('[llmUsage] batch insert failed:', err.message)
     buffer.unshift(...batch)
     return 0
   } finally {
     flushing = false
     if (buffer.length >= FLUSH_BATCH_SIZE) {
       flushLlmUsageBuffer().catch((flushErr) => {
-        console.warn('[llmUsage] follow-up flush failed:', flushErr.message)
+        logger.warn('[llmUsage] follow-up flush failed:', flushErr.message)
       })
     }
   }
@@ -126,7 +129,7 @@ export function recordLlmUsage(params) {
 
   if (config.isTest) {
     LlmUsageLog.create(entry).catch((err) => {
-      console.warn('[llmUsage] failed to persist usage log:', err.message)
+      logger.warn('[llmUsage] failed to persist usage log:', err.message)
     })
     return
   }
@@ -136,7 +139,7 @@ export function recordLlmUsage(params) {
 
   if (buffer.length >= FLUSH_BATCH_SIZE) {
     flushLlmUsageBuffer().catch((err) => {
-      console.warn('[llmUsage] size-triggered flush failed:', err.message)
+      logger.warn('[llmUsage] size-triggered flush failed:', err.message)
     })
   }
 }

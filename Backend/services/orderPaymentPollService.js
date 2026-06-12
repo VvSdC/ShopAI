@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import Order from '../model/Order.js'
 import { getStripeClient } from '../config/stripeClient.js'
 import { orderService } from './orderService.js'
@@ -114,7 +115,7 @@ export async function pollOrderPaymentStatus(userId, orderId) {
         }
       }
     } catch (err) {
-      console.warn('[paymentPoll] Stripe retrieve failed:', err.message)
+      logger.warn('[paymentPoll] Stripe retrieve failed:', err.message)
     }
   }
 

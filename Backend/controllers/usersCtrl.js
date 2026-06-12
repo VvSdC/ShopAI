@@ -18,6 +18,7 @@ import {
   verifyRefreshToken,
 } from "../utils/authSessions.js";
 import config from "../config/env.js";
+import logger from "../utils/logger.js";
 
 // Cookie options
 const accessCookieOptions = {
@@ -66,7 +67,7 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
   try {
     await sendWelcomeEmail(user.email, user.fullname);
   } catch (err) {
-    console.error("Welcome email failed:", err?.message || err);
+    logger.error("Welcome email failed:", err?.message || err);
   }
 
   res.status(201).json({

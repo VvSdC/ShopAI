@@ -4,6 +4,7 @@ import {
   clientErrorMessage,
   resolveStatusCode,
 } from '../utils/appError.js'
+import logger from '../utils/logger.js'
 
 export const globalErrhandler = (err, req, res, _next) => {
   applyOperationalFlag(err, res)
@@ -11,7 +12,11 @@ export const globalErrhandler = (err, req, res, _next) => {
   const message = clientErrorMessage(err, statusCode)
 
   if (statusCode >= 500 || !err?.isOperational) {
-    console.error('[error]', req.method, req.originalUrl, err)
+    logger.error('[error]', req.method, req.originalUrl, err)
+  }
+
+  if (req.requestId) {
+    res.setHeader('X-Request-Id', req.requestId)
   }
 
   res.status(statusCode).json({

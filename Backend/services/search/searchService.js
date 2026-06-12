@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { enrichProductsWithCategoryNames, resolveCategoryId } from '../../utils/categoryRef.js'
 import { config } from '../../config/env.js'
@@ -87,7 +88,7 @@ export async function searchProducts(args = {}) {
     const { vector } = await embedText(query)
     vectorResults = await vectorSearch(vector, mongoFilter, config.search.vectorLimit)
   } catch (err) {
-    console.warn('[search] vector path skipped:', err.message)
+    logger.warn('[search] vector path skipped:', err.message)
   }
 
   const keywordIds = keywordResults.map((p) => String(p._id))

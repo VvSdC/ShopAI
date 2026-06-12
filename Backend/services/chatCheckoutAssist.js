@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 /** Deterministic checkout fallback — orchestrated by chatDeterministicAssist.js after LangGraph. */
 import { listShippingAddresses } from './addressService.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
@@ -142,7 +143,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
       reply: null,
     }
   } catch (err) {
-    console.error('[checkoutAssist] failed:', err.message)
+    logger.error('[checkoutAssist] failed:', err.message)
     return { toolResults, reply: `I could not start checkout: ${err.message}` }
   }
 }

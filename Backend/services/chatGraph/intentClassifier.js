@@ -1,4 +1,5 @@
 import { chatCompletion } from '../llmService.js'
+import logger from '../../utils/logger.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
 import {
   ROUTE_NAMES,
@@ -93,7 +94,7 @@ export async function classifyIntent(userText, history = []) {
     const parsed = await classifyIntentWithLlm(userText, history)
     if (parsed) return parsed
   } catch (err) {
-    console.warn('[intentClassifier] LLM routing failed:', err.message)
+    logger.warn('[intentClassifier] LLM routing failed:', err.message)
   }
 
   return {

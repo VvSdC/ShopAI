@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { config } from '../config/env.js'
 import { callGeminiChat } from './geminiClient.js'
 import { recordLlmUsage } from './llmUsageLogger.js'
@@ -163,10 +164,10 @@ export async function chatCompletion(messages, tools) {
     } catch (err) {
       lastError = err
       if (err.isRateLimit) {
-        console.warn(`${provider.name} rate limited, falling back...`)
+        logger.warn(`${provider.name} rate limited, falling back...`)
         continue
       }
-      console.error(`${provider.name} failed:`, err.message)
+      logger.error(`${provider.name} failed:`, err.message)
       continue
     }
   }

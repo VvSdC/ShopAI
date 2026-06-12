@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
 import { invalidateCouponsCache } from './catalogCache.js'
@@ -48,7 +49,7 @@ export async function enqueueCouponCacheBust(couponId, code, delayMs, reason = '
     )
     return true
   } catch (err) {
-    console.warn(`[couponCacheQueue] enqueue failed for ${couponId}:`, err.message)
+    logger.warn(`[couponCacheQueue] enqueue failed for ${couponId}:`, err.message)
     return false
   }
 }
@@ -88,10 +89,10 @@ export async function startCouponCacheWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[couponCacheQueue] Job ${job?.id} failed:`, err.message)
+    logger.error(`[couponCacheQueue] Job ${job?.id} failed:`, err.message)
   })
 
-  console.log('[couponCacheQueue] Worker started')
+  logger.log('[couponCacheQueue] Worker started')
   return worker
 }
 

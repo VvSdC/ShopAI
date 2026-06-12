@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { config } from '../../config/env.js'
 import { buildProductSearchDocument } from './documentBuilder.js'
@@ -20,7 +21,7 @@ export async function indexProductEmbedding(productId) {
       embeddedAt: new Date(),
     }
   } catch (err) {
-    console.error(`[indexProductEmbedding] ${productId}:`, err.message)
+    logger.error(`[indexProductEmbedding] ${productId}:`, err.message)
     product.searchDocument = searchDocument
     await product.save()
     return { ok: false, reason: err.message }
@@ -35,7 +36,7 @@ export async function indexProductEmbedding(productId) {
 export function indexProductEmbeddingInBackground(productId, delayMs = 0) {
   setTimeout(() => {
     indexProductEmbedding(productId).catch((err) => {
-      console.error(`Background embedding failed for ${productId}:`, err.message)
+      logger.error(`Background embedding failed for ${productId}:`, err.message)
     })
   }, delayMs)
 }

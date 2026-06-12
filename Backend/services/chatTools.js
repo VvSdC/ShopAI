@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import Product from '../model/Product.js'
 import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
@@ -702,7 +703,7 @@ export async function executeTool(toolName, userId, args) {
   try {
     return await executor(userId, args || {})
   } catch (err) {
-    console.error(`Tool ${toolName} error:`, err.message)
+    logger.error(`Tool ${toolName} error:`, err.message)
     return {
       error:
         err.message ||

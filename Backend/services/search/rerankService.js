@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import { config } from '../../config/env.js'
 
 async function rerankVoyage(query, documents, topN, model) {
@@ -133,10 +134,10 @@ export async function rerankDocuments(query, documents, topN) {
       return filterRerankResults(results)
     } catch (err) {
       lastError = err
-      console.warn(`[rerank] ${provider.name} failed:`, err.message)
+      logger.warn(`[rerank] ${provider.name} failed:`, err.message)
     }
   }
 
-  if (lastError) console.warn('[rerank] all providers failed, using RRF order')
+  if (lastError) logger.warn('[rerank] all providers failed, using RRF order')
   return null
 }

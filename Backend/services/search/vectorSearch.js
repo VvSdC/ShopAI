@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { config } from '../../config/env.js'
 import { cosineSimilarity } from './embeddingService.js'
@@ -86,7 +87,7 @@ export async function vectorSearch(queryVector, mongoFilter, limit) {
       const results = await vectorSearchAtlas(queryVector, mongoFilter, limit)
       if (results.length > 0) return results
     } catch (err) {
-      console.warn('[vectorSearch] Atlas $vectorSearch failed, using local cosine:', err.message)
+      logger.warn('[vectorSearch] Atlas $vectorSearch failed, using local cosine:', err.message)
     }
   }
 

@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import config from '../config/env.js'
+import logger from '../utils/logger.js'
 
 /** Read at send time so config reflects env loaded after module init order. */
 function getFromAddress() {
@@ -44,7 +45,7 @@ function orderProviders() {
     send: async ({ to, subject, html, text, from, tags }) => {
       const sender = parseFromAddress(from)
       if (sender.email.includes('resend.dev')) {
-        console.warn(
+        logger.warn(
           'Brevo: EMAIL_FROM uses resend.dev — set EMAIL_FROM to your Brevo-verified sender (e.g. you@yourdomain.com)'
         )
       }
@@ -120,7 +121,7 @@ export async function sendEmail({ to, subject, html, text, tags }) {
         from,
         tags,
       })
-      console.log(`Email sent via ${provider.name} to ${recipient}`, extra?.messageId || '')
+      logger.log(`Email sent via ${provider.name} to ${recipient}`, extra?.messageId || '')
       return {
         success: true,
         provider: provider.name,
@@ -129,11 +130,11 @@ export async function sendEmail({ to, subject, html, text, tags }) {
       }
     } catch (err) {
       lastError = err
-      console.error(`${provider.name} failed for ${recipient}:`, err.message)
+      logger.error(`${provider.name} failed for ${recipient}:`, err.message)
     }
   }
 
-  console.error('All email providers failed:', lastError?.message)
+  logger.error('All email providers failed:', lastError?.message)
   return { success: false, error: lastError?.message, to: recipient }
 }
 

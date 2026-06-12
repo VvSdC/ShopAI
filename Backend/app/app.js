@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import { buildHelmetOptions } from '../config/helmetConfig.js'
+import { requestIdMiddleware } from '../middlewares/requestId.js'
 import { validateCsrf } from '../middlewares/csrfProtection.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
@@ -25,10 +26,13 @@ import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
 import { orderService } from '../services/orderService.js'
 import { parseOrderId } from '../services/orderFulfillment.js'
+import logger from '../utils/logger.js'
 
 const app = express()
 
 app.set('trust proxy', config.server.trustProxy ? 1 : false)
+
+app.use(requestIdMiddleware)
 
 app.use(helmet(buildHelmetOptions()))
 
@@ -59,17 +63,17 @@ app.post(
 
     try {
       if (!endpointSecret) {
-        console.error('STRIPE_WEBHOOK_SECRET is not set — rejecting webhook event')
+        logger.error('STRIPE_WEBHOOK_SECRET is not set — rejecting webhook event')
         return response.status(500).json({ error: 'Webhook secret not configured' })
       }
       event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret)
     } catch (err) {
-      console.error('Webhook signature verification failed:', err.message)
+      logger.error('Webhook signature verification failed:', err.message)
       response.status(400).send(`Webhook Error: ${err.message}`)
       return
     }
 
-    console.log('📩 Webhook event received:', event.type)
+    logger.log('📩 Webhook event received:', event.type)
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object
@@ -80,10 +84,10 @@ app.post(
       const currency = session.currency
 
       const parsedOrderId = parseOrderId(orderId)
-      console.log('✅ Payment completed — updating order:', parsedOrderId, { paymentStatus, paymentMethod, currency, totalAmount })
+      logger.log('✅ Payment completed — updating order:', parsedOrderId, { paymentStatus, paymentMethod, currency, totalAmount })
 
       if (!parsedOrderId) {
-        console.error('❌ No orderId found in session metadata')
+        logger.error('❌ No orderId found in session metadata')
         return response.status(400).json({ error: 'Missing orderId in metadata' })
       }
 
@@ -97,17 +101,17 @@ app.post(
         )
 
         if (updatedOrder) {
-          console.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
+          logger.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
           if (paymentStatus === 'paid' && fulfillment?.emailSent) {
-            console.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
+            logger.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
           } else if (fulfillment?.processed && !fulfillment?.emailSent) {
-            console.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
+            logger.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
           }
         } else {
-          console.error('❌ Order not found for ID:', parsedOrderId)
+          logger.error('❌ Order not found for ID:', parsedOrderId)
         }
       } catch (dbErr) {
-        console.error('❌ Failed to update order in DB:', dbErr.message)
+        logger.error('❌ Failed to update order in DB:', dbErr.message)
       }
     }
     response.status(200).json({ received: true })

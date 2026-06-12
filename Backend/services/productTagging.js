@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { chatCompletion } from './llmService.js'
 import Product from '../model/Product.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
@@ -78,7 +79,7 @@ export function tagProductInBackground(productId) {
         await product.save()
       }
     } catch (err) {
-      console.error(`Background tagging failed for product ${productId}:`, err.message)
+      logger.error(`Background tagging failed for product ${productId}:`, err.message)
     } finally {
       indexProductEmbeddingInBackground(productId, 500)
     }

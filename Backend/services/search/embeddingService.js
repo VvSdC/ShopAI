@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import { config } from '../../config/env.js'
 
 function meanPool(tokenEmbeddings) {
@@ -143,7 +144,7 @@ export async function embedText(text) {
       return { vector, provider: provider.name, model: config.search.embedding.model }
     } catch (err) {
       lastError = err
-      console.warn(`[embed] ${provider.name} failed:`, err.message)
+      logger.warn(`[embed] ${provider.name} failed:`, err.message)
     }
   }
   throw lastError || new Error('No embedding provider configured')

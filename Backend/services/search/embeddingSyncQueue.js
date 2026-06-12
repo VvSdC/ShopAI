@@ -1,3 +1,4 @@
+import logger from '../../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../../config/env.js'
 import { createRedisConnection, isRedisConfigured } from '../../config/redisClient.js'
@@ -51,14 +52,14 @@ export async function enqueueEmbeddingSyncRun(delayMs = 0) {
     )
     return true
   } catch (err) {
-    console.warn('[embeddingSyncQueue] enqueue failed:', err.message)
+    logger.warn('[embeddingSyncQueue] enqueue failed:', err.message)
     return false
   }
 }
 
 export async function startEmbeddingSyncWorker() {
   if (!isEmbeddingSyncQueueEnabled()) {
-    console.log(
+    logger.log(
       '[embeddingSyncQueue] Worker disabled — set REDIS_URL and ENABLE_EMBEDDING_SYNC_QUEUE=true'
     )
     return null
@@ -77,10 +78,10 @@ export async function startEmbeddingSyncWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[embeddingSyncQueue] Job ${job?.id} failed:`, err.message)
+    logger.error(`[embeddingSyncQueue] Job ${job?.id} failed:`, err.message)
   })
 
-  console.log('[embeddingSyncQueue] Worker started')
+  logger.log('[embeddingSyncQueue] Worker started')
   return worker
 }
 
@@ -93,7 +94,7 @@ function runInProcessSyncDetached() {
     try {
       await syncMissingProductEmbeddings()
     } catch (err) {
-      console.error('[search] Auto-sync failed:', err.message)
+      logger.error('[search] Auto-sync failed:', err.message)
     } finally {
       syncInProgress = false
     }
@@ -116,18 +117,18 @@ export function scheduleEmbeddingSyncOnStartup() {
     enqueueEmbeddingSyncRun(config.search.syncStartupDelayMs)
       .then((queued) => {
         if (queued) {
-          console.log(
+          logger.log(
             `[search] Embedding sync queued (delay ${config.search.syncStartupDelayMs}ms)`
           )
         }
       })
       .catch((err) => {
-        console.warn('[search] Failed to queue embedding sync:', err.message)
+        logger.warn('[search] Failed to queue embedding sync:', err.message)
       })
     return
   }
 
-  console.log('[search] Embedding sync running in-process (no Redis queue)')
+  logger.log('[search] Embedding sync running in-process (no Redis queue)')
   runInProcessSyncDetached()
 }
 

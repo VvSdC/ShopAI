@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import Redis from 'ioredis'
 import { config } from '../config/env.js'
 
@@ -19,7 +20,7 @@ async function ensureClient() {
     })
     client.on('error', (err) => {
       redisReady = false
-      console.warn('[cache] Redis error:', err.message)
+      logger.warn('[cache] Redis error:', err.message)
     })
     client.on('end', () => {
       redisReady = false
@@ -32,7 +33,7 @@ async function ensureClient() {
       await client.connect()
       redisReady = true
     } catch (err) {
-      console.warn('[cache] Redis unavailable, falling back to Mongo:', err.message)
+      logger.warn('[cache] Redis unavailable, falling back to Mongo:', err.message)
       redisReady = false
       return null
     }
@@ -53,7 +54,7 @@ export async function get(key) {
     if (raw == null) return null
     return JSON.parse(raw)
   } catch (err) {
-    console.warn(`[cache] get ${key} failed:`, err.message)
+    logger.warn(`[cache] get ${key} failed:`, err.message)
     return null
   }
 }
@@ -70,7 +71,7 @@ export async function set(key, value, ttlSeconds) {
     }
     return true
   } catch (err) {
-    console.warn(`[cache] set ${key} failed:`, err.message)
+    logger.warn(`[cache] set ${key} failed:`, err.message)
     return false
   }
 }
@@ -81,7 +82,7 @@ export async function del(...keys) {
   try {
     return await redis.del(...keys.flat().filter(Boolean))
   } catch (err) {
-    console.warn('[cache] del failed:', err.message)
+    logger.warn('[cache] del failed:', err.message)
     return 0
   }
 }
@@ -101,7 +102,7 @@ export async function delByPrefix(prefix) {
       }
     } while (cursor !== '0')
   } catch (err) {
-    console.warn(`[cache] delByPrefix ${prefix} failed:`, err.message)
+    logger.warn(`[cache] delByPrefix ${prefix} failed:`, err.message)
   }
   return removed
 }

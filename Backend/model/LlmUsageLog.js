@@ -11,6 +11,7 @@ const LlmUsageLogSchema = new mongoose.Schema(
     span: { type: String, default: 'completion' },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     sessionId: { type: String, default: null },
+    requestId: { type: String, default: null, index: true },
     route: { type: String, default: null },
     routeReason: { type: String, default: null, maxlength: 500 },
     provider: { type: String, required: true },

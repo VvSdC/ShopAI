@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
 import {
   isCheckoutProceedIntent,
@@ -202,7 +203,7 @@ export async function ensureCheckoutOnConfirm(userId, userText, messages, toolRe
       },
     ]
   } catch (err) {
-    console.error('Auto checkout on confirm failed:', err.message)
+    logger.error('Auto checkout on confirm failed:', err.message)
     return toolResults
   }
 }
