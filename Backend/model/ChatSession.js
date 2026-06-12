@@ -49,6 +49,11 @@ const ChatSessionSchema = new mongoose.Schema(
       type: [chatMessageSchema],
       default: [],
     },
+    messageCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     cartQueue: {
       remaining: {
         type: [cartQueueItemSchema],

@@ -25,21 +25,27 @@ export function deriveSessionTitle(text) {
 
 export async function listSessions(userId, { limit = 30 } = {}) {
   const sessions = await ChatSession.find({ user: userId })
-    .select('title updatedAt createdAt messages')
+    .select('title updatedAt createdAt messageCount')
+    .select({ messages: { $slice: -1 } })
     .sort({ updatedAt: -1 })
     .limit(Math.min(limit, MAX_SESSIONS_PER_USER))
+    .lean()
 
-  return sessions.map((session) => ({
-    id: String(session._id),
-    title: session.title,
-    updatedAt: session.updatedAt,
-    createdAt: session.createdAt,
-    messageCount: session.messages?.length || 0,
-    preview:
-      session.messages?.length > 0
-        ? session.messages[session.messages.length - 1].content.slice(0, 80)
-        : '',
-  }))
+  return sessions.map((session) => {
+    const lastMessage = session.messages?.[0]
+    const messageCount =
+      session.messageCount ??
+      (lastMessage ? 1 : 0)
+
+    return {
+      id: String(session._id),
+      title: session.title,
+      updatedAt: session.updatedAt,
+      createdAt: session.createdAt,
+      messageCount,
+      preview: lastMessage?.content ? String(lastMessage.content).slice(0, 80) : '',
+    }
+  })
 }
 
 export async function getSessionForUser(userId, sessionId) {
@@ -53,6 +59,7 @@ export async function createSession(userId, userName) {
   const session = await ChatSession.create({
     user: userId,
     title: 'New conversation',
+    messageCount: 1,
     messages: [{ role: 'assistant', content: welcome }],
   })
   return session
@@ -98,6 +105,8 @@ export async function appendMessages(
   if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
     session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION)
   }
+
+  session.messageCount = session.messages.length
 
   if (cartQueue !== undefined) {
     session.cartQueue = normalizeCartQueue(cartQueue)

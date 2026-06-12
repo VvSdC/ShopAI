@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   MAX_SESSIONS_PER_USER,
   maybeTrimOldSessions,
+  listSessions,
 } from '../../services/chatSessionService.js'
 
 vi.mock('../../model/ChatSession.js', () => ({
@@ -51,5 +52,42 @@ describe('maybeTrimOldSessions', () => {
     expect(ChatSession.deleteMany).toHaveBeenCalledWith({
       _id: { $in: ['old-1', 'old-2', 'old-3'] },
     })
+  })
+})
+
+describe('listSessions', () => {
+  beforeEach(async () => {
+    const ChatSession = (await import('../../model/ChatSession.js')).default
+    ChatSession.find.mockReset()
+  })
+
+  it('loads only the last message for preview via $slice', async () => {
+    const ChatSession = (await import('../../model/ChatSession.js')).default
+    const selectMock = vi.fn()
+    const chain = {
+      select: selectMock.mockReturnThis(),
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([
+        {
+          _id: '507f1f77bcf86cd799439011',
+          title: 'Cricket bat',
+          updatedAt: new Date('2026-01-01'),
+          createdAt: new Date('2026-01-01'),
+          messageCount: 12,
+          messages: [{ content: 'Last message preview text' }],
+        },
+      ]),
+    }
+    selectMock.mockReturnValue(chain)
+    ChatSession.find.mockReturnValue(chain)
+
+    const rows = await listSessions('user-1')
+
+    expect(ChatSession.find).toHaveBeenCalledWith({ user: 'user-1' })
+    expect(selectMock).toHaveBeenCalledWith('title updatedAt createdAt messageCount')
+    expect(selectMock).toHaveBeenCalledWith({ messages: { $slice: -1 } })
+    expect(rows[0].messageCount).toBe(12)
+    expect(rows[0].preview).toBe('Last message preview text')
   })
 })
