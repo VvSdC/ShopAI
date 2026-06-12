@@ -117,7 +117,7 @@ flowchart LR
 
 | Node | Purpose |
 |------|---------|
-| **Guard** | Deterministic checks for prompt injection and off-topic requests (coding, politics, etc.) before any LLM call |
+| **Guard** | LLM safety classifier (`guardClassifier.js`) for prompt injection and off-topic requests; fails open if LLM unavailable |
 | **Router** | Keyword intent routing to one of eight agents |
 | **Agent** | Scoped system prompt + subset of tools + internal tool loop |
 | **Refuse** | Fixed safe reply when guard blocks |
@@ -188,7 +188,8 @@ Chat eval and live chat both call `runChatGraph()` so behavior stays aligned.
 |------|------|
 | `services/chatGraph/index.js` | `runChatGraph()` entry point |
 | `services/chatGraph/graph.js` | StateGraph compile |
-| `services/chatGraph/guard.js` | Injection / off-topic detection |
+| `services/chatGraph/guardClassifier.js` | LLM safety gate (injection / off-topic) |
+| `services/chatGraph/guard.js` | Guard node + refuse messages |
 | `services/chatGraph/router.js` | Intent → route |
 | `services/chatGraph/agentRunner.js` | Per-agent LLM + tool loop |
 | `services/chatGraph/agentPrompts.js` | Scoped system prompts |
