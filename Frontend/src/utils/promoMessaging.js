@@ -8,7 +8,7 @@ export function isPromoActive(coupon) {
 
 /** Top announcement bar copy */
 export function navbarPromoText(coupon) {
-  return `Extra ${coupon.discount}% off your order — use code ${coupon.code} at checkout · ${coupon.daysLeft}`
+  return `Extra ${coupon.discount}% off your order — use code ${coupon.code} at checkout${coupon.daysLeft ? ` · ${coupon.daysLeft}` : ''}`
 }
 
 /** Homepage promo headline */

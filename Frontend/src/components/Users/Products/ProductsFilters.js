@@ -161,14 +161,10 @@ export default function ProductsFilters() {
 
   const buildProductUrl = () => {
     let url = `${baseURL}/products`
-    const tempUrl = url
-    if (category) url = `${baseURL}/products?category=${category}`
+    if (category) url = `${baseURL}/products?category=${encodeURIComponent(category)}`
 
     const appendParam = (key, value) => {
-      url =
-        url === tempUrl || !url.includes('?')
-          ? `${url}?${key}=${encodeURIComponent(value)}`
-          : `${url}&${key}=${encodeURIComponent(value)}`
+      url += (url.includes('?') ? '&' : '?') + `${key}=${encodeURIComponent(value)}`
     }
 
     if (searchQuery) appendParam('q', searchQuery)

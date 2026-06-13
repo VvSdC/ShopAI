@@ -174,12 +174,12 @@ export function registerSocialPaths() {
       path: '/shopai/chat/sessions/{id}/messages',
       tags: ['Chat'],
       summary: 'Load older chat messages',
-      description: 'Pass `before` = number of newest messages already loaded (from prior response `loadedFromEnd`).',
+      description: 'Pass `beforeMessageId` = `_id` of the oldest message already shown in the client.',
       security: userSecurity,
       request: {
         params: mongoIdParams('id'),
         query: z.object({
-          before: z.string().optional().openapi({ description: 'Messages already loaded from the newest end' }),
+          beforeMessageId: z.string().optional().openapi({ description: 'Oldest loaded message id (cursor for older pages)' }),
           limit: z.string().optional().openapi({ description: 'Page size (max 50, default 20)' }),
         }),
       },

@@ -1,15 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Link } from 'react-router-dom'
-import {
-  getCurrentUserAction,
-  loginUserAction,
-} from '../../../redux/slices/users/usersSlice'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { loginUserAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 
 const Login = () => {
   const dispatch = useDispatch()
+  const location = useLocation()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -25,13 +23,15 @@ const Login = () => {
   const { error, loading, isLoggedIn } = useSelector(
     (state) => state?.users?.userAuth,
   )
-  useEffect(() => {
-    if (isLoggedIn) {
-      dispatch(getCurrentUserAction()).then(() => {
-        window.location.href = '/'
-      })
-    }
-  }, [isLoggedIn, dispatch])
+
+  if (isLoggedIn) {
+    const from = location.state?.from
+    const redirectTo =
+      from?.pathname && from.pathname !== '/login'
+        ? `${from.pathname}${from.search || ''}${from.hash || ''}`
+        : '/'
+    return <Navigate to={redirectTo} replace />
+  }
 
   return (
     <>
@@ -222,16 +222,7 @@ const Login = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded-lg border-gray-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer"
-                  />
-                  <span className="ml-2 text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
-                    Remember me
-                  </span>
-                </label>
+              <div className="flex justify-end">
                 <Link
                   to="/forgot-password"
                   className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"

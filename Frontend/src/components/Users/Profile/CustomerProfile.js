@@ -13,6 +13,8 @@ import {
   REFUND_TIMELINE,
 } from '../../../utils/orderDisplay'
 import { useStripeReturnHandler } from '../../ChatBot/useStripeReturnHandler'
+import ConfirmDialog from '../../common/ConfirmDialog'
+import ShopPagination from '../Products/ShopPagination'
 
 const statusColor = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -169,39 +171,6 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
               </button>
             )}
             {order.status === 'cancelled' && <CancelledOrderNotice order={order} />}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ConfirmModal({ title, message, onConfirm, onCancel }) {
-  return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto">
-      <div className="fixed inset-0 bg-black bg-opacity-40" onClick={onCancel} />
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl p-6 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-            <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
-          <p className="mt-2 text-sm text-gray-600">{message}</p>
-          <div className="mt-5 flex gap-3">
-            <button
-              onClick={onCancel}
-              className="flex-1 rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              No
-            </button>
-            <button
-              onClick={onConfirm}
-              className="flex-1 rounded-md bg-red-600 py-2 px-4 text-sm font-medium text-white hover:bg-red-700 transition-colors"
-            >
-              Yes
-            </button>
           </div>
         </div>
       </div>
@@ -466,45 +435,14 @@ export default function CustomerProfile() {
               </table>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
-                <p className="text-sm text-gray-700">
-                  Page <span className="font-medium">{pagination?.page}</span> of{' '}
-                  <span className="font-medium">{totalPages}</span>
-                  {' '}({pagination?.total} total orders)
-                </p>
-                <nav className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`rounded-md px-3 py-2 text-sm font-medium ${
-                        page === currentPage
-                          ? 'bg-indigo-600 text-white'
-                          : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </nav>
-              </div>
-            )}
+            <ShopPagination
+              page={currentPage}
+              totalPages={totalPages}
+              total={pagination?.total ?? 0}
+              limit={ORDERS_PER_PAGE}
+              loading={ordersLoading}
+              onPageChange={setCurrentPage}
+            />
           </>
         )}
       </div>
@@ -533,15 +471,15 @@ export default function CustomerProfile() {
         />
       )}
 
-      {/* Cancel confirmation modal */}
-      {confirmCancel && (
-        <ConfirmModal
-          title="Cancel Order"
-          message="Are you sure you want to cancel this order? If you already paid, a refund will be issued to your original payment method within 5–7 business days."
-          onConfirm={confirmCancelOrder}
-          onCancel={() => setConfirmCancel(null)}
-        />
-      )}
+      <ConfirmDialog
+        open={Boolean(confirmCancel)}
+        title="Cancel Order"
+        message="Are you sure you want to cancel this order? If you already paid, a refund will be issued to your original payment method within 5–7 business days."
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep order"
+        onConfirm={confirmCancelOrder}
+        onCancel={() => setConfirmCancel(null)}
+      />
     </div>
   )
 }

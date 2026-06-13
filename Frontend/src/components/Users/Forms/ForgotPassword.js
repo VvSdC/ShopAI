@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import axiosInstance from '../../../utils/axiosInstance'
+import {
+  PASSWORD_HINT,
+  PASSWORD_MIN_LENGTH,
+  validatePassword,
+} from '../../../utils/passwordPolicy'
 
 const STEPS = { EMAIL: 0, OTP: 1, NEW_PASSWORD: 2, DONE: 3 }
 
@@ -74,7 +79,8 @@ const ForgotPassword = () => {
   const handleResetPassword = async (e) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) return setError('Password must be at least 6 characters')
+    const passwordError = validatePassword(password)
+    if (passwordError) return setError(passwordError)
     if (password !== confirmPassword) return setError('Passwords do not match')
     setLoading(true)
     try {
@@ -239,7 +245,7 @@ const ForgotPassword = () => {
           {step === STEPS.NEW_PASSWORD && (
             <>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">New Password</h3>
-              <p className="text-gray-500 mb-6 text-sm">Choose a strong password for your account.</p>
+              <p className="text-gray-500 mb-6 text-sm">{PASSWORD_HINT}</p>
               <form onSubmit={handleResetPassword}>
                 <label className="block mb-4">
                   <span className="text-sm font-medium text-gray-700 mb-1 block">New Password</span>
@@ -248,9 +254,9 @@ const ForgotPassword = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={PASSWORD_MIN_LENGTH}
                     className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
-                    placeholder="At least 6 characters"
+                    placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
                   />
                 </label>
                 <label className="block mb-6">

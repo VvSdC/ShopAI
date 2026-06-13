@@ -44,6 +44,7 @@ import SiteFooter from "./components/Layout/SiteFooter";
 import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnalyticsLayout";
 import InferencePanel from "./components/Admin/Analytics/InferencePanel";
 import ChatbotEvalPanel from "./components/Admin/Analytics/ChatbotEvalPanel";
+import NotFoundPage from "./components/NotFound/NotFoundPage";
 
 function AppShell() {
   const location = useLocation();
@@ -214,7 +215,14 @@ function AppShell() {
         <Route path="/products-filters" element={<ProductsFilters />} />
         <Route path="/products/:id" element={<Product />} />
         <Route path="/all-categories" element={<AllCategories />} />
-        <Route path="/success" element={<ThanksForOrdering />} />
+        <Route
+          path="/success"
+          element={
+            <AuthRoute>
+              <ThanksForOrdering />
+            </AuthRoute>
+          }
+        />
         <Route
           path="/assistant"
           element={
@@ -254,7 +262,8 @@ function AppShell() {
               <CustomerProfile />
             </AuthRoute>
           }
-        ></Route>
+        />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </main>
       <SiteFooter />

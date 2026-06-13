@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { registerUserAction } from '../../../redux/slices/users/usersSlice'
+import { PASSWORD_HINT, validatePassword } from '../../../utils/passwordPolicy'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 
 const RegisterForm = () => {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const [validationError, setValidationError] = useState('')
   const [formData, setFormData] = useState({
     fullname: '',
     email: '',
@@ -20,14 +23,20 @@ const RegisterForm = () => {
   }
   const onSubmitHandler = (e) => {
     e.preventDefault()
+    setValidationError('')
+    const passwordError = validatePassword(password)
+    if (passwordError) {
+      setValidationError(passwordError)
+      return
+    }
     dispatch(registerUserAction({ fullname, email, password, phone, country }))
   }
   const { user, error, loading } = useSelector((state) => state?.users)
   useEffect(() => {
     if (user) {
-      window.location.href = '/login'
+      navigate('/login', { replace: true })
     }
-  }, [user])
+  }, [user, navigate])
 
   return (
     <>
@@ -85,7 +94,11 @@ const RegisterForm = () => {
 
           {/* Card */}
           <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-[0_8px_40px_rgb(0,0,0,0.06)] border border-white/80 p-8 lg:p-10">
-            {error && <div className="mb-6"><ErrorMsg message={error} /></div>}
+            {(error || validationError) && (
+              <div className="mb-6">
+                <ErrorMsg message={error?.message || validationError} />
+              </div>
+            )}
 
             <form onSubmit={onSubmitHandler} className="space-y-4">
               <div>
@@ -126,7 +139,7 @@ const RegisterForm = () => {
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                   </svg>
-                  Must be at least 8 characters with letters & numbers
+                  {PASSWORD_HINT}
                 </p>
               </div>
 

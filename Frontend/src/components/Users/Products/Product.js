@@ -23,6 +23,7 @@ import {
   updateReviewAction,
   deleteReviewAction,
 } from '../../../redux/slices/reviews/reviewsSlice'
+import { getCartUnitCount } from '../../../utils/cartCount'
 
 const policies = [
   {
@@ -97,6 +98,7 @@ export default function Product() {
 
   const { product, loading, error } = useSelector((state) => state?.products)
   const { cartItems = [] } = useSelector((state) => state?.cart || {})
+  const cartUnitCount = getCartUnitCount(cartItems)
   const { userAuth } = useSelector((state) => state?.users)
   const isLoggedIn = userAuth?.isLoggedIn
   const currentUserId = userAuth?.userInfo?._id
@@ -139,9 +141,20 @@ export default function Product() {
         totalPrice: product?.price * qty,
         qtyLeft: product?.qtyLeft,
       })
-    ).then(() => {
-      navigate('/shopping-cart')
-    })
+    )
+      .unwrap()
+      .then(() => navigate('/shopping-cart'))
+      .catch((err) => {
+        const message =
+          typeof err === 'string'
+            ? err
+            : err?.message || 'Something went wrong. Please try again.'
+        Swal.fire({
+          icon: 'error',
+          title: 'Could not add to cart',
+          text: message,
+        })
+      })
   }
 
   //Review handlers
@@ -310,7 +323,7 @@ export default function Product() {
                   <ChevronRightIcon className="h-4 w-4 shrink-0" />
                 </>
               )}
-              <span className="font-medium capitalize text-stone-800">{product?.name}</span>
+              <span className="font-medium text-stone-800">{product?.name}</span>
             </nav>
 
             {/* Product hero — gallery + purchase */}
@@ -403,7 +416,7 @@ export default function Product() {
                     )}
                   </div>
 
-                  <h1 className="mt-4 text-2xl font-bold capitalize leading-tight text-stone-900 sm:text-3xl lg:text-[1.75rem] xl:text-3xl">
+                  <h1 className="mt-4 text-2xl font-bold leading-tight text-stone-900 sm:text-3xl lg:text-[1.75rem] xl:text-3xl">
                     {product?.name}
                   </h1>
 
@@ -533,12 +546,12 @@ export default function Product() {
                     >
                       {inStock ? 'Add to cart' : 'Out of stock'}
                     </button>
-                    {cartItems.length > 0 && (
+                    {cartUnitCount > 0 && (
                       <Link
                         to="/shopping-cart"
                         className="flex flex-1 items-center justify-center rounded-xl border-2 border-stone-900 py-3.5 text-base font-semibold text-stone-900 transition hover:bg-stone-50"
                       >
-                        Cart ({cartItems.length})
+                        Cart ({cartUnitCount})
                       </Link>
                     )}
                   </div>
@@ -575,7 +588,7 @@ export default function Product() {
             {product?.description && (
               <section className="mt-8 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
                 <h2 className="text-lg font-semibold text-stone-900">Product description</h2>
-                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-stone-600 capitalize">
+                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-stone-600">
                   {product.description}
                 </p>
               </section>
@@ -610,6 +623,7 @@ export default function Product() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">Sort:</span>
                   <button
+                    type="button"
                     onClick={() => setReviewSort(reviewSort === 'desc' ? '' : 'desc')}
                     className={classNames(
                       'rounded-full px-3 py-1 text-xs font-medium transition-colors',
@@ -621,6 +635,7 @@ export default function Product() {
                     High → Low
                   </button>
                   <button
+                    type="button"
                     onClick={() => setReviewSort(reviewSort === 'asc' ? '' : 'asc')}
                     className={classNames(
                       'rounded-full px-3 py-1 text-xs font-medium transition-colors',

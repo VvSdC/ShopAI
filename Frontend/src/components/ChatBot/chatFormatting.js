@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 const INTERNAL_PATH =
-  /^\/(products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant)(?:[?#]|$)/
+  /^\/(products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant|order-payment|add-review\/[a-f0-9]{24})(?:[?#]|$)/
 
 function normalizeChatHref(href) {
   if (typeof href !== 'string') return href
@@ -89,7 +89,7 @@ export function formatMessage(text) {
 function renderTextSegment(segment, keyPrefix) {
   const parts = []
   const regex =
-    /(\[([^\]]+)\]\((\/(?:products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant)[^)]*|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})|(https:\/\/checkout\.stripe\.com\/[^\s)]+)/gi
+    /(\[([^\]]+)\]\((\/(?:products\/[a-f0-9]{24}|customer-profile|cancellation-policy|return-refund-policy|shopping-cart|assistant|order-payment|add-review\/[a-f0-9]{24})[^)]*|https?:\/\/[^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\/products\/[a-f0-9]{24})|(https:\/\/checkout\.stripe\.com\/[^\s)]+)/gi
   let lastIndex = 0
   let match
 

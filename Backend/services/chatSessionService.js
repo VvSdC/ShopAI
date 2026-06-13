@@ -62,57 +62,55 @@ export async function getSessionForUser(userId, sessionId) {
  * Paginated session messages for the client (newest page first).
  * @param {string} userId
  * @param {string} sessionId
- * @param {{ before?: number, limit?: number }} [options]
- *   `before` — how many newest messages the client already has (0 on first open).
+ * @param {{ beforeMessageId?: string, limit?: number }} [options]
+ *   `beforeMessageId` — `_id` of the oldest message the client already shows; returns older pages.
  */
 export async function getSessionMessagesForClient(
   userId,
   sessionId,
-  { before = 0, limit = CHAT_SESSION_CLIENT_PAGE_SIZE } = {}
+  { beforeMessageId, limit = CHAT_SESSION_CLIENT_PAGE_SIZE } = {}
 ) {
-  const meta = await ChatSession.findOne({ _id: sessionId, user: userId })
-    .select('title updatedAt createdAt messageCount')
+  const session = await ChatSession.findOne({ _id: sessionId, user: userId })
+    .select('title updatedAt createdAt messageCount messages')
     .lean()
 
-  if (!meta) return null
+  if (!session) return null
 
-  const total = meta.messageCount ?? 0
-  const alreadyFromEnd = Math.max(0, Number(before) || 0)
+  const messages = session.messages || []
+  const total = session.messageCount ?? messages.length
   const pageSize = Math.min(
     Math.max(1, Number(limit) || CHAT_SESSION_CLIENT_PAGE_SIZE),
     50
   )
 
-  if (alreadyFromEnd >= total) {
-    return {
-      id: String(meta._id),
-      title: meta.title,
-      updatedAt: meta.updatedAt,
-      createdAt: meta.createdAt,
-      messageCount: total,
-      messages: [],
-      hasMoreOlder: false,
-      loadedFromEnd: alreadyFromEnd,
+  let pageMessages
+  let hasMoreOlder
+
+  if (beforeMessageId) {
+    const cursorIndex = messages.findIndex(
+      (message) => String(message._id) === String(beforeMessageId)
+    )
+    if (cursorIndex === -1) {
+      pageMessages = []
+      hasMoreOlder = false
+    } else {
+      const start = Math.max(0, cursorIndex - pageSize)
+      pageMessages = messages.slice(start, cursorIndex)
+      hasMoreOlder = start > 0
     }
+  } else {
+    pageMessages = messages.slice(-pageSize)
+    hasMoreOlder = messages.length > pageSize
   }
 
-  const remaining = total - alreadyFromEnd
-  const take = Math.min(pageSize, remaining)
-  const skip = Math.max(0, total - alreadyFromEnd - take)
-
-  const sliced = await ChatSession.findOne({ _id: sessionId, user: userId })
-    .select({ messages: { $slice: [skip, take] } })
-    .lean()
-
   return {
-    id: String(meta._id),
-    title: meta.title,
-    updatedAt: meta.updatedAt,
-    createdAt: meta.createdAt,
+    id: String(session._id),
+    title: session.title,
+    updatedAt: session.updatedAt,
+    createdAt: session.createdAt,
     messageCount: total,
-    messages: sliced?.messages || [],
-    hasMoreOlder: skip > 0,
-    loadedFromEnd: alreadyFromEnd + take,
+    messages: pageMessages,
+    hasMoreOlder,
   }
 }
 
@@ -124,7 +122,6 @@ export function mapClientSessionPayload(sessionData) {
     createdAt: sessionData.createdAt,
     messageCount: sessionData.messageCount,
     hasMoreOlder: sessionData.hasMoreOlder,
-    loadedFromEnd: sessionData.loadedFromEnd,
     messages: (sessionData.messages || []).map(mapSessionMessageForClient),
   }
 }
@@ -212,6 +209,7 @@ export async function appendMessages(
 
 export function mapSessionMessageForClient(message) {
   const out = {
+    id: message._id ? String(message._id) : undefined,
     role: message.role,
     content: stripCartQueueMarker(message.content),
     createdAt: message.createdAt,

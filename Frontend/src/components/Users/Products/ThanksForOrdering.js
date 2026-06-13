@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import axiosInstance from '../../../utils/axiosInstance'
+import { getCartFromServerAction } from '../../../redux/slices/cart/cartSlices'
 
 export default function ThanksForOrdering() {
-  // clear cart items in localStorage
-  localStorage.setItem('cartItems', JSON.stringify([]))
+  const dispatch = useDispatch()
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const [verified, setVerified] = useState(false)
@@ -26,6 +27,13 @@ export default function ThanksForOrdering() {
       })
       .catch((err) => console.error('Payment verification failed:', err))
   }, [sessionId])
+
+  // Clear cart only after payment is verified (not on accidental /success visits)
+  useEffect(() => {
+    if (!verified) return
+    localStorage.setItem('cartItems', JSON.stringify([]))
+    dispatch(getCartFromServerAction())
+  }, [verified, dispatch])
 
   const handleResendEmail = async () => {
     if (!sessionId || resending) return

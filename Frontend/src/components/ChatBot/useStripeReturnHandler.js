@@ -17,9 +17,12 @@ export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assista
     if (handledSessionRef.current === sessionId) return
     handledSessionRef.current = sessionId
 
+    let mounted = true
+
     axiosInstance
       .get(`/orders/verify-payment/${sessionId}`)
       .then((res) => {
+        if (!mounted) return
         onVerifiedRef.current?.(res.data)
         const redirectTo = res.data?.order?.checkoutSource === 'cart'
           ? '/customer-profile'
@@ -30,8 +33,13 @@ export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assista
         }
       })
       .catch((err) => {
+        if (!mounted) return
         console.error('Payment verification failed:', err)
         setSearchParams({}, { replace: true })
       })
+
+    return () => {
+      mounted = false
+    }
   }, [searchParams, setSearchParams, navigate, defaultRedirect])
 }

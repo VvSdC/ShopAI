@@ -37,19 +37,30 @@ export default function Navbar() {
   const categoriesToDisplay = sortedCategories.slice(0, 4)
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { cartItems } = useSelector((state) => state?.carts)
+  const [cartCountReady, setCartCountReady] = useState(false)
+  const { cartItems, listFetching } = useSelector((state) => state?.carts)
   const cartUnitCount = getCartUnitCount(cartItems)
+  const showCartCount = cartCountReady && !listFetching
   const { userAuth } = useSelector((state) => state?.users)
   const user = userAuth?.userInfo
   const isLoggedIn = userAuth?.isLoggedIn
 
   useEffect(() => {
-    dispatch(syncAndLoadCartAction())
+    setCartCountReady(false)
+    let cancelled = false
+
+    dispatch(syncAndLoadCartAction()).finally(() => {
+      if (!cancelled) setCartCountReady(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [dispatch, isLoggedIn])
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction()).then(() => {
-      window.location.href = '/'
+      navigate('/', { replace: true })
     })
   }
   useEffect(() => {
@@ -427,15 +438,25 @@ export default function Navbar() {
                   <span className="hidden h-6 w-px bg-gray-200 sm:block" aria-hidden="true" />
                   <Link
                     to="/shopping-cart"
+                    aria-label={
+                      showCartCount
+                        ? `Shopping cart, ${cartUnitCount} item${cartUnitCount === 1 ? '' : 's'}`
+                        : 'Shopping cart'
+                    }
                     className="group inline-flex items-center gap-2 rounded-md p-2 text-gray-700 hover:text-gray-900"
                   >
                     <ShoppingCartIcon
                       className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-gray-600"
                       aria-hidden="true"
                     />
-                    <span className="text-sm font-medium">
-                      {cartUnitCount}
-                    </span>
+                    {showCartCount ? (
+                      <span className="text-sm font-medium">{cartUnitCount}</span>
+                    ) : (
+                      <span
+                        className="inline-block h-3.5 w-4 animate-pulse rounded bg-gray-200"
+                        aria-hidden="true"
+                      />
+                    )}
                   </Link>
                 </div>
               </div>

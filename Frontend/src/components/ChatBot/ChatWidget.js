@@ -2,12 +2,30 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
+import axiosInstance from '../../utils/axiosInstance'
 import { formatMessage, TypingDots, buildClientWelcomeMessage } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
 import { checkoutCardVisible } from './checkoutMessageHelpers'
 import { useCheckoutHandlers } from './useCheckoutHandlers'
 import { useShopAIChatActions } from './useShopAIChat'
+import {
+  readWidgetSessionId,
+  writeWidgetSessionId,
+  clearWidgetSessionId,
+} from './widgetSessionStorage'
+import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
+
+const WIDGET_TEXTAREA_MAX_HEIGHT = 80
+
+function mapApiMessages(items) {
+  return (items || []).map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    checkout: m.checkout || null,
+  }))
+}
 
 
 
@@ -60,17 +78,52 @@ export default function ChatWidget() {
   const [cartHint, setCartHint] = useState('')
   const [sessionId, setSessionId] = useState(null)
 
-  const messagesEndRef = useRef(null)
-
-  const inputRef = useRef(null)
-
-
-
   const { userAuth } = useSelector((state) => state?.users)
-
   const isLoggedIn = userAuth?.isLoggedIn
-
   const userName = userAuth?.userInfo?.fullname
+  const userId = userAuth?.userInfo?._id
+
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+  const lastUserIdRef = useRef(userId)
+
+  useEffect(() => {
+    if (userId) lastUserIdRef.current = userId
+    if (!isLoggedIn) {
+      if (lastUserIdRef.current) {
+        clearWidgetSessionId(lastUserIdRef.current)
+        lastUserIdRef.current = null
+      }
+      setSessionId(null)
+      setMessages([])
+      return
+    }
+
+    if (!userId) return
+
+    const storedId = readWidgetSessionId(userId)
+    if (!storedId) return
+
+    setSessionId(storedId)
+    let cancelled = false
+
+    axiosInstance
+      .get(`/chat/sessions/${storedId}`)
+      .then(({ data }) => {
+        if (cancelled) return
+        const restored = mapApiMessages(data.session?.messages)
+        if (restored.length) setMessages(restored)
+      })
+      .catch(() => {
+        if (cancelled) return
+        clearWidgetSessionId(userId)
+        setSessionId(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLoggedIn, userId])
 
   const { sendMessage, handleClientActions } = useShopAIChatActions()
 
@@ -106,9 +159,16 @@ export default function ChatWidget() {
 
 
 
+  useEffect(() => {
+    if (!input) resetTextareaHeight(inputRef.current)
+  }, [input])
+
   if (!isLoggedIn) return null
 
-
+  const handleTextareaInput = (e) => {
+    setInput(e.target.value)
+    growTextarea(e.target, WIDGET_TEXTAREA_MAX_HEIGHT)
+  }
 
   const handleSend = async () => {
 
@@ -133,6 +193,7 @@ export default function ChatWidget() {
       const data = await sendMessage({ text, sessionId: sessionId ?? undefined })
       if (data.sessionId) {
         setSessionId(data.sessionId)
+        writeWidgetSessionId(userId, data.sessionId)
       }
 
       const { cartSummary } = handleClientActions(data)
@@ -204,8 +265,9 @@ export default function ChatWidget() {
 
           role: 'assistant',
 
-          content: buildClientWelcomeMessage(userName) +
-            '\n\nOpen **Shop with AI** in the navbar for full-screen chat with history.',
+          content:
+            buildClientWelcomeMessage(userName) +
+            '\n\nThis quick chat resumes after a page refresh in this tab. Open **Shop with AI** in the navbar for full history and past conversations.',
 
         },
 
@@ -402,7 +464,9 @@ export default function ChatWidget() {
 
                 value={input}
 
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleTextareaInput}
+
+                onInput={handleTextareaInput}
 
                 onKeyDown={handleKeyDown}
 
@@ -412,7 +476,7 @@ export default function ChatWidget() {
 
                 rows={1}
 
-                style={{ maxHeight: '80px' }}
+                style={{ maxHeight: `${WIDGET_TEXTAREA_MAX_HEIGHT}px` }}
 
                 disabled={isLoading}
 

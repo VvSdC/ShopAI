@@ -23,6 +23,9 @@ import {
   useShopAIChatActions,
   formatSessionDate,
 } from './useShopAIChat'
+import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
+
+const ASSISTANT_TEXTAREA_MAX_HEIGHT = 120
 
 function SendIcon() {
   return (
@@ -48,11 +51,11 @@ export default function AssistantPage() {
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
   const [hasMoreOlder, setHasMoreOlder] = useState(false)
-  const [loadedFromEnd, setLoadedFromEnd] = useState(0)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingSessions, setLoadingSessions] = useState(true)
+  const [sessionsLoadError, setSessionsLoadError] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [cartHint, setCartHint] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -76,9 +79,19 @@ export default function AssistantPage() {
     scrollToBottom()
   }, [messages, isLoading, scrollToBottom])
 
+  useEffect(() => {
+    if (!input) resetTextareaHeight(inputRef.current)
+  }, [input])
+
+  const handleTextareaInput = useCallback((e) => {
+    setInput(e.target.value)
+    growTextarea(e.target, ASSISTANT_TEXTAREA_MAX_HEIGHT)
+  }, [])
+
   const mapApiMessages = useCallback(
     (items) =>
       (items || []).map((m) => ({
+        id: m.id,
         role: m.role,
         content: m.content,
         checkout: m.checkout || null,
@@ -91,25 +104,26 @@ export default function AssistantPage() {
     setActiveSessionId(data.session.id)
     setMessages(mapApiMessages(data.session.messages))
     setHasMoreOlder(Boolean(data.session.hasMoreOlder))
-    setLoadedFromEnd(data.session.loadedFromEnd ?? data.session.messages?.length ?? 0)
   }, [mapApiMessages])
 
   const loadOlderMessages = useCallback(async () => {
     if (!activeSessionId || loadingOlder || !hasMoreOlder) return
 
+    const oldestMessageId = messages[0]?.id
+    if (!oldestMessageId) return
+
     setLoadingOlder(true)
     try {
       const { data } = await axiosInstance.get(
         `/chat/sessions/${activeSessionId}/messages`,
-        { params: { before: loadedFromEnd } }
+        { params: { beforeMessageId: oldestMessageId } }
       )
       setMessages((prev) => [...mapApiMessages(data.messages), ...prev])
       setHasMoreOlder(Boolean(data.hasMoreOlder))
-      setLoadedFromEnd(data.loadedFromEnd ?? loadedFromEnd)
     } finally {
       setLoadingOlder(false)
     }
-  }, [activeSessionId, hasMoreOlder, loadedFromEnd, loadingOlder, mapApiMessages])
+  }, [activeSessionId, hasMoreOlder, loadingOlder, mapApiMessages, messages])
 
   const startNewConversation = useCallback(async () => {
     const { data } = await axiosInstance.post('/chat/sessions')
@@ -126,32 +140,39 @@ export default function AssistantPage() {
     setActiveSessionId(session.id)
     setMessages(mapApiMessages(session.messages))
     setHasMoreOlder(Boolean(session.hasMoreOlder))
-    setLoadedFromEnd(session.loadedFromEnd ?? session.messages?.length ?? 0)
+    setSessionsLoadError(null)
     setSidebarOpen(false)
     inputRef.current?.focus()
   }, [mapApiMessages])
 
-  useEffect(() => {
-    const init = async () => {
-      setLoadingSessions(true)
-      try {
-        const { data } = await axiosInstance.get('/chat/sessions')
-        const list = data.sessions || []
-        setSessions(list)
-        if (list.length > 0) {
+  const loadSessions = useCallback(async () => {
+    setLoadingSessions(true)
+    setSessionsLoadError(null)
+    try {
+      const { data } = await axiosInstance.get('/chat/sessions')
+      const list = data.sessions || []
+      setSessions(list)
+      if (list.length > 0) {
+        try {
           await loadSession(list[0].id)
-        } else {
-          await startNewConversation()
+        } catch (err) {
+          console.error('Failed to load chat session:', err)
+          setSessionsLoadError('Could not load your conversations. Please refresh.')
         }
-      } catch {
+      } else {
         await startNewConversation()
-      } finally {
-        setLoadingSessions(false)
       }
+    } catch (err) {
+      console.error('Failed to load chat sessions:', err)
+      setSessionsLoadError('Could not load your conversations. Please refresh.')
+    } finally {
+      setLoadingSessions(false)
     }
-    init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadSession, startNewConversation])
+
+  useEffect(() => {
+    loadSessions()
+  }, [loadSessions])
 
   const confirmDeleteSession = async () => {
     if (!deleteTarget) return
@@ -194,7 +215,6 @@ export default function AssistantPage() {
           checkout: data.checkout || null,
         },
       ])
-      setLoadedFromEnd((count) => count + 2)
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -231,6 +251,17 @@ export default function AssistantPage() {
       <div className="flex-1 overflow-y-auto p-2">
         {loadingSessions ? (
           <p className="px-3 py-4 text-sm text-slate-400">Loading history…</p>
+        ) : sessionsLoadError ? (
+          <div className="px-3 py-4 space-y-3">
+            <p className="text-sm text-red-300">{sessionsLoadError}</p>
+            <button
+              type="button"
+              onClick={loadSessions}
+              className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            >
+              Try again
+            </button>
+          </div>
         ) : sessions.length === 0 ? (
           <p className="px-3 py-4 text-sm text-slate-400">No conversations yet</p>
         ) : (
@@ -360,8 +391,20 @@ export default function AssistantPage() {
 
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6">
           <div className="mx-auto max-w-3xl space-y-5">
-            <div className="sticky top-0 z-10 -mx-1 bg-stone-50 pb-4 pt-1">
+            <div className="sticky top-0 z-10 -mx-1 bg-stone-50 pb-4 pt-1 space-y-3">
               <AiDisclosureBanner />
+              {sessionsLoadError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  <p>{sessionsLoadError}</p>
+                  <button
+                    type="button"
+                    onClick={loadSessions}
+                    className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-50"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
             </div>
 
             {messages.length <= 1 && !isLoading && (
@@ -397,7 +440,7 @@ export default function AssistantPage() {
 
             {messages.map((msg, i) => (
               <div
-                key={i}
+                key={msg.id ?? `${msg.role}-${i}`}
                 className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
@@ -445,7 +488,8 @@ export default function AssistantPage() {
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleTextareaInput}
+              onInput={handleTextareaInput}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -455,7 +499,7 @@ export default function AssistantPage() {
               placeholder="Search products, check orders, add to cart, checkout…"
               className="flex-1 resize-none rounded-xl border border-stone-300 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               rows={1}
-              style={{ maxHeight: '120px' }}
+              style={{ maxHeight: `${ASSISTANT_TEXTAREA_MAX_HEIGHT}px` }}
               disabled={isLoading}
             />
             <button

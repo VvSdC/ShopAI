@@ -29,11 +29,11 @@ export const getChatSessionCtrl = asyncHandler(async (req, res) => {
 })
 
 export const getChatSessionMessagesCtrl = asyncHandler(async (req, res) => {
-  const before = parseInt(req.query.before, 10)
+  const beforeMessageId = req.query.beforeMessageId
   const limit = parseInt(req.query.limit, 10)
 
   const page = await getSessionMessagesForClient(req.userAuthId, req.params.id, {
-    before: Number.isNaN(before) ? 0 : before,
+    beforeMessageId: beforeMessageId || undefined,
     limit: Number.isNaN(limit) ? CHAT_SESSION_CLIENT_PAGE_SIZE : limit,
   })
 
@@ -47,7 +47,6 @@ export const getChatSessionMessagesCtrl = asyncHandler(async (req, res) => {
     messages: page.messages.map(mapSessionMessageForClient),
     messageCount: page.messageCount,
     hasMoreOlder: page.hasMoreOlder,
-    loadedFromEnd: page.loadedFromEnd,
   })
 })
 
@@ -64,7 +63,6 @@ export const createChatSessionCtrl = asyncHandler(async (req, res) => {
       createdAt: session.createdAt,
       messageCount: session.messageCount ?? session.messages.length,
       hasMoreOlder: false,
-      loadedFromEnd: session.messages.length,
       messages: session.messages,
     }),
   })

@@ -12,7 +12,10 @@ export default function ShopPagination({
 }) {
   if (total <= 0) return null
 
-  const summaryLabel = `Page ${page} of ${totalPages}`
+  const summaryLabel =
+    total > 0
+      ? `Page ${page} of ${totalPages} (${total} total)`
+      : `Page ${page} of ${totalPages}`
 
   const pages = []
   const maxVisible = 5
