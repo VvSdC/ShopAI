@@ -127,13 +127,15 @@ export default function OrderPayment() {
 
   const [selectedAddress, setSelectedAddress] = useState(null)
   const [addressError, setAddressError] = useState('')
+  const [checkoutBlocked, setCheckoutBlocked] = useState(false)
+  const [checkoutUrl, setCheckoutUrl] = useState('')
 
   const handleAddressSelect = useCallback((addr) => {
     setSelectedAddress(addr)
     setAddressError('')
   }, [])
 
-  const placeOrderHandler = () => {
+  const placeOrderHandler = async () => {
     if (!selectedAddress) {
       setAddressError('Please select a delivery address to continue')
       return
@@ -143,13 +145,28 @@ export default function OrderPayment() {
       return
     }
     setAddressError('')
-    dispatch(
-      placeOrderAction({
-        shippingAddress: selectedAddress,
-        orderItems: availableItems,
-        totalPrice: total,
-      })
-    )
+    setCheckoutBlocked(false)
+    setCheckoutUrl('')
+
+    try {
+      const result = await dispatch(
+        placeOrderAction({
+          shippingAddress: selectedAddress,
+          orderItems: availableItems,
+          totalPrice: total,
+        })
+      ).unwrap()
+
+      if (result?.url) {
+        const checkoutWindow = window.open(result.url, '_blank', 'noopener,noreferrer')
+        if (!checkoutWindow) {
+          setCheckoutUrl(result.url)
+          setCheckoutBlocked(true)
+        }
+      }
+    } catch {
+      // Order errors surface via orderErr from Redux
+    }
   }
 
   return (
@@ -178,6 +195,25 @@ export default function OrderPayment() {
                 OK
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {checkoutBlocked && checkoutUrl && (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-medium">Pop-up blocked</p>
+            <p className="mt-1">
+              Your browser blocked the Stripe checkout window.{' '}
+              <a
+                href={checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-indigo-700 underline hover:text-indigo-900"
+              >
+                Open checkout in a new tab
+              </a>
+            </p>
           </div>
         </div>
       )}

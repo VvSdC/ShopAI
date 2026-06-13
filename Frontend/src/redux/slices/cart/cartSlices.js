@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axiosInstance from '../../../utils/axiosInstance'
 import { fetchCouponAction } from '../coupons/couponsSlice'
+import { parseLocalCart } from '../../../utils/localCart'
 import { skipIfListFetching } from '../../utils/skipIfFetching'
 
 const initialState = {
@@ -82,9 +83,7 @@ function persistCartItems(items) {
 }
 
 function readLocalCart() {
-  return localStorage.getItem('cartItems')
-    ? JSON.parse(localStorage.getItem('cartItems'))
-    : []
+  return parseLocalCart(localStorage.getItem('cartItems'))
 }
 
 function isLoggedIn(getState) {

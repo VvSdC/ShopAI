@@ -42,7 +42,7 @@ export const placeOrderAction = createAsyncThunk(
           totalPrice,
         }
       )
-      return window.open(data?.url)
+      return { url: data?.url }
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }

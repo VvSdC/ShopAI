@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { loginUserAction } from '../../../redux/slices/users/usersSlice'
+import { PASSWORD_MIN_LENGTH } from '../../../utils/passwordPolicy'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 
@@ -187,6 +188,8 @@ const Login = () => {
                     className="w-full pl-12 pr-4 py-3.5 bg-gray-50/80 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all duration-300"
                     type="email"
                     placeholder="name@example.com"
+                    required
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -218,6 +221,9 @@ const Login = () => {
                     className="w-full pl-12 pr-4 py-3.5 bg-gray-50/80 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all duration-300"
                     type="password"
                     placeholder="Enter your password"
+                    required
+                    minLength={PASSWORD_MIN_LENGTH}
+                    autoComplete="current-password"
                   />
                 </div>
               </div>

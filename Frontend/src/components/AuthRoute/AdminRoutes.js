@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import AdminOnly from '../NotAuthorised/AdminOnly'
@@ -9,15 +9,28 @@ const AdminRoutes = ({ children }) => {
   const { userAuth } = useSelector((state) => state?.users)
   const userInfo = userAuth?.userInfo
   const authLoading = userAuth?.loading
+  const [sessionChecked, setSessionChecked] = useState(Boolean(userInfo))
 
   useEffect(() => {
-    if (!userInfo) {
-      dispatch(getCurrentUserAction())
+    if (userInfo) {
+      setSessionChecked(true)
+      return undefined
+    }
+
+    let cancelled = false
+    setSessionChecked(false)
+
+    dispatch(getCurrentUserAction()).finally(() => {
+      if (!cancelled) setSessionChecked(true)
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [dispatch, userInfo])
 
   if (!userInfo) {
-    if (authLoading) return <LoadingComponent />
+    if (authLoading || !sessionChecked) return <LoadingComponent />
     return <AdminOnly />
   }
 
@@ -25,4 +38,4 @@ const AdminRoutes = ({ children }) => {
   return <>{children}</>
 }
 
-export default AdminRoutes;
+export default AdminRoutes
