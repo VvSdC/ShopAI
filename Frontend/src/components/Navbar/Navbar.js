@@ -20,7 +20,7 @@ import ProductSearchBar from '../Users/Products/ProductSearchBar'
 import { getCartUnitCount } from '../../utils/cartCount'
 
 function categoryProductCount(category) {
-  return category?.productCount ?? category?.products?.length ?? 0
+  return category?.productCount ?? 0
 }
 
 export default function Navbar() {

@@ -6,6 +6,7 @@ import Product from '../../model/Product.js'
 import {
   countProductsByBrandName,
   countProductsByCategoryId,
+  attachProductCountsToCategories,
 } from '../../services/catalogProductCounts.js'
 
 describe('catalogProductCounts', () => {
@@ -67,5 +68,38 @@ describe('catalogProductCounts', () => {
     expect(byCategory.get(String(category._id))).toBe(2)
     expect(byBrand.get('nike')).toBe(2)
     expect(byBrand.get('adidas')).toBe(1)
+  })
+
+  it('attaches productCount to categories from Product.category refs', async () => {
+    const user = await User.create({
+      fullname: 'Attach Count User',
+      email: `attach-count-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const category = await Category.create({
+      name: `attach-cat-${Date.now()}`,
+      user: user._id,
+      image: 'https://example.com/cat.jpg',
+    })
+
+    await Product.create({
+      name: `Attach Count Product ${Date.now()}`,
+      description: 'Test',
+      brand: 'nike',
+      category: category._id,
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/a.jpg'],
+      price: 100,
+      totalQty: 2,
+    })
+
+    const [withCount] = await attachProductCountsToCategories([
+      { _id: category._id, name: category.name },
+    ])
+
+    expect(withCount.productCount).toBe(1)
   })
 })

@@ -7,12 +7,7 @@ import Review from '../model/Review.js'
 import { tagProductInBackground } from '../services/productTaggingQueue.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
 import { searchProducts } from '../services/search/searchService.js'
-import {
-  buildCategoryProductFilter,
-  countProductsMatchingFilter,
-  findProductIdsMatchingFilter,
-  resolveCategoryId,
-} from '../utils/categoryRef.js'
+import { resolveCategoryId } from '../utils/categoryRef.js'
 import {
   getCachedOrFetch,
   invalidateCategoriesCache,
@@ -149,8 +144,8 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   const filter = {}
   if (req.query.brand) filter.brand = req.query.brand
   if (req.query.category) {
-    const categoryFilter = await buildCategoryProductFilter(req.query.category)
-    if (!categoryFilter) {
+    const categoryId = await resolveCategoryId(req.query.category)
+    if (!categoryId) {
       return res.json({
         status: 'success',
         total: 0,
@@ -160,7 +155,7 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
         products: [],
       })
     }
-    Object.assign(filter, categoryFilter)
+    filter.category = categoryId
   }
   if (req.query.color) filter.colors = req.query.color
   if (req.query.size) filter.sizes = req.query.size
@@ -182,27 +177,13 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   const { data } = await getCachedOrFetch(listKey, CACHE_TTL.productsList, async () => {
     const startIndex = (page - 1) * limit
     const endIndex = page * limit
-    const categoryScoped = Boolean(req.query.category)
+    const total = await Product.countDocuments(filter)
 
-    const total = categoryScoped
-      ? await countProductsMatchingFilter(filter)
-      : await Product.countDocuments(filter)
-
-    let products
-    if (categoryScoped) {
-      const ids = await findProductIdsMatchingFilter(filter, { skip: startIndex, limit })
-      const rows = await Product.find({ _id: { $in: ids } })
-        .populate('category', 'name')
-        .populate('reviews')
-      const byId = new Map(rows.map((row) => [String(row._id), row]))
-      products = ids.map((id) => byId.get(String(id))).filter(Boolean)
-    } else {
-      products = await Product.find(filter)
-        .skip(startIndex)
-        .limit(limit)
-        .populate('category', 'name')
-        .populate('reviews')
-    }
+    const products = await Product.find(filter)
+      .skip(startIndex)
+      .limit(limit)
+      .populate('category', 'name')
+      .populate('reviews')
 
     const pagination = {}
     if (endIndex < total) {

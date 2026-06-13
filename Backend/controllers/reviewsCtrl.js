@@ -10,24 +10,30 @@ import { moderateReviewInBackground } from "../services/moderationQueue.js";
 export const createReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
   const { productID } = req.params;
-  const productFound = await Product.findById(productID).populate("reviews");
+
+  const productFound = await Product.findById(productID);
   if (!productFound) {
     throw new Error("Product Not Found");
   }
-  const hasReviewed = productFound?.reviews?.find((review) => {
-    return review?.user?.toString() === req?.userAuthId?.toString();
+
+  const hasReviewed = await Review.findOne({
+    product: productID,
+    user: req.userAuthId,
   });
   if (hasReviewed) {
     throw new Error("You have already reviewed this product");
   }
+
   const review = await Review.create({
     message,
     rating,
-    product: productFound?._id,
+    product: productFound._id,
     user: req.userAuthId,
   });
-  productFound.reviews.push(review?._id);
-  await productFound.save();
+
+  await Product.findByIdAndUpdate(productID, {
+    $push: { reviews: review._id },
+  });
 
   moderateReviewInBackground(review._id);
 

@@ -32,9 +32,7 @@ export function buildProductSearchFilter(args) {
     }
   }
 
-  if (args.categoryFilter) {
-    conditions.push(args.categoryFilter)
-  } else if (args.categoryId) {
+  if (args.categoryId) {
     conditions.push({ category: args.categoryId })
   }
   if (args.brand) {

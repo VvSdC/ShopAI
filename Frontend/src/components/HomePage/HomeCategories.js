@@ -16,8 +16,8 @@ export default function HomeCategories() {
     return list
       .sort(
         (a, b) =>
-          (b?.productCount ?? b?.products?.length ?? 0) -
-          (a?.productCount ?? a?.products?.length ?? 0)
+          (b?.productCount ?? 0) -
+          (a?.productCount ?? 0)
       )
       .slice(0, 5)
   }, [categories?.categories])

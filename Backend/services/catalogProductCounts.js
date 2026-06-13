@@ -1,9 +1,4 @@
 import Product from '../model/Product.js'
-import {
-  buildCategoryProductFilter,
-  countProductsMatchingFilter,
-  findProductIdsMatchingFilter,
-} from '../utils/categoryRef.js'
 
 /** @returns {Map<string, number>} categoryId → product count */
 export async function countProductsByCategoryId() {
@@ -33,15 +28,13 @@ export async function countProductsByBrandName() {
   return counts
 }
 
-/** @returns {Promise<Array<object>>} categories with accurate `productCount` */
+/** @returns {Promise<Array<object>>} categories with `productCount` from Product.category refs */
 export async function attachProductCountsToCategories(categories) {
   if (!categories?.length) return []
 
-  return Promise.all(
-    categories.map(async (cat) => {
-      const filter = await buildCategoryProductFilter(cat.name)
-      const productCount = filter ? await countProductsMatchingFilter(filter) : 0
-      return { ...cat, productCount }
-    })
-  )
+  const counts = await countProductsByCategoryId()
+  return categories.map((cat) => ({
+    ...cat,
+    productCount: counts.get(String(cat._id)) || 0,
+  }))
 }

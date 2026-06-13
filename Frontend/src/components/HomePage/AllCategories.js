@@ -12,7 +12,7 @@ import LoadingComponent from '../LoadingComp/LoadingComponent'
 import ErrorMsg from '../ErrorMsg/ErrorMsg'
 
 function categoryProductCount(category) {
-  return category?.productCount ?? category?.products?.length ?? 0
+  return category?.productCount ?? 0
 }
 
 function sortByPopularity(list) {
