@@ -258,6 +258,43 @@ describe('PUT /shopai/users/change-password', () => {
   })
 })
 
+describe('password reset OTP', () => {
+  it('stores bcrypt hash and verifies with compare', async () => {
+    const user = await User.create({
+      fullname: 'OTP Hash User',
+      email: `otp-hash-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const otp = await user.createPasswordResetOTP()
+    await user.save({ validateBeforeSave: false })
+
+    expect(user.passwordResetOTP).toMatch(/^\$2[aby]\$/)
+    expect(user.passwordResetOTP).not.toHaveLength(64)
+
+    const reloaded = await User.findById(user._id)
+    expect(await reloaded.verifyPasswordResetOTP(otp)).toBe(true)
+    expect(await reloaded.verifyPasswordResetOTP('000000')).toBe(false)
+  })
+
+  it('findByEmailAndValidResetOtp resolves user by email and otp', async () => {
+    const user = await User.create({
+      fullname: 'OTP Lookup User',
+      email: `otp-lookup-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const otp = await user.createPasswordResetOTP()
+    await user.save({ validateBeforeSave: false })
+
+    const found = await User.findByEmailAndValidResetOtp(user.email, otp)
+    expect(found?._id.toString()).toBe(user._id.toString())
+
+    const wrong = await User.findByEmailAndValidResetOtp(user.email, '000000')
+    expect(wrong).toBeNull()
+  })
+})
+
 describe('POST /shopai/users/reset-password', () => {
   it('revokes all sessions after OTP reset', async () => {
     const user = await User.create({
@@ -269,7 +306,7 @@ describe('POST /shopai/users/reset-password', () => {
     const stolenRefreshToken = generateRefreshToken(user._id)
     await addSession(user, { token: stolenRefreshToken, deviceId: 'reset-device' })
 
-    const otp = user.createPasswordResetOTP()
+    const otp = await user.createPasswordResetOTP()
     await user.save({ validateBeforeSave: false })
 
     const csrf = await fetchCsrf(app)

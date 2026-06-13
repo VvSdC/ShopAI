@@ -10,7 +10,7 @@ import { CHAT_HISTORY_TOKEN_BUDGET } from '../constants/chatLimits.js'
 import { normalizeCartQueue, stripCartQueueMarker } from './cartQueue.js'
 
 export const MAX_SESSIONS_PER_USER = 50
-const MAX_MESSAGES_PER_SESSION = 100
+export const MAX_MESSAGES_PER_SESSION = 100
 
 export function buildWelcomeMessage(userName) {
   const name = userName || 'there'
@@ -152,16 +152,10 @@ export async function appendMessages(
   checkout = null,
   cartQueue = undefined
 ) {
-  if (!session.messages?.length) {
-    session.title = deriveSessionTitle(userContent)
-  } else if (session.title === 'New conversation') {
-    session.title = deriveSessionTitle(userContent)
-  }
-
-  session.messages.push({
+  const userEntry = {
     role: 'user',
     content: clampSessionMessageText(userContent),
-  })
+  }
 
   const assistantEntry = {
     role: 'assistant',
@@ -175,19 +169,44 @@ export async function appendMessages(
       totalPrice: checkout.totalPrice,
     }
   }
-  session.messages.push(assistantEntry)
 
-  if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
-    session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION)
+  const priorCount = session.messageCount ?? session.messages?.length ?? 0
+  const shouldUpdateTitle =
+    !session.messages?.length || session.title === 'New conversation'
+
+  const update = {
+    $push: {
+      messages: {
+        $each: [userEntry, assistantEntry],
+        $slice: -MAX_MESSAGES_PER_SESSION,
+      },
+    },
+    $set: {
+      messageCount: Math.min(priorCount + 2, MAX_MESSAGES_PER_SESSION),
+    },
   }
 
-  session.messageCount = session.messages.length
+  if (shouldUpdateTitle) {
+    update.$set.title = deriveSessionTitle(userContent)
+  }
 
   if (cartQueue !== undefined) {
-    session.cartQueue = normalizeCartQueue(cartQueue)
+    update.$set.cartQueue = normalizeCartQueue(cartQueue)
   }
 
-  await session.save()
+  const updated = await ChatSession.findByIdAndUpdate(session._id, update, {
+    new: true,
+  })
+
+  if (updated) {
+    session.title = updated.title
+    session.messages = updated.messages
+    session.messageCount = updated.messageCount
+    session.cartQueue = updated.cartQueue
+    session.updatedAt = updated.updatedAt
+    return updated
+  }
+
   return session
 }
 

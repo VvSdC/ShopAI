@@ -4,6 +4,7 @@ import axiosInstance from '../../../utils/axiosInstance'
 import {
   resetErrAction,
 } from '../globalActions/globalActions'
+import { skipIfFetching } from '../../utils/skipIfFetching'
 //initialState
 const initialState = {
   loading: false,
@@ -158,6 +159,11 @@ export const getCurrentUserAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
+  },
+  {
+    condition: skipIfFetching((state) =>
+      Boolean(state?.users?.userAuth?.loading)
+    ),
   }
 )
 

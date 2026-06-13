@@ -2,17 +2,16 @@ import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
 import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import {
+  attachQueueFailureHandlers,
+  DEFAULT_QUEUE_JOB_OPTIONS,
+} from './queueFailureHandler.js'
 import { tagProduct } from './productTagging.js'
 
 const QUEUE_NAME = 'product-tagging'
 const JOB_NAME = 'tag-product'
 
-const DEFAULT_JOB_OPTIONS = {
-  attempts: 3,
-  backoff: { type: 'exponential', delay: 2000 },
-  removeOnComplete: true,
-  removeOnFail: 100,
-}
+const DEFAULT_JOB_OPTIONS = DEFAULT_QUEUE_JOB_OPTIONS
 
 let queue = null
 let worker = null
@@ -106,9 +105,7 @@ export async function startProductTaggingWorker() {
     { connection: workerConnection, concurrency: 2 }
   )
 
-  worker.on('failed', (job, err) => {
-    logger.error(`[productTaggingQueue] Job ${job?.id} failed:`, err.message)
-  })
+  attachQueueFailureHandlers(worker, 'product-tagging')
 
   logger.log('[productTaggingQueue] Worker started')
   return worker

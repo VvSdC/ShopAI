@@ -7,6 +7,41 @@ import { cosineSimilarity } from './embeddingService.js'
 const PRODUCT_FIELDS =
   'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
 
+/** Dev-only fallback: keep low to avoid loading large embedding batches into Node.js. */
+const LOCAL_COSINE_DEV_WARNING =
+  '[vectorSearch] Local in-process cosine (dev/fallback) — set VECTOR_SEARCH_BACKEND=atlas with Atlas $vectorSearch in production.'
+
+let autoBackendLogged = false
+
+function inferVectorBackendFromUrl(mongoUrl) {
+  return String(mongoUrl || '').includes('mongodb+srv://') ? 'atlas' : 'local'
+}
+
+/** Resolve effective vector search backend: atlas, local, or auto (URL inference). */
+export function resolveVectorSearchBackend() {
+  const configured = String(config.search.vectorBackend || 'auto').trim().toLowerCase()
+
+  if (configured === 'atlas' || configured === 'local') {
+    return configured
+  }
+
+  if (configured === 'auto') {
+    const inferred = inferVectorBackendFromUrl(config.db.mongoUrl)
+    if (!autoBackendLogged) {
+      autoBackendLogged = true
+      logger.log(
+        `[vectorSearch] VECTOR_SEARCH_BACKEND=auto resolved to "${inferred}" — set atlas or local explicitly in production`
+      )
+    }
+    return inferred
+  }
+
+  logger.warn(
+    `[vectorSearch] Unknown VECTOR_SEARCH_BACKEND="${configured}" — using local cosine. Valid values: atlas, local, auto`
+  )
+  return 'local'
+}
+
 function localCandidateLimit(limit) {
   const scaled = Math.max(limit * 4, limit)
   return Math.min(
@@ -51,6 +86,10 @@ async function loadLocalCandidates(filter, candidateLimit) {
  */
 export async function vectorSearchLocal(queryVector, filter, limit) {
   const candidateLimit = localCandidateLimit(limit)
+  logger.warn(
+    `${LOCAL_COSINE_DEV_WARNING} Scoring up to ${candidateLimit} embedding(s) in Node.js memory.`
+  )
+
   const candidates = await loadLocalCandidates(filter, candidateLimit)
 
   const topIds = candidates
@@ -109,15 +148,29 @@ export async function vectorSearchAtlas(queryVector, filter, limit) {
 }
 
 export async function vectorSearch(queryVector, mongoFilter, limit) {
-  const isAtlas = config.db.mongoUrl.includes('mongodb+srv://')
+  const backend = resolveVectorSearchBackend()
 
-  if (isAtlas) {
+  if (backend === 'atlas') {
     try {
       const results = await vectorSearchAtlas(queryVector, mongoFilter, limit)
       if (results.length > 0) return results
     } catch (err) {
-      logger.warn('[vectorSearch] Atlas $vectorSearch failed, using local cosine:', err.message)
+      const explicit = String(config.search.vectorBackend || '').toLowerCase() === 'atlas'
+      logger.error(
+        `[vectorSearch] Atlas $vectorSearch failed${explicit ? ' (VECTOR_SEARCH_BACKEND=atlas)' : ''}:`,
+        err.message
+      )
     }
+  }
+
+  if (backend === 'local') {
+    return vectorSearchLocal(queryVector, mongoFilter, limit)
+  }
+
+  if (backend === 'atlas') {
+    logger.warn(
+      '[vectorSearch] Atlas returned no results or failed — falling back to local cosine (set VECTOR_SEARCH_BACKEND=local to silence Atlas attempts)'
+    )
   }
 
   return vectorSearchLocal(queryVector, mongoFilter, limit)

@@ -8,13 +8,58 @@ export function estimateTextTokens(text) {
   return Math.ceil(len / 4)
 }
 
+function estimateStructuredTokens(value) {
+  if (value == null) return 0
+  if (typeof value === 'string') return estimateTextTokens(value)
+  return estimateTextTokens(JSON.stringify(value))
+}
+
 export function estimateMessageTokens(message) {
   if (!message) return 0
-  const content =
-    typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content ?? '')
-  return 4 + estimateTextTokens(content)
+
+  let tokens = 4
+
+  if (Array.isArray(message.content)) {
+    tokens += message.content.reduce(
+      (sum, part) => sum + estimateStructuredTokens(part),
+      0
+    )
+  } else if (typeof message.content === 'string') {
+    tokens += estimateTextTokens(message.content)
+  } else if (message.content != null) {
+    tokens += estimateStructuredTokens(message.content)
+  }
+
+  if (Array.isArray(message.tool_calls) && message.tool_calls.length) {
+    tokens += estimateStructuredTokens(message.tool_calls)
+  }
+
+  if (message.tool_call_id) {
+    tokens += estimateTextTokens(String(message.tool_call_id))
+  }
+
+  return tokens
+}
+
+function normalizeMessageForTrim(message) {
+  if (!message || typeof message !== 'object') return null
+
+  const role = message.role
+  if (!role) return null
+
+  const normalized = {
+    role,
+    content: message.content ?? '',
+  }
+
+  if (Array.isArray(message.tool_calls) && message.tool_calls.length) {
+    normalized.tool_calls = message.tool_calls
+  }
+  if (message.tool_call_id) {
+    normalized.tool_call_id = message.tool_call_id
+  }
+
+  return normalized
 }
 
 /**
@@ -28,10 +73,7 @@ export function trimHistoryToTokenBudget(
   if (!Array.isArray(history) || history.length === 0) return []
   if (!Number.isFinite(tokenBudget) || tokenBudget <= 0) return []
 
-  const messages = history.map((m) => ({
-    role: m.role === 'user' ? 'user' : 'assistant',
-    content: String(m.content ?? ''),
-  }))
+  const messages = history.map(normalizeMessageForTrim).filter(Boolean)
 
   let total = messages.reduce((sum, m) => sum + estimateMessageTokens(m), 0)
   if (total <= tokenBudget) return messages

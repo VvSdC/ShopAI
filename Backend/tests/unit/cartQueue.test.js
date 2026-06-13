@@ -7,7 +7,7 @@ import {
   resolveActiveCartQueue,
   stripCartQueueMarker,
 } from '../../services/cartQueue.js'
-import { appendMessages, sessionCartQueueForAssist } from '../../services/chatSessionService.js'
+import { appendMessages, sessionCartQueueForAssist, MAX_MESSAGES_PER_SESSION } from '../../services/chatSessionService.js'
 
 describe('cartQueue', () => {
   it('normalizes queue items', () => {
@@ -39,6 +39,44 @@ describe('cartQueue', () => {
     )
     expect(cleaned).toBe('Need color')
     expect(cleaned).not.toContain('cart-queue')
+  })
+})
+
+describe('appendMessages message cap', () => {
+  it('caps stored messages at MAX_MESSAGES_PER_SESSION via $slice', async () => {
+    const user = await User.create({
+      fullname: 'Cap User',
+      email: `cap-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const seedMessages = Array.from({ length: MAX_MESSAGES_PER_SESSION - 1 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `seed-${i}`,
+    }))
+
+    const session = await ChatSession.create({
+      user: user._id,
+      title: 'Cap test',
+      messageCount: seedMessages.length,
+      messages: seedMessages,
+    })
+
+    await appendMessages(session, 'near cap user', 'near cap assistant')
+
+    const reloaded = await ChatSession.findById(session._id)
+    expect(reloaded.messages).toHaveLength(MAX_MESSAGES_PER_SESSION)
+    expect(reloaded.messageCount).toBe(MAX_MESSAGES_PER_SESSION)
+    expect(reloaded.messages.at(-2).content).toBe('near cap user')
+    expect(reloaded.messages.at(-1).content).toBe('near cap assistant')
+    expect(reloaded.messages[0].content).not.toBe('seed-0')
+
+    await appendMessages(reloaded, 'after cap user', 'after cap assistant')
+
+    const capped = await ChatSession.findById(session._id)
+    expect(capped.messages).toHaveLength(MAX_MESSAGES_PER_SESSION)
+    expect(capped.messageCount).toBe(MAX_MESSAGES_PER_SESSION)
+    expect(capped.messages.at(-1).content).toBe('after cap assistant')
   })
 })
 

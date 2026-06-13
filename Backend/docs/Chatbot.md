@@ -170,6 +170,27 @@ All chat turns are stored in MongoDB (`ChatSession`). The server loads and trims
 
 Creating a session adds a **welcome message** from the assistant so the UI is never empty. The full-screen assistant page creates sessions via `POST /chat/sessions` and always sends `sessionId`.
 
+### Scaling and sharding (MongoDB)
+
+At normal ShopAI scale, a single MongoDB deployment is sufficient. If you plan **horizontal sharding** later, be aware of how sessions are indexed and queried:
+
+| Topic | Detail |
+|-------|--------|
+| **Current index** | `{ user: 1, updatedAt: -1 }` on `chatsessions` — fast “my conversations” list |
+| **Primary access patterns** | List by `user` (session list); load/update/delete by session `_id` + `user` (message turns) |
+| **Shard key risk** | Sharding on `user` co-locates every session for one account on the same shard (hot spot for power users / flash traffic) |
+| **Recommended shard key** | `{ _id: 1 }` — each session document’s `_id` is the `sessionId` exposed in API responses; ObjectIds spread writes evenly |
+| **Trade-off** | `GET /sessions` (list by user) may require scatter-gather across shards; keep result sets small (already capped per user) |
+| **Action today** | No change required — document and revisit when moving to a sharded cluster |
+
+Example (Atlas / mongosh — only when sharding is enabled):
+
+```javascript
+sh.shardCollection('ShopAI.chatsessions', { _id: 1 })
+```
+
+Keep the `{ user: 1, updatedAt: -1 }` index for list queries regardless of shard key.
+
 ---
 
 ## API endpoints (for developers)

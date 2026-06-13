@@ -56,4 +56,62 @@ describe('chatHistoryTrim', () => {
     const message = { role: 'user', content: 'test' }
     expect(estimateMessageTokens(message)).toBeGreaterThan(estimateTextTokens('test'))
   })
+
+  it('counts multipart content arrays', () => {
+    const message = {
+      role: 'user',
+      content: [{ type: 'text', text: 'hello' }, { type: 'text', text: 'world' }],
+    }
+    expect(estimateMessageTokens(message)).toBeGreaterThan(
+      estimateMessageTokens({ role: 'user', content: 'hello' })
+    )
+  })
+
+  it('counts assistant tool_calls and tool result payloads', () => {
+    const toolPayload = JSON.stringify({ products: [{ name: 'Shirt', price: 1999 }] })
+    const assistant = {
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_1',
+          type: 'function',
+          function: { name: 'search_products', arguments: '{"query":"shirt"}' },
+        },
+      ],
+    }
+    const tool = {
+      role: 'tool',
+      tool_call_id: 'call_1',
+      content: toolPayload,
+    }
+
+    expect(estimateMessageTokens(assistant)).toBeGreaterThan(4)
+    expect(estimateMessageTokens(tool)).toBeGreaterThan(estimateTextTokens(toolPayload))
+  })
+
+  it('drops tool-heavy oldest turns when over budget', () => {
+    const history = [
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call_old',
+            function: { name: 'search_products', arguments: '{"query":"old"}' },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_old',
+        content: JSON.stringify({ products: [{ name: 'Old'.repeat(400) }] }),
+      },
+      { role: 'user', content: 'recent question' },
+    ]
+
+    const trimmed = trimHistoryToTokenBudget(history, 30)
+    expect(trimmed).toHaveLength(1)
+    expect(trimmed[0].content).toBe('recent question')
+  })
 })

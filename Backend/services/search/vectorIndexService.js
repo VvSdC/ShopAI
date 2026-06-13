@@ -18,6 +18,7 @@ export async function indexProductEmbedding(productId) {
       embeddingProvider: provider,
       embeddingModel: model,
       embeddingVersion: config.search.embeddingVersion,
+      embeddingDimension: vector.length,
       embeddedAt: new Date(),
     }
   } catch (err) {

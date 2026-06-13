@@ -86,8 +86,9 @@ flowchart TB
 
 - The **query text** is turned into an embedding via `services/search/embeddingService.js`.  
 - `services/search/vectorSearch.js` finds similar products:
-  - **MongoDB Atlas** (`mongodb+srv://`): uses Atlas **Vector Search** (`$vectorSearch`) against index `ATLAS_VECTOR_INDEX` (default `product_vector_index`) on field `embedding`.  
-  - **Otherwise (local/dev):** loads a bounded sample of products with embeddings and compares using **cosine similarity** in application code.
+  - **MongoDB Atlas** (`VECTOR_SEARCH_BACKEND=atlas`): uses Atlas **Vector Search** (`$vectorSearch`) against index `ATLAS_VECTOR_INDEX` (default `product_vector_index`) on field `embedding`.  
+  - **Local dev** (`VECTOR_SEARCH_BACKEND=local`): bounded in-process cosine similarity (not for production).  
+  - **Auto** (default `VECTOR_SEARCH_BACKEND=auto`): picks `atlas` when `MONGO_URL` uses `mongodb+srv://`, otherwise `local` — logs once; prefer explicit `atlas` in production.
 
 > **Atlas index setup (required for production vector search)**  
 > `$vectorSearch` does **not** use Mongoose `schema.index()` or a standard B-tree on `embedding`. You must create a **Vector Search** index in the [Atlas UI](https://www.mongodb.com/docs/atlas/atlas-vector-search/create-index/) or via the Atlas Search API on the `products` collection.  
@@ -159,7 +160,7 @@ Search quality depends on **background indexing**:
 | **1. Product tagging** | AI adds searchable **tags** (see [ProductTagging.md](./ProductTagging.md)). |
 | **2. Build search document** | `documentBuilder.js` joins name, brand, category, description, tags, colors, sizes, price, stock into one text block. |
 | **3. Create embedding** | That text is sent to an embedding provider; numbers are saved on the product. |
-| **4. Save on product** | Fields: `searchDocument`, `embedding`, `embeddingProvider`, `embeddingModel`, `embeddingVersion`, `embeddedAt`. |
+| **4. Save on product** | Fields: `searchDocument`, `embedding`, `embeddingProvider`, `embeddingModel`, `embeddingVersion`, `embeddingDimension`, `embeddedAt`. |
 
 **When indexing runs:**
 
@@ -171,6 +172,21 @@ Search quality depends on **background indexing**:
 | **Manual** | `npm run search:reindex` — re-embeds **all** products (use after model/version change). |
 
 Bump `SEARCH_EMBEDDING_VERSION` when you change embedding model so old vectors are refreshed.
+
+### Changing embedding provider or dimension
+
+If you switch providers (e.g. HuggingFace 768-dim → Voyage 1024-dim), existing product vectors become incompatible with both the configured `EMBEDDING_DIMENSION` and the Atlas Vector Search index.
+
+**On startup**, the API logs a warning when stored dimensions do not match `EMBEDDING_DIMENSION`. Auto-sync then reindexes products flagged as stale (wrong version, model, or dimension).
+
+**Manual migration (recommended after provider/dimension changes):**
+
+1. Set `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, and `EMBEDDING_DIMENSION` in `.env`.
+2. Update your Atlas Vector Search index `numDimensions` to match `EMBEDDING_DIMENSION`.
+3. Bump `SEARCH_EMBEDDING_VERSION`.
+4. Run **`npm run search:reindex`** (`scripts/reindex-embeddings.js`) to rebuild all product embeddings.
+
+Each indexed product stores `embeddingVersion`, `embeddingModel`, `embeddingProvider`, and `embeddingDimension` for drift detection.
 
 ---
 
@@ -246,12 +262,13 @@ Both use `searchProducts()` in `services/search/searchService.js`.
 | `RERANK_ENABLED` | `true` | Turn reranking on/off |
 | `RERANK_TOP_N` | `30` | How many candidates to rerank |
 | `ATLAS_VECTOR_INDEX` | `product_vector_index` | Atlas **Vector Search** index name (create in Atlas UI/API — not via Mongoose) |
+| `VECTOR_SEARCH_BACKEND` | `auto` | `atlas`, `local`, or `auto` (auto infers from `mongodb+srv://`) |
 | `EMBEDDING_DIMENSION` | `1024` | Vector dimensions — must match the Atlas index `numDimensions` |
-| `SEARCH_LOCAL_VECTOR_CAP` | `500` | Max products scored in-process when Atlas/local fallback runs |
+| `SEARCH_LOCAL_VECTOR_CAP` | `100` | Max products scored in-process on local/dev cosine fallback (not for production) |
 | `SEARCH_RRF_K` | `60` | RRF constant |
 | `SEARCH_KEYWORD_LIMIT` | `50` | Max keyword candidates |
 | `SEARCH_VECTOR_LIMIT` | `50` | Max vector candidates |
-| `SEARCH_EMBEDDING_VERSION` | `1` | Bump to re-index stale products |
+| `SEARCH_EMBEDDING_VERSION` | `1` | Bump to re-index stale products (also bump when changing embedding dimension) |
 | `SEARCH_AUTO_SYNC_EMBEDDINGS` | `true` | Startup catch-up indexing |
 
 Full list: `Backend/.env.example` and `config/env.js`.
@@ -271,7 +288,7 @@ Full list: `Backend/.env.example` and `config/env.js`.
 | `services/search/hybridRanker.js` | RRF merge |
 | `services/search/documentBuilder.js` | Build `searchDocument` text |
 | `services/search/vectorIndexService.js` | Save embedding on product |
-| `services/search/embeddingSyncService.js` | Startup sync |
+| `services/search/embeddingSyncService.js` | Startup sync + dimension compatibility check |
 | `scripts/reindex-embeddings.js` | Manual full reindex |
 | `model/Product.js` | `embedding`, `searchDocument`, etc. |
 

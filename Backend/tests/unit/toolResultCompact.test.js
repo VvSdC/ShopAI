@@ -107,4 +107,44 @@ describe('toolResultCompact', () => {
       error: 'nope',
     })
   })
+
+  it('compacts get_my_orders and strips mongoose bloat', () => {
+    const bloatedOrder = {
+      _id: '507f1f77bcf86cd799439011',
+      __v: 2,
+      orderNumber: 'ORD-1001',
+      status: 'delivered',
+      paymentStatus: 'paid',
+      totalPrice: 3999,
+      createdAt: '2026-01-15T10:00:00.000Z',
+      postPaymentProcessed: true,
+      confirmationEmailAttempts: 3,
+      stripeRefundIds: ['re_abc123'],
+      orderItems: [{ name: 'Shirt', qty: 2, price: 1999 }],
+      shippingAddress: { line1: '123 Main St' },
+      coupon: 'SAVE10',
+    }
+
+    const compact = compactToolResultForLlm('get_my_orders', [bloatedOrder])
+    expect(compact).toEqual({
+      orders: [
+        {
+          orderNumber: 'ORD-1001',
+          status: 'delivered',
+          paymentStatus: 'paid',
+          totalPrice: 3999,
+          createdAt: '2026-01-15T10:00:00.000Z',
+          itemCount: 1,
+        },
+      ],
+    })
+    expect(compact.orders[0].__v).toBeUndefined()
+    expect(compact.orders[0].stripeRefundIds).toBeUndefined()
+  })
+
+  it('passes through empty-order message for get_my_orders', () => {
+    expect(
+      compactToolResultForLlm('get_my_orders', { message: 'You have no orders yet.' })
+    ).toEqual({ message: 'You have no orders yet.' })
+  })
 })

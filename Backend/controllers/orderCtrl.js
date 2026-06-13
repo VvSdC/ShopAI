@@ -100,10 +100,10 @@ export const getUserOrdersCtrl = asyncHandler(async (req, res) => {
 })
 
 export const getAllordersCtrl = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1
-  const limit = parseInt(req.query.limit) || 5
+  const limit = parseInt(req.query.limit, 10) || 5
+  const cursor = req.query.cursor || null
 
-  const { orders, pagination } = await orderService.listAll({ page, limit })
+  const { orders, pagination } = await orderService.listAll({ limit, cursor })
 
   res.json({
     success: true,

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 const Schema = mongoose.Schema;
 
 const UserShema = new Schema(
@@ -70,6 +71,7 @@ const UserShema = new Schema(
         phone: { type: String },
       },
     ],
+    /** Bcrypt hash of the 6-digit password-reset OTP — never store plaintext or SHA-256. */
     passwordResetOTP: { type: String },
     passwordResetExpires: { type: Date },
   },
@@ -78,14 +80,33 @@ const UserShema = new Schema(
   }
 );
 
-UserShema.methods.createPasswordResetOTP = function () {
+UserShema.methods.createPasswordResetOTP = async function () {
   const otp = String(crypto.randomInt(100000, 999999));
-  this.passwordResetOTP = crypto
-    .createHash("sha256")
-    .update(otp)
-    .digest("hex");
+  this.passwordResetOTP = await bcrypt.hash(otp, 10);
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   return otp;
+};
+
+UserShema.methods.verifyPasswordResetOTP = async function (otp) {
+  if (!this.passwordResetOTP) return false;
+
+  const expires = this.passwordResetExpires;
+  const expiresMs = expires instanceof Date ? expires.getTime() : Number(expires);
+  if (!expiresMs || expiresMs <= Date.now()) return false;
+
+  return bcrypt.compare(String(otp), this.passwordResetOTP);
+};
+
+UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
+  const user = await this.findOne({
+    email: String(email || "").toLowerCase().trim(),
+    passwordResetOTP: { $exists: true, $ne: null },
+    passwordResetExpires: { $gt: Date.now() },
+  });
+  if (!user) return null;
+
+  const valid = await user.verifyPasswordResetOTP(otp);
+  return valid ? user : null;
 };
 
 UserShema.index({ "sessions.token": 1 });

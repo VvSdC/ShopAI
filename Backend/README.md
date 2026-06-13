@@ -41,7 +41,8 @@ Frontend (separate folder): `cd ../Frontend && npm install && npm start`
 | `npm run start:server` | Production API process |
 | `npm run start:worker` | Dedicated queue workers |
 | `npm test` | Vitest unit + integration tests |
-| `npm run search:reindex` | Rebuild product embeddings |
+| `npm run search:reindex` | Rebuild all product embeddings (run after provider/dimension changes) |
+| `npm run analytics:backfill-usage` | Backfill LLM usage daily summaries from raw logs |
 | `npm run openapi:export` | Write `docs/openapi.json` from Zod schemas |
 | `npm run test:keys` | Smoke-test external API keys |
 
@@ -106,8 +107,9 @@ With Redis, set `REDIS_URL` and queue flags; keep `RUN_QUEUE_WORKERS_IN_API=fals
 See [`.env.example`](.env.example). Notable flags:
 
 - `REDIS_URL` — cache + BullMQ (optional locally)
-- `ENABLE_CHECKOUT_QUEUE` / `ENABLE_EMBEDDING_SYNC_QUEUE`
-- `RUN_QUEUE_WORKERS_IN_API` — defaults **`true`** in dev/test, **`false`** in production (`NODE_ENV=production`). In production run **`npm run start:worker`** as a separate process (Render background worker, second dyno, etc.) so embedding sync and checkout expiry do not block HTTP requests.
+- `ENABLE_CHECKOUT_QUEUE` — checkout session expiry + **async Stripe webhook fulfillment** (requires `npm run start:worker`)
+- `ENABLE_EMBEDDING_SYNC_QUEUE`
+- `RUN_QUEUE_WORKERS_IN_API` — defaults **`true`** in dev/test, **`false`** in production (`NODE_ENV=production`). In production run **`npm run start:worker`** as a separate process (Render background worker, second dyno, etc.) so embedding sync, checkout fulfillment, and session expiry do not block HTTP requests.
 - `ENABLE_CHAT_DETERMINISTIC_ASSIST` — post-graph cart/checkout safety nets (default `true`)
 
 ---

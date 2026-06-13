@@ -72,4 +72,9 @@ describe('Order model schemas', () => {
       })
     ).rejects.toThrow(/validation failed/i)
   })
+
+  it('declares createdAt index for admin order listing', () => {
+    const indexes = Order.schema.indexes()
+    expect(indexes.some(([spec]) => spec.createdAt === -1)).toBe(true)
+  })
 })

@@ -69,6 +69,13 @@ describe('globalErrhandler', () => {
     expect(res.body.message).toBe('Invalid login credentials')
   })
 
+  it('returns operational 409 for duplicate registration', () => {
+    const res = mockRes()
+    globalErrhandler(new AppError('User already exists', 409), { method: 'POST', originalUrl: '/register' }, res, () => {})
+    expect(res.statusCode).toBe(409)
+    expect(res.body.message).toBe('User already exists')
+  })
+
   it('sanitizes unexpected 500 errors', () => {
     const res = mockRes()
     const err = new Error('Connection refused: mongodb://127.0.0.1:27017/internal')

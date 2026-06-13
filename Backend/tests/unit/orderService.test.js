@@ -79,7 +79,7 @@ describe('orderService', () => {
     })
   })
 
-  it('paginates admin listAll like listForUser', async () => {
+  it('paginates admin listAll with cursor-based pagination', async () => {
     const totalBefore = await Order.countDocuments({})
     const user = await User.create({
       fullname: 'Admin List User',
@@ -89,26 +89,43 @@ describe('orderService', () => {
 
     for (let i = 0; i < 3; i++) {
       await Order.create({
-        user: user._id,
-        orderItems: [testOrderItem({ name: `Item ${i}`, price: 10 + i })],
-        shippingAddress: testShippingAddress(),
-        totalPrice: 10 + i,
+          user: user._id,
+          orderItems: [testOrderItem({ name: `Item ${i}`, price: 10 + i })],
+          shippingAddress: testShippingAddress(),
+          totalPrice: 10 + i,
       })
     }
 
     const expectedTotal = totalBefore + 3
-    const page1 = await orderService.listAll({ page: 1, limit: 2 })
+    const page1 = await orderService.listAll({ limit: 2 })
     expect(page1.orders).toHaveLength(2)
     expect(page1.pagination).toEqual({
-      page: 1,
       limit: 2,
       total: expectedTotal,
-      totalPages: Math.ceil(expectedTotal / 2),
+      hasMore: true,
+      nextCursor: expect.any(String),
     })
 
-    const page2 = await orderService.listAll({ page: 2, limit: 2 })
+    const page2 = await orderService.listAll({
+      limit: 2,
+      cursor: page1.pagination.nextCursor,
+    })
     expect(page2.orders).toHaveLength(Math.min(2, expectedTotal - 2))
-    expect(page2.pagination.page).toBe(2)
+    expect(page2.pagination.hasMore).toBe(expectedTotal > 4)
+    expect(page2.pagination.nextCursor).toEqual(
+      expectedTotal > 4 ? expect.any(String) : null
+    )
+
+    const idsPage1 = page1.orders.map((o) => String(o._id))
+    const idsPage2 = page2.orders.map((o) => String(o._id))
+    expect(idsPage1.some((id) => idsPage2.includes(id))).toBe(false)
+  })
+
+  it('rejects invalid admin listAll cursor', async () => {
+    await expect(orderService.listAll({ cursor: 'not-a-cursor' })).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Invalid pagination cursor',
+    })
   })
 
   it('formats chat order summaries consistently', () => {

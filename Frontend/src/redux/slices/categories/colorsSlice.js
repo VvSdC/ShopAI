@@ -3,6 +3,7 @@ import {
   resetErrAction,
   resetSuccessAction,
 } from '../globalActions/globalActions'
+import { skipIfListFetching } from '../../utils/skipIfFetching'
 const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
 
 //initalsState
@@ -10,6 +11,7 @@ const initialState = {
   colors: [],
   color: {},
   loading: false,
+  listFetching: false,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -39,7 +41,8 @@ export const fetchColorsAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
-  }
+  },
+  { condition: skipIfListFetching('colors') }
 )
 
 //update color action
@@ -94,13 +97,16 @@ const colorsSlice = createSlice({
     //fetch all
     builder.addCase(fetchColorsAction.pending, (state) => {
       state.loading = true
+      state.listFetching = true
     })
     builder.addCase(fetchColorsAction.fulfilled, (state, action) => {
       state.loading = false
+      state.listFetching = false
       state.colors = action.payload
     })
     builder.addCase(fetchColorsAction.rejected, (state, action) => {
       state.loading = false
+      state.listFetching = false
       state.colors = null
       state.error = action.payload
     })

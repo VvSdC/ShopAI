@@ -1,4 +1,5 @@
 import Order from '../model/Order.js'
+import mongoose from 'mongoose'
 import { getStripeClient } from '../config/stripeClient.js'
 import User from '../model/User.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
@@ -12,6 +13,44 @@ import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
+
+function encodeOrderCursor(order) {
+  if (!order?.createdAt || !order?._id) return null
+  return Buffer.from(
+    JSON.stringify({
+      createdAt: order.createdAt.toISOString(),
+      id: String(order._id),
+    })
+  ).toString('base64url')
+}
+
+function decodeOrderCursor(cursor) {
+  if (!cursor) return null
+  try {
+    const parsed = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8'))
+    const createdAt = new Date(parsed.createdAt)
+    const id = parsed.id
+    if (!id || Number.isNaN(createdAt.getTime())) return null
+    return { createdAt, id }
+  } catch {
+    return null
+  }
+}
+
+function buildAdminOrderCursorFilter(cursor) {
+  const decoded = decodeOrderCursor(cursor)
+  if (!decoded) return null
+
+  return {
+    $or: [
+      { createdAt: { $lt: decoded.createdAt } },
+      {
+        createdAt: decoded.createdAt,
+        _id: { $lt: new mongoose.Types.ObjectId(decoded.id) },
+      },
+    ],
+  }
+}
 
 export class OrderService {
   async findById(orderId) {
@@ -75,27 +114,36 @@ export class OrderService {
     }
   }
 
-  async listAll({ page = 1, limit = 5 } = {}) {
-    const safePage = Math.max(1, page)
+  async listAll({ limit = 5, cursor = null } = {}) {
     const safeLimit = Math.min(Math.max(1, limit), 50)
-    const skip = (safePage - 1) * safeLimit
+    const filter = cursor ? buildAdminOrderCursorFilter(cursor) : {}
 
-    const [total, orders] = await Promise.all([
+    if (cursor && !filter) {
+      const err = new Error('Invalid pagination cursor')
+      err.statusCode = 400
+      throw err
+    }
+
+    const [total, rows] = await Promise.all([
       Order.countDocuments({}),
-      Order.find({})
+      Order.find(filter)
         .populate('user', 'fullname email phone')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(safeLimit),
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(safeLimit + 1),
     ])
+
+    const hasMore = rows.length > safeLimit
+    const orders = hasMore ? rows.slice(0, safeLimit) : rows
+    const nextCursor =
+      hasMore && orders.length ? encodeOrderCursor(orders[orders.length - 1]) : null
 
     return {
       orders,
       pagination: {
-        page: safePage,
         limit: safeLimit,
         total,
-        totalPages: Math.ceil(total / safeLimit) || 0,
+        hasMore,
+        nextCursor,
       },
     }
   }

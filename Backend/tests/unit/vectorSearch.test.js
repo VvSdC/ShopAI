@@ -84,7 +84,7 @@ describe('vectorSearchLocal', () => {
         db: { mongoUrl: 'mongodb://127.0.0.1:27017/shop' },
         search: {
           vectorCandidates: 2000,
-          localVectorCandidateCap: 500,
+          localVectorCandidateCap: 100,
           vectorIndex: 'product_vector_index',
         },
       },
@@ -97,7 +97,7 @@ describe('vectorSearchLocal', () => {
 
     expect(mockAggregate).toHaveBeenCalledWith([
       { $match: { embedding: { $exists: true, $ne: [] } } },
-      { $sample: { size: 500 } },
+      { $sample: { size: 100 } },
       { $project: { _id: 1, embedding: 1 } },
     ])
   })
@@ -110,11 +110,12 @@ describe('vectorSearch', () => {
     vi.resetModules()
   })
 
-  it('prefers Atlas $vectorSearch on mongodb+srv URLs', async () => {
+  it('prefers Atlas $vectorSearch when VECTOR_SEARCH_BACKEND=auto and URL is +srv', async () => {
     vi.doMock('../../config/env.js', () => ({
       config: {
         db: { mongoUrl: 'mongodb+srv://cluster.example.net/shop' },
         search: {
+          vectorBackend: 'auto',
           vectorIndex: 'product_vector_index',
           vectorCandidates: 100,
         },
@@ -129,5 +130,57 @@ describe('vectorSearch', () => {
     expect(mockAggregate).toHaveBeenCalled()
     expect(mockFind).not.toHaveBeenCalled()
     expect(results[0].name).toBe('Atlas Hit')
+  })
+
+  it('uses Atlas when VECTOR_SEARCH_BACKEND=atlas even without +srv URL', async () => {
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        db: { mongoUrl: 'mongodb://user:pass@atlas-host:27017/shop' },
+        search: {
+          vectorBackend: 'atlas',
+          vectorIndex: 'product_vector_index',
+          vectorCandidates: 100,
+        },
+      },
+    }))
+
+    mockAggregate.mockResolvedValue([{ _id: '1', name: 'Atlas Hit' }])
+
+    const { vectorSearch } = await import('../../services/search/vectorSearch.js')
+    const results = await vectorSearch([0.1, 0.2], {}, 5)
+
+    expect(mockAggregate).toHaveBeenCalled()
+    expect(results[0].name).toBe('Atlas Hit')
+  })
+
+  it('skips Atlas when VECTOR_SEARCH_BACKEND=local even with +srv URL', async () => {
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        db: { mongoUrl: 'mongodb+srv://cluster.example.net/shop' },
+        search: {
+          vectorBackend: 'local',
+          vectorCandidates: 100,
+          localVectorCandidateCap: 100,
+        },
+      },
+    }))
+
+    mockAggregate.mockResolvedValue([])
+
+    const chainEmbedding = {
+      select: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([]),
+    }
+    mockFind.mockReturnValue(chainEmbedding)
+
+    const { vectorSearch } = await import('../../services/search/vectorSearch.js')
+    await vectorSearch([0.1, 0.2], { brand: 'Acme' }, 5)
+
+    const atlasPipeline = mockAggregate.mock.calls.find((call) =>
+      call[0]?.[0]?.$vectorSearch
+    )
+    expect(atlasPipeline).toBeUndefined()
+    expect(mockFind).toHaveBeenCalled()
   })
 })

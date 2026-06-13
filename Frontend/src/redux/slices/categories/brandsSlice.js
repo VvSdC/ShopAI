@@ -3,6 +3,7 @@ import {
   resetErrAction,
   resetSuccessAction,
 } from '../globalActions/globalActions'
+import { skipIfListFetching } from '../../utils/skipIfFetching'
 const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
 
 //initalsState
@@ -10,6 +11,7 @@ const initialState = {
   brands: [],
   brand: {},
   loading: false,
+  listFetching: false,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -46,7 +48,8 @@ export const fetchBrandsAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
-  }
+  },
+  { condition: skipIfListFetching('brands') }
 )
 
 //update brand action
@@ -101,13 +104,16 @@ const brandsSlice = createSlice({
     //fetch all
     builder.addCase(fetchBrandsAction.pending, (state) => {
       state.loading = true
+      state.listFetching = true
     })
     builder.addCase(fetchBrandsAction.fulfilled, (state, action) => {
       state.loading = false
+      state.listFetching = false
       state.brands = action.payload
     })
     builder.addCase(fetchBrandsAction.rejected, (state, action) => {
       state.loading = false
+      state.listFetching = false
       state.brands = null
       state.isAdded = false
       state.error = action.payload

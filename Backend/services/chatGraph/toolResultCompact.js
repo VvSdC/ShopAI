@@ -97,6 +97,30 @@ function compactCartToolResult(result) {
   return { ...result, cart: compactCart(result.cart) }
 }
 
+function compactOrderListItem(order) {
+  if (!order || typeof order !== 'object') return order
+  return {
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    totalPrice: order.totalPrice,
+    createdAt: order.createdAt ?? order.orderedOn ?? null,
+    itemCount: order.itemCount ?? order.orderItems?.length ?? 0,
+  }
+}
+
+function compactMyOrdersResult(result) {
+  if (!result || typeof result !== 'object') return result
+  if (result.message) return result
+  if (Array.isArray(result)) {
+    return { orders: result.map(compactOrderListItem) }
+  }
+  if (Array.isArray(result.orders)) {
+    return { orders: result.orders.map(compactOrderListItem) }
+  }
+  return result
+}
+
 const CART_TOOLS = new Set([
   'get_cart',
   'add_to_cart',
@@ -125,6 +149,8 @@ export function compactToolResultForLlm(toolName, result) {
         return result.map(({ name, productCount }) => ({ name, productCount }))
       }
       return result
+    case 'get_my_orders':
+      return compactMyOrdersResult(result)
     default:
       if (CART_TOOLS.has(toolName)) {
         return compactCartToolResult(result)

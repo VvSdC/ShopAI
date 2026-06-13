@@ -84,6 +84,8 @@ const ProductSchema = new Schema(
     embeddingProvider: String,
     embeddingModel: String,
     embeddingVersion: Number,
+    /** Vector length at index time — used to detect provider/dimension drift. */
+    embeddingDimension: Number,
     embeddedAt: Date,
   },
   {

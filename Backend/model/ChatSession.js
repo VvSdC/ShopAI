@@ -1,6 +1,16 @@
 import mongoose from 'mongoose'
 import { CHAT_SESSION_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
 
+/**
+ * Chat sessions for the shopping assistant.
+ *
+ * MongoDB scaling note (document only — fine at current scale):
+ * The app index `{ user: 1, updatedAt: -1 }` optimizes listing a user's conversations.
+ * If you shard this collection, do NOT use `user` as the shard key — a power user's
+ * sessions would pile onto one chunk. Prefer `{ _id: 1 }` (the session id returned as
+ * `sessionId` in the API). Point lookups by session id stay targeted; list-by-user queries
+ * become scatter-gather across shards. See docs/Chatbot.md § “Scaling and sharding”.
+ */
 const cartQueueItemSchema = new mongoose.Schema(
   {
     productId: { type: String, required: true },

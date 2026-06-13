@@ -3,6 +3,10 @@ import {
   resetErrAction,
   resetSuccessAction,
 } from '../globalActions/globalActions'
+import {
+  skipIfFetching,
+  skipIfSameFetchInFlight,
+} from '../../utils/skipIfFetching'
 const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
 
 //initalsState
@@ -10,6 +14,9 @@ const initialState = {
   orders: [],
   order: null,
   loading: false,
+  adminListFetching: false,
+  userOrdersFetching: false,
+  userOrdersFetchKey: null,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -54,6 +61,16 @@ export const fetchUserOrdersAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
+  },
+  {
+    condition: skipIfSameFetchInFlight(
+      'orders',
+      {
+        fetchingKey: 'userOrdersFetching',
+        requestKey: 'userOrdersFetchKey',
+      },
+      ({ page = 1, limit = 5 } = {}) => `${page}:${limit}`
+    ),
   }
 )
 
@@ -67,6 +84,11 @@ export const fetchOrdersAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
+  },
+  {
+    condition: skipIfFetching((state) =>
+      Boolean(state?.orders?.adminListFetching)
+    ),
   }
 )
 
@@ -151,27 +173,37 @@ const ordersSlice = createSlice({
     //fetch all
     builder.addCase(fetchOrdersAction.pending, (state) => {
       state.loading = true
+      state.adminListFetching = true
     })
     builder.addCase(fetchOrdersAction.fulfilled, (state, action) => {
       state.loading = false
+      state.adminListFetching = false
       state.orders = action.payload
     })
     builder.addCase(fetchOrdersAction.rejected, (state, action) => {
       state.loading = false
+      state.adminListFetching = false
       state.orders = null
       state.error = action.payload
     })
     //fetch user orders (paginated)
-    builder.addCase(fetchUserOrdersAction.pending, (state) => {
+    builder.addCase(fetchUserOrdersAction.pending, (state, action) => {
       state.loading = true
+      state.userOrdersFetching = true
+      const { page = 1, limit = 5 } = action.meta.arg || {}
+      state.userOrdersFetchKey = `${page}:${limit}`
     })
     builder.addCase(fetchUserOrdersAction.fulfilled, (state, action) => {
       state.loading = false
+      state.userOrdersFetching = false
+      state.userOrdersFetchKey = null
       state.userOrders = action.payload.orders
       state.pagination = action.payload.pagination
     })
     builder.addCase(fetchUserOrdersAction.rejected, (state, action) => {
       state.loading = false
+      state.userOrdersFetching = false
+      state.userOrdersFetchKey = null
       state.userOrders = []
       state.pagination = null
       state.error = action.payload

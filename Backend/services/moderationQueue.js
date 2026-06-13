@@ -94,6 +94,11 @@ export async function startModerationWorker() {
 
   if (worker) return worker
 
+  const concurrency = Math.min(
+    Math.max(config.redis.moderationQueueConcurrency, 1),
+    10
+  )
+
   workerConnection = createRedisConnection('moderation-worker')
   worker = new Worker(
     QUEUE_NAME,
@@ -113,14 +118,14 @@ export async function startModerationWorker() {
         throw err
       }
     },
-    { connection: workerConnection, concurrency: 2 }
+    { connection: workerConnection, concurrency }
   )
 
   worker.on('failed', (job, err) => {
     logger.error(`[moderationQueue] Job ${job?.id} failed:`, err.message)
   })
 
-  logger.log('[moderationQueue] Worker started')
+  logger.log(`[moderationQueue] Worker started (concurrency ${concurrency})`)
   return worker
 }
 

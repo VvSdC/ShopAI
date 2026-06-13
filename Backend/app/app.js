@@ -28,6 +28,10 @@ import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
 import { orderService } from '../services/orderService.js'
 import { parseOrderId } from '../services/orderFulfillment.js'
+import {
+  enqueueCheckoutFulfillment,
+  isCheckoutFulfillmentQueueEnabled,
+} from '../services/checkoutFulfillmentQueue.js'
 import logger from '../utils/logger.js'
 
 const app = express()
@@ -93,27 +97,50 @@ app.post(
         return response.status(400).json({ error: 'Missing orderId in metadata' })
       }
 
-      try {
-        const receiptEmail =
-          session.customer_details?.email || session.customer_email || null
-        const { updatedOrder, fulfillment } = await orderService.applyStripeCheckoutSession(
-          parsedOrderId,
-          session,
-          { receiptEmail }
-        )
+      const receiptEmail =
+        session.customer_details?.email || session.customer_email || null
 
-        if (updatedOrder) {
-          logger.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
-          if (paymentStatus === 'paid' && fulfillment?.emailSent) {
-            logger.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
-          } else if (fulfillment?.processed && !fulfillment?.emailSent) {
-            logger.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
+      try {
+        let processedInline = false
+
+        if (isCheckoutFulfillmentQueueEnabled()) {
+          const queued = await enqueueCheckoutFulfillment({
+            orderId: parsedOrderId,
+            sessionId: session.id,
+            receiptEmail,
+            stripeEventId: event.id,
+          })
+
+          if (queued) {
+            logger.log('✅ Payment fulfillment queued for order:', parsedOrderId)
+          } else {
+            processedInline = true
           }
         } else {
-          logger.error('❌ Order not found for ID:', parsedOrderId)
+          processedInline = true
         }
-      } catch (dbErr) {
-        logger.error('❌ Failed to update order in DB:', dbErr.message)
+
+        if (processedInline) {
+          const { updatedOrder, fulfillment } = await orderService.applyStripeCheckoutSession(
+            parsedOrderId,
+            session,
+            { receiptEmail }
+          )
+
+          if (updatedOrder) {
+            logger.log('✅ Order updated successfully:', updatedOrder._id, '→', updatedOrder.paymentStatus)
+            if (paymentStatus === 'paid' && fulfillment?.emailSent) {
+              logger.log('📧 Order confirmation email sent for', updatedOrder.orderNumber)
+            } else if (fulfillment?.processed && !fulfillment?.emailSent) {
+              logger.warn('⚠️ Order processed but confirmation email failed:', fulfillment.emailError)
+            }
+          } else {
+            logger.error('❌ Order not found for ID:', parsedOrderId)
+          }
+        }
+      } catch (err) {
+        logger.error('❌ Checkout webhook handling failed:', err.message)
+        return response.status(500).json({ error: 'Webhook processing failed' })
       }
     }
     response.status(200).json({ received: true })

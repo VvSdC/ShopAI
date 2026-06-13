@@ -10,7 +10,13 @@ export function getEmbeddingSpec() {
     version: config.search.embeddingVersion,
     model: config.search.embedding.model,
     provider: config.search.embedding.provider,
+    dimension: config.search.embedding.dimension,
   }
+}
+
+export function getStoredEmbeddingDimension(product) {
+  if (!product?.embedding?.length) return 0
+  return product.embeddingDimension ?? product.embedding.length
 }
 
 export function productNeedsEmbedding(product, spec = getEmbeddingSpec()) {
@@ -18,6 +24,7 @@ export function productNeedsEmbedding(product, spec = getEmbeddingSpec()) {
   if (!product.embeddedAt) return true
   if (product.embeddingVersion !== spec.version) return true
   if (product.embeddingModel && product.embeddingModel !== spec.model) return true
+  if (getStoredEmbeddingDimension(product) !== spec.dimension) return true
   return false
 }
 
@@ -60,7 +67,7 @@ export async function syncMissingProductEmbeddings(options = {}) {
   let pending = 0
 
   const cursor = Product.find({})
-    .select('_id name embedding embeddedAt embeddingVersion embeddingModel')
+    .select('_id name embedding embeddedAt embeddingVersion embeddingModel embeddingDimension')
     .lean()
     .cursor({ batchSize: SYNC_BATCH_SIZE })
 
@@ -95,5 +102,95 @@ export async function syncMissingProductEmbeddings(options = {}) {
     pending,
     indexed,
     failed,
+  }
+}
+
+const MIGRATION_HINT =
+  'Run `npm run search:reindex`, update ATLAS_VECTOR_INDEX numDimensions to match EMBEDDING_DIMENSION, and bump SEARCH_EMBEDDING_VERSION.'
+
+function embeddingExistsFilter() {
+  return { embedding: { $exists: true, $ne: [] } }
+}
+
+function dimensionMismatchFilter(expectedDim) {
+  return {
+    ...embeddingExistsFilter(),
+    $or: [
+      { embeddingDimension: { $exists: true, $ne: expectedDim } },
+      {
+        embeddingDimension: { $exists: false },
+        $expr: { $ne: [{ $size: '$embedding' }, expectedDim] },
+      },
+    ],
+  }
+}
+
+/** Count products whose stored vector length differs from configured EMBEDDING_DIMENSION. */
+export async function countEmbeddingDimensionMismatches(expectedDim = getEmbeddingSpec().dimension) {
+  return Product.countDocuments(dimensionMismatchFilter(expectedDim))
+}
+
+/**
+ * Startup guard: detect stored embedding dimensions that disagree with config.
+ * Returns { ok, status, expectedDim, storedDim?, mismatchCount?, migration? }.
+ */
+export async function checkEmbeddingDimensionCompatibility() {
+  const expectedDim = getEmbeddingSpec().dimension
+  const sample = await Product.findOne(embeddingExistsFilter())
+    .select('embedding embeddingDimension embeddingVersion embeddingModel embeddingProvider')
+    .lean()
+
+  if (!sample) {
+    return { ok: true, status: 'no_embeddings', expectedDim, storedDim: null, mismatchCount: 0 }
+  }
+
+  const storedDim = getStoredEmbeddingDimension(sample)
+  const mismatchCount = await countEmbeddingDimensionMismatches(expectedDim)
+
+  if (storedDim !== expectedDim || mismatchCount > 0) {
+    return {
+      ok: false,
+      status: 'dimension_mismatch',
+      expectedDim,
+      storedDim,
+      mismatchCount,
+      embeddingVersion: sample.embeddingVersion ?? null,
+      embeddingModel: sample.embeddingModel ?? null,
+      embeddingProvider: sample.embeddingProvider ?? null,
+      migration: MIGRATION_HINT,
+    }
+  }
+
+  return { ok: true, status: 'compatible', expectedDim, storedDim, mismatchCount: 0 }
+}
+
+/** Log compatibility issues before auto-sync runs (non-blocking). */
+export async function verifyEmbeddingDimensionOnStartup() {
+  if (!config.search.autoSyncEmbeddings || config.isTest) {
+    return { skipped: true }
+  }
+
+  try {
+    const report = await checkEmbeddingDimensionCompatibility()
+
+    if (report.status === 'no_embeddings') {
+      logger.log(`[search] No product embeddings yet (expected ${report.expectedDim} dims)`)
+      return report
+    }
+
+    if (!report.ok) {
+      logger.warn(
+        `[search] Embedding dimension mismatch: configured=${report.expectedDim}, ` +
+          `sample stored=${report.storedDim}, mismatched products=${report.mismatchCount}. ` +
+          `${MIGRATION_HINT}`
+      )
+      return report
+    }
+
+    logger.log(`[search] Embedding dimensions OK (${report.expectedDim})`)
+    return report
+  } catch (err) {
+    logger.warn('[search] Embedding dimension check failed:', err.message)
+    return { ok: false, status: 'check_failed', error: err.message }
   }
 }

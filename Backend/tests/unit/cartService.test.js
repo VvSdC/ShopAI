@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import mongoose from 'mongoose'
 import Cart from '../../model/Cart.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
-import { getCart } from '../../services/cartService.js'
+import { getCart, syncLocalItems } from '../../services/cartService.js'
 
 describe('cartService findOrCreateCart', () => {
   it('returns one cart per user when create races on the unique user index', async () => {
@@ -87,5 +87,74 @@ describe('cartService findOrCreateCart', () => {
     const stored = await Cart.findOne({ user: user._id })
     expect(stored.items[0].price).toBe(120)
     expect(stored.items[0].totalPrice).toBe(240)
+  })
+})
+
+describe('syncLocalItems', () => {
+  it('batch-loads products and merges missing guest lines into the server cart', async () => {
+    const user = await User.create({
+      fullname: 'Sync Local User',
+      email: `cart-sync-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const productA = await Product.create({
+      name: `Sync Product A ${Date.now()}`,
+      description: 'Test',
+      brand: 'TestBrand',
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['M'],
+      colors: ['Blue'],
+      images: ['https://example.com/a.jpg'],
+      price: 50,
+      totalQty: 10,
+    })
+
+    const productB = await Product.create({
+      name: `Sync Product B ${Date.now()}`,
+      description: 'Test',
+      brand: 'TestBrand',
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['L'],
+      colors: ['Red'],
+      images: ['https://example.com/b.jpg'],
+      price: 75,
+      totalQty: 8,
+    })
+
+    const findByIdSpy = vi.spyOn(Product, 'findById')
+    const findSpy = vi.spyOn(Product, 'find')
+
+    const cart = await syncLocalItems(user._id, [
+      {
+        _id: productA._id,
+        color: 'Blue',
+        size: 'M',
+        qty: 2,
+      },
+      {
+        _id: productB._id,
+        color: 'Red',
+        size: 'L',
+        qty: 1,
+      },
+      {
+        _id: productA._id,
+        color: 'Blue',
+        size: 'M',
+        qty: 3,
+      },
+    ])
+
+    expect(findByIdSpy).not.toHaveBeenCalled()
+    const batchCall = findSpy.mock.calls.find(
+      ([filter]) => Array.isArray(filter?._id?.$in) && filter._id.$in.length === 2
+    )
+    expect(batchCall).toBeDefined()
+    expect(cart.items).toHaveLength(2)
+    expect(cart.total).toBe(175)
+
+    findByIdSpy.mockRestore()
+    findSpy.mockRestore()
   })
 })

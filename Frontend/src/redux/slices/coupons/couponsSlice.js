@@ -3,6 +3,7 @@ import {
   resetErrAction,
   resetSuccessAction,
 } from "../globalActions/globalActions";
+import { skipIfFetching } from "../../utils/skipIfFetching";
 const { createAsyncThunk, createSlice } = require("@reduxjs/toolkit");
 
 //initalsState
@@ -11,6 +12,7 @@ const initialState = {
   coupon: null,
   activeCoupon: null,
   loading: false,
+  activeCouponFetching: false,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -92,6 +94,11 @@ export const fetchActiveCouponAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data);
     }
+  },
+  {
+    condition: skipIfFetching((state) =>
+      Boolean(state?.coupons?.activeCouponFetching)
+    ),
   }
 );
 //fetch coupon action
@@ -193,10 +200,10 @@ const couponsSlice = createSlice({
 
     //fetch active coupon (public)
     builder.addCase(fetchActiveCouponAction.pending, (state) => {
-      state.loading = true;
+      state.activeCouponFetching = true;
     });
     builder.addCase(fetchActiveCouponAction.fulfilled, (state, action) => {
-      state.loading = false;
+      state.activeCouponFetching = false;
       const raw = action.payload?.coupon
       state.activeCoupon = raw
         ? {
@@ -207,7 +214,7 @@ const couponsSlice = createSlice({
         : null;
     });
     builder.addCase(fetchActiveCouponAction.rejected, (state, action) => {
-      state.loading = false;
+      state.activeCouponFetching = false;
       state.activeCoupon = null;
     });
 

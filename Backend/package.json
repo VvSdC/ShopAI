@@ -18,6 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "test:keys": "node scripts/test-keys.js",
     "search:reindex": "node scripts/reindex-embeddings.js",
+    "analytics:backfill-usage": "node scripts/backfill-llm-usage-summary.js",
     "openapi:export": "node scripts/export-openapi.js",
     "lint": "eslint . --ext .js --config .eslintrc.cjs",
     "lint:fix": "eslint . --ext .js --fix --config .eslintrc.cjs",

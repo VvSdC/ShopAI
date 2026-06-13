@@ -85,7 +85,10 @@ export const config = {
     checkoutQueueEnabled: envBool('ENABLE_CHECKOUT_QUEUE', false),
     embeddingSyncQueueEnabled: envBool('ENABLE_EMBEDDING_SYNC_QUEUE', false),
     moderationQueueEnabled: envBool('ENABLE_MODERATION_QUEUE', false),
+    /** Parallel LLM moderation jobs per worker process (default 5). */
+    moderationQueueConcurrency: envInt('MODERATION_QUEUE_CONCURRENCY', 5),
     productTaggingQueueEnabled: envBool('ENABLE_PRODUCT_TAGGING_QUEUE', false),
+    emailQueueEnabled: envBool('ENABLE_EMAIL_QUEUE', false),
     // Default false in production — run `node worker.js` as a separate process.
     runQueueWorkersInApi: envBool(
       'RUN_QUEUE_WORKERS_IN_API',
@@ -158,8 +161,10 @@ export const config = {
     jinaApiKey: env('JINA_API_KEY', ''),
     cohereApiKey: env('COHERE_API_KEY', ''),
     vectorIndex: env('ATLAS_VECTOR_INDEX', 'product_vector_index'),
+    /** atlas | local | auto — auto infers from mongodb+srv:// (legacy); set atlas explicitly in production. */
+    vectorBackend: env('VECTOR_SEARCH_BACKEND', 'auto'),
     vectorCandidates: envInt('SEARCH_VECTOR_CANDIDATES', 100),
-    localVectorCandidateCap: envInt('SEARCH_LOCAL_VECTOR_CAP', 500),
+    localVectorCandidateCap: envInt('SEARCH_LOCAL_VECTOR_CAP', 100),
     vectorLimit: envInt('SEARCH_VECTOR_LIMIT', 50),
     keywordLimit: envInt('SEARCH_KEYWORD_LIMIT', 50),
     rrfK: envInt('SEARCH_RRF_K', 60),
@@ -190,6 +195,17 @@ export const config = {
   openapi: {
     /** Swagger UI at /shopai/docs and spec at /shopai/openapi.json */
     enabled: envBool('OPENAPI_ENABLED', nodeEnv !== 'production'),
+  },
+
+  analytics: {
+    llmUsageSummaryQueueEnabled: envBool('ENABLE_LLM_USAGE_SUMMARY_QUEUE', false),
+    /** Cron for hourly refresh of today + recent days (BullMQ repeat). */
+    llmUsageSummaryCron: env('LLM_USAGE_SUMMARY_CRON', '0 * * * *'),
+    /** Days reconciled on each scheduled run (today + yesterday by default). */
+    llmUsageSummaryRefreshDays: envInt('LLM_USAGE_SUMMARY_REFRESH_DAYS', 2),
+    /** Initial backfill window when the worker starts. */
+    llmUsageSummaryBackfillDays: envInt('LLM_USAGE_SUMMARY_BACKFILL_DAYS', 90),
+    llmUsageSummaryStartupDelayMs: envInt('LLM_USAGE_SUMMARY_STARTUP_DELAY_MS', 10000),
   },
 }
 

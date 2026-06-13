@@ -26,10 +26,11 @@ describe('syncMissingProductEmbeddings', () => {
       yield {
         _id: '2',
         name: 'Fresh',
-        embedding: [0.1],
+        embedding: Array.from({ length: getEmbeddingSpec().dimension }, () => 0.1),
         embeddedAt: new Date(),
         embeddingVersion: getEmbeddingSpec().version,
         embeddingModel: getEmbeddingSpec().model,
+        embeddingDimension: getEmbeddingSpec().dimension,
       }
     })
 
@@ -126,6 +127,22 @@ describe('productNeedsEmbedding', () => {
         {
           _id: '2',
           name: 'Shirt',
+          embedding: Array.from({ length: spec.dimension }, () => 0.1),
+          embeddedAt: new Date(),
+          embeddingVersion: spec.version,
+          embeddingModel: spec.model,
+          embeddingDimension: spec.dimension,
+        },
+        spec
+      )
+    ).toBe(false)
+  })
+
+  it('flags products with wrong embedding dimension', () => {
+    const spec = getEmbeddingSpec()
+    expect(
+      productNeedsEmbedding(
+        {
           embedding: [0.1, 0.2],
           embeddedAt: new Date(),
           embeddingVersion: spec.version,
@@ -133,6 +150,6 @@ describe('productNeedsEmbedding', () => {
         },
         spec
       )
-    ).toBe(false)
+    ).toBe(true)
   })
 })

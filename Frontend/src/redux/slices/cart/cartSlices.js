@@ -1,10 +1,12 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axiosInstance from '../../../utils/axiosInstance'
 import { fetchCouponAction } from '../coupons/couponsSlice'
+import { skipIfListFetching } from '../../utils/skipIfFetching'
 
 const initialState = {
   cartItems: [],
   loading: false,
+  listFetching: false,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -106,7 +108,8 @@ export const getCartFromServerAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
-  }
+  },
+  { condition: skipIfListFetching('carts') }
 )
 
 export const syncAndLoadCartAction = createAsyncThunk(
@@ -139,7 +142,8 @@ export const syncAndLoadCartAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
-  }
+  },
+  { condition: skipIfListFetching('carts') }
 )
 
 export const addOrderToCartaction = createAsyncThunk(
@@ -384,11 +388,28 @@ const cartSlice = createSlice({
       state.error = action.payload
     })
 
+    builder.addCase(getCartFromServerAction.pending, (state) => {
+      state.listFetching = true
+    })
     builder.addCase(getCartFromServerAction.fulfilled, (state, action) => {
+      state.listFetching = false
       handleCartFulfilled(state, action)
     })
+    builder.addCase(getCartFromServerAction.rejected, (state, action) => {
+      state.listFetching = false
+      state.error = action.payload
+    })
+
+    builder.addCase(syncAndLoadCartAction.pending, (state) => {
+      state.listFetching = true
+    })
     builder.addCase(syncAndLoadCartAction.fulfilled, (state, action) => {
+      state.listFetching = false
       handleCartFulfilled(state, action)
+    })
+    builder.addCase(syncAndLoadCartAction.rejected, (state, action) => {
+      state.listFetching = false
+      state.error = action.payload
     })
 
     builder.addCase(changeOrderItemQty.fulfilled, (state, action) => {

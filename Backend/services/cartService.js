@@ -1,5 +1,6 @@
 import Cart from '../model/Cart.js'
 import Product from '../model/Product.js'
+import { AppError } from '../utils/appError.js'
 import {
   findLiveCouponByCode,
   normalizeCouponCode,
@@ -45,16 +46,16 @@ async function resolveCouponDiscount(couponCode) {
 
   const coupon = await findLiveCouponByCode(couponCode)
   if (!coupon) {
-    throw new Error('Coupon does not exist or is not valid')
+    throw new AppError('Coupon does not exist or is not valid', 400)
   }
   if (isCouponNotStarted(coupon)) {
-    throw new Error('This coupon is not active yet')
+    throw new AppError('This coupon is not active yet', 400)
   }
   if (isCouponExpired(coupon)) {
-    throw new Error('This coupon has expired')
+    throw new AppError('This coupon has expired', 400)
   }
   if (!isCouponLive(coupon)) {
-    throw new Error('This coupon is not valid')
+    throw new AppError('This coupon is not valid', 400)
   }
 
   const discountPercent = coupon.discount
@@ -119,7 +120,7 @@ async function loadProductMapForCartItems(items) {
   if (!productIds.length) return {}
 
   const products = await Product.find({ _id: { $in: productIds } }).select(
-    'name price description images totalQty totalSold'
+    'name price description images totalQty totalSold colors sizes'
   )
   const productMap = {}
   products.forEach((p) => {
@@ -230,26 +231,28 @@ export function resolveOptionMatch(requested, options) {
 export async function addItem(userId, { productId, color, size, qty = 1 }) {
   const product = await Product.findById(productId)
   if (!product) {
-    throw new Error('Product not found')
+    throw new AppError('Product not found', 404)
   }
 
   const matchedColor = resolveOptionMatch(color, product.colors)
   const matchedSize = resolveOptionMatch(size, product.sizes)
 
   if (!matchedColor) {
-    throw new Error(
-      `Invalid color. Available colors: ${product.colors.join(', ')}`
+    throw new AppError(
+      `Invalid color. Available colors: ${product.colors.join(', ')}`,
+      400
     )
   }
   if (!matchedSize) {
-    throw new Error(
-      `Invalid size. Available sizes: ${product.sizes.join(', ')}`
+    throw new AppError(
+      `Invalid size. Available sizes: ${product.sizes.join(', ')}`,
+      400
     )
   }
 
   const qtyLeft = product.totalQty - product.totalSold
   if (qtyLeft <= 0) {
-    throw new Error('Product is out of stock')
+    throw new AppError('Product is out of stock', 400)
   }
 
   const finalQty = Math.min(Math.max(1, Number(qty) || 1), qtyLeft)
@@ -286,7 +289,7 @@ export async function updateItemQty(userId, { productId, color, size, qty }) {
   const key = lineKey({ _id: productId, color, size })
   const index = cart.items.findIndex((item) => lineKey(item) === key)
   if (index < 0) {
-    throw new Error('Item not found in cart')
+    throw new AppError('Item not found in cart', 404)
   }
 
   const parsedQty = Number(qty)
@@ -300,14 +303,14 @@ export async function updateItemQty(userId, { productId, color, size, qty }) {
   if (!product) {
     cart.items.splice(index, 1)
     await cart.save()
-    throw new Error('Product no longer exists and was removed from cart')
+    throw new AppError('Product no longer exists and was removed from cart', 404)
   }
 
   const qtyLeft = product.totalQty - product.totalSold
   if (qtyLeft <= 0) {
     cart.items.splice(index, 1)
     await cart.save()
-    throw new Error('Product is out of stock and was removed from cart')
+    throw new AppError('Product is out of stock and was removed from cart', 400)
   }
 
   const finalQty = Math.min(parsedQty, qtyLeft)
@@ -329,13 +332,13 @@ export async function removeItem(userId, { productId, color, size }) {
 export async function applyCoupon(userId, code) {
   const normalized = normalizeCouponCode(code)
   if (!normalized) {
-    throw new Error('Coupon code is required')
+    throw new AppError('Coupon code is required', 400)
   }
   await resolveCouponDiscount(normalized)
 
   const cart = await findOrCreateCart(userId)
   if (!cart.items.length) {
-    throw new Error('Cart is empty — add items before applying a coupon')
+    throw new AppError('Cart is empty — add items before applying a coupon', 400)
   }
   cart.couponCode = normalized
   await cart.save()
@@ -363,11 +366,12 @@ export async function syncLocalItems(userId, items) {
   }
 
   const cart = await findOrCreateCart(userId)
+  const productMap = await loadProductMapForCartItems(items)
 
   for (const item of items) {
     if (!item?._id || !item?.color || !item?.size) continue
     try {
-      const product = await Product.findById(item._id)
+      const product = productMap[productIdKey(item._id)]
       if (!product) continue
 
       const matchedColor = resolveOptionMatch(item.color, product.colors)
@@ -409,7 +413,7 @@ export async function syncLocalItems(userId, items) {
 export async function getCartOrderItems(userId) {
   const cart = await findOrCreateCart(userId)
   if (!cart.items.length) {
-    throw new Error('Cart is empty')
+    throw new AppError('Cart is empty', 400)
   }
   return {
     cart,
@@ -460,8 +464,9 @@ export async function validateCartStock(userId) {
       continue
     }
 
-    let qty = item.qty
-    if (item.qty > qtyLeft) {
+    const plain = plainCartItem(item)
+    let qty = plain.qty
+    if (plain.qty > qtyLeft) {
       warnings.push({
         _id: String(item._id),
         color: item.color,
@@ -472,10 +477,8 @@ export async function validateCartStock(userId) {
       qty = qtyLeft
     }
 
-    const { item: refreshed, priceWarning } = snapshotFromProduct(
-      { ...plainCartItem(item), qty },
-      product
-    )
+    const lineForSnapshot = qty === plain.qty ? plain : { ...plain, qty }
+    const { item: refreshed, priceWarning } = snapshotFromProduct(lineForSnapshot, product)
     if (priceWarning) warnings.push(priceWarning)
     validItems.push(refreshed)
   }

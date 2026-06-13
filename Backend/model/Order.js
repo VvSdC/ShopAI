@@ -169,6 +169,7 @@ OrderSchema.pre('save', async function assignOrderNumber(next) {
 })
 
 OrderSchema.index({ user: 1, createdAt: -1 })
+OrderSchema.index({ createdAt: -1 })
 OrderSchema.index({ orderNumber: 1 }, { unique: true })
 OrderSchema.index({ status: 1 })
 OrderSchema.index({ paymentStatus: 1, checkoutExpiresAt: 1 })

@@ -9,7 +9,7 @@
  * calls getAgentSystemPrompt(route, userName) here for a route-specific system
  * message plus shared rules. Tool sets per route live in toolSets.js.
  *
- * Do not add a monolithic prompt file — extend buildAgentSystemPrompt() for
+ * Do not add a monolithic prompt file — extend buildRouteTemplate() for
  * new routes or adjust SHARED_RULES / POLICY_KNOWLEDGE for cross-cutting changes.
  */
 
@@ -22,38 +22,68 @@ Format prices in INR with ₹. Use markdown links [View product](/products/ID) f
 
 GAP-FILLING (critical): Customers write in many styles and languages. If anything required is missing, ask clearly for only what is missing — e.g. PIN/postal code, phone number, size, color, quantity, city, state, street address. Accept free-form replies. Never ask for internal product IDs. Never invent checkout or cart URLs.`
 
-const POLICY_KNOWLEDGE = `ShopAI policies (summarize when relevant):
-- Checkout: cart → shipping address → Stripe payment via in-app Pay button only.
-- Returns: eligible within 3 days of delivery; use chat tools or My Profile for returns.
-- Cancellations: pending/processing orders can be cancelled before shipping.
-- Payment methods: Stripe (cards, UPI where supported). Never invent payment links in text.`
+const POLICY_KNOWLEDGE = `Checkout: cart → address → Stripe Pay (in-app). Returns: 3 days post-delivery (chat/My Profile). Cancel: pending/processing before ship. Pay: Stripe only—no invented links.`
 
-function promptCacheKey(route, userName) {
-  return `${route}\0${userName || ''}`
+const POLICY_TOPIC_PATTERN =
+  /\b(returns?|refunds?|cancellation?|checkout flow|shipping|deliver(?:y|ed)?|polic(?:y|ies)|stripe pay|coupons?)\b/i
+
+const USER_NAME_PLACEHOLDER = '{{USER_NAME}}'
+
+function routeCacheKey(route, options = {}) {
+  if (route === 'policies') {
+    const variant = options.includePolicyKnowledge === false ? 'lite' : 'full'
+    return `${route}\0${variant}`
+  }
+  return route
 }
 
-/** Module-scoped cache — prompts are deterministic per (route, userName). */
-const promptCache = new Map()
+/** Cached per route (and policy variant) — customer name injected at call time. */
+const routeTemplateCache = new Map()
 
 /** Clears the module prompt cache (for tests). */
 export function clearAgentPromptCache() {
-  promptCache.clear()
+  routeTemplateCache.clear()
 }
 
-export function getAgentSystemPrompt(route, userName) {
-  const key = promptCacheKey(route, userName)
-  if (promptCache.has(key)) {
-    return promptCache.get(key)
+/** Exposed for tests — bounded by route count, not user names. */
+export function getAgentPromptCacheSize() {
+  return routeTemplateCache.size
+}
+
+function personalizeRouteTemplate(template, userName) {
+  const name = String(userName || '').trim() || 'there'
+  return template.replaceAll(USER_NAME_PLACEHOLDER, name)
+}
+
+function getCachedRouteTemplate(route, options = {}) {
+  const key = routeCacheKey(route, options)
+  if (routeTemplateCache.has(key)) {
+    return routeTemplateCache.get(key)
   }
 
-  const prompt = buildAgentSystemPrompt(route, userName)
-  promptCache.set(key, prompt)
-  return prompt
+  const template = buildRouteTemplate(route, options)
+  routeTemplateCache.set(key, template)
+  return template
 }
 
-export function buildAgentSystemPrompt(route, userName) {
-  const customer = `The customer is ${userName}.`
-  const base = `${SHARED_RULES}\n${customer}`
+/** Include full policy block when session history lacks a prior policy answer. */
+export function shouldIncludePolicyKnowledge(history = []) {
+  if (!history.length) return true
+  return !history.some(
+    (m) => m.role === 'assistant' && POLICY_TOPIC_PATTERN.test(String(m.content || ''))
+  )
+}
+
+export function getAgentSystemPrompt(route, userName, options = {}) {
+  return buildAgentSystemPrompt(route, userName, options)
+}
+
+export function buildAgentSystemPrompt(route, userName, options = {}) {
+  return personalizeRouteTemplate(getCachedRouteTemplate(route, options), userName)
+}
+
+function buildRouteTemplate(route, options = {}) {
+  const base = `${SHARED_RULES}\nThe customer is ${USER_NAME_PLACEHOLDER}.`
 
   switch (route) {
     case 'retrieval':
@@ -120,20 +150,29 @@ Ask user to pick address as 1, 2, or city name — never "Index 0".
 After checkout session: tell user to tap Pay on Stripe button — never paste Stripe URLs.
 Use apply_coupon_to_cart when user wants a code applied.`
 
-    case 'policies':
-      return `${base}
-
-Your role: explain ShopAI store policies and how shopping works.
-${POLICY_KNOWLEDGE}
+    case 'policies': {
+      const role = `Your role: explain ShopAI store policies and how shopping works.
 Use get_active_coupons for live coupon/discount questions.
 Keep answers concise and shopping-focused.`
+      const includePolicyKnowledge = options.includePolicyKnowledge !== false
+      if (includePolicyKnowledge) {
+        return `${base}
+
+${role}
+${POLICY_KNOWLEDGE}`
+      }
+      return `${base}
+
+${role}
+Use prior conversation for policy context already discussed.`
+    }
 
     case 'general':
     default:
       return `${base}
 
 Your role: greet the customer, answer general ShopAI questions, and route to tools when needed.
-On first greeting: welcome ${userName} by name, identify as ShopAI AI assistant, offer shopping help.
+On first greeting: welcome ${USER_NAME_PLACEHOLDER} by name, identify as ShopAI AI assistant, offer shopping help.
 Use search_products, get_cart, get_my_orders, or get_active_coupons when the question needs live data.
 Stay within ShopAI shopping scope.`
   }

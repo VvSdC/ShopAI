@@ -1,13 +1,13 @@
-import crypto from "crypto";
-import User from "../model/User.js";
 import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Order from "../model/Order.js";
+import User from "../model/User.js";
 import {
   generateAccessToken,
 } from "../utils/generateToken.js";
-import { sendPasswordResetOTPEmail, sendWelcomeEmail } from "../services/emailService.js";
+import { sendPasswordResetOTPEmail } from "../services/emailService.js";
+import { scheduleWelcomeEmail } from "../services/emailQueue.js";
 import {
   clearAuthCookies,
   createAuthSession,
@@ -20,6 +20,7 @@ import {
 } from "../utils/authSessions.js";
 import config from "../config/env.js";
 import logger from "../utils/logger.js";
+import { AppError } from "../utils/appError.js";
 
 // Cookie options
 const accessCookieOptions = {
@@ -52,8 +53,7 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
   //Check user exists
   const userExists = await User.findOne({ email });
   if (userExists) {
-    //throw
-    throw new Error("User already exists");
+    throw new AppError("User already exists", 409);
   }
   //hash password
   const salt = await bcrypt.genSalt(10);
@@ -65,11 +65,7 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     phone,
     country,
   });
-  try {
-    await sendWelcomeEmail(user.email, user.fullname);
-  } catch (err) {
-    logger.error("Welcome email failed:", err?.message || err);
-  }
+  scheduleWelcomeEmail(user.email, user.fullname);
 
   res.status(201).json({
     status: "success",
@@ -96,7 +92,10 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
   if (userFound && (await bcrypt.compare(password, userFound?.password))) {
     //Check if user is blocked
     if (userFound.isBlocked) {
-      throw new Error("Your account has been blocked due to malicious activity. Please contact support.");
+      throw new AppError(
+        "Your account has been blocked due to malicious activity. Please contact support.",
+        403
+      );
     }
     const accessToken = generateAccessToken(userFound);
     const deviceId = resolveDeviceId(req);
@@ -109,7 +108,7 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
       message: "User logged in successfully",
     });
   } else {
-    throw new Error("Invalid login credentials");
+    throw new AppError("Invalid login credentials", 401);
   }
 });
 
@@ -119,19 +118,19 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
 export const refreshTokenCtrl = asyncHandler(async (req, res) => {
   const refreshToken = req?.cookies?.shopai_refresh_token;
   if (!refreshToken) {
-    throw new Error("No refresh token, please login again");
+    throw new AppError("No refresh token, please login again", 401);
   }
 
   let decoded;
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch {
-    throw new Error("Invalid refresh token, please login again");
+    throw new AppError("Invalid refresh token, please login again", 401);
   }
 
   const rotation = await rotateRefreshToken(refreshToken, decoded.id, res);
   if (!rotation) {
-    throw new Error("Invalid refresh token, please login again");
+    throw new AppError("Invalid refresh token, please login again", 401);
   }
 
   const { user, newRefreshToken } = rotation;
@@ -179,7 +178,7 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
     'fullname email isAdmin hasShippingAddress createdAt'
   );
   if (!user) {
-    throw new Error('User not found');
+    throw new AppError('User not found', 404);
   }
   res.json({
     status: 'success',
@@ -208,13 +207,12 @@ export const updateProfileCtrl = asyncHandler(async (req, res) => {
   const { fullname, email, phone, country } = req.body;
   const user = await User.findById(req.userAuthId);
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
   }
   if (email && email !== user.email) {
     const emailTaken = await User.findOne({ email });
     if (emailTaken) {
-      res.status(400);
-      throw new Error("Email is already in use");
+      throw new AppError("Email is already in use", 409);
     }
     user.email = email;
   }
@@ -242,19 +240,17 @@ export const changePasswordCtrl = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const user = await User.findById(req.userAuthId);
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
   }
 
   const matchesCurrent = await bcrypt.compare(currentPassword, user.password);
   if (!matchesCurrent) {
-    res.status(400);
-    throw new Error("Current password is incorrect");
+    throw new AppError("Current password is incorrect", 400);
   }
 
   const sameAsOld = await bcrypt.compare(newPassword, user.password);
   if (sameAsOld) {
-    res.status(400);
-    throw new Error("New password must be different from your current password");
+    throw new AppError("New password must be different from your current password", 400);
   }
 
   const salt = await bcrypt.genSalt(10);
@@ -322,7 +318,7 @@ export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
   const user = await User.findById(req.userAuthId);
   const addr = user.shippingAddresses.id(addressId);
   if (!addr) {
-    throw new Error("Address not found");
+    throw new AppError("Address not found", 404);
   }
   addr.firstName = firstName;
   addr.lastName = lastName;
@@ -379,10 +375,10 @@ export const getAllUsersCtrl = asyncHandler(async (req, res) => {
 export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) {
-    throw new Error("User not found");
+    throw new AppError("User not found", 404);
   }
   if (user.isAdmin) {
-    throw new Error("Cannot block an admin user");
+    throw new AppError("Cannot block an admin user", 403);
   }
   user.isBlocked = !user.isBlocked;
   await user.save();
@@ -421,7 +417,7 @@ export const forgotPasswordCtrl = asyncHandler(async (req, res) => {
       message: "If an account with that email exists, a reset OTP has been sent.",
     });
   }
-  const otp = user.createPasswordResetOTP();
+  const otp = await user.createPasswordResetOTP();
   await user.save({ validateBeforeSave: false });
 
   await sendPasswordResetOTPEmail(user.email, user.fullname, otp);
@@ -438,20 +434,13 @@ export const forgotPasswordCtrl = asyncHandler(async (req, res) => {
 export const verifyOTPCtrl = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) {
-    res.status(400);
-    throw new Error("Email and OTP are required");
+    throw new AppError("Email and OTP are required", 400);
   }
 
-  const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-    passwordResetOTP: hashedOTP,
-    passwordResetExpires: { $gt: Date.now() },
-  });
+  const user = await User.findByEmailAndValidResetOtp(email, otp);
 
   if (!user) {
-    res.status(400);
-    throw new Error("Invalid or expired OTP");
+    throw new AppError("Invalid or expired OTP", 400);
   }
 
   res.json({ status: "success", message: "OTP verified" });
@@ -463,25 +452,17 @@ export const verifyOTPCtrl = asyncHandler(async (req, res) => {
 export const resetPasswordCtrl = asyncHandler(async (req, res) => {
   const { email, otp, password } = req.body;
   if (!email || !otp || !password) {
-    res.status(400);
-    throw new Error("Email, OTP and new password are required");
+    throw new AppError("Email, OTP and new password are required", 400);
   }
 
-  const hashedOTP = crypto.createHash("sha256").update(otp).digest("hex");
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-    passwordResetOTP: hashedOTP,
-    passwordResetExpires: { $gt: Date.now() },
-  });
+  const user = await User.findByEmailAndValidResetOtp(email, otp);
 
   if (!user) {
-    res.status(400);
-    throw new Error("Invalid or expired OTP");
+    throw new AppError("Invalid or expired OTP", 400);
   }
 
   if (password.length < 6) {
-    res.status(400);
-    throw new Error("Password must be at least 6 characters");
+    throw new AppError("Password must be at least 6 characters", 400);
   }
 
   const salt = await bcrypt.genSalt(10);

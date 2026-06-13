@@ -2,11 +2,16 @@ import logger from '../../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../../config/env.js'
 import { createRedisConnection, isRedisConfigured } from '../../config/redisClient.js'
-import { syncMissingProductEmbeddings } from './embeddingSyncService.js'
+import {
+  attachQueueFailureHandlers,
+  DEFAULT_QUEUE_JOB_OPTIONS,
+} from '../queueFailureHandler.js'
+import { syncMissingProductEmbeddings, verifyEmbeddingDimensionOnStartup } from './embeddingSyncService.js'
 
 const QUEUE_NAME = 'embedding-sync'
 const JOB_NAME = 'sync-missing-embeddings'
 const STARTUP_JOB_ID = 'embedding-sync-startup'
+const DEFAULT_JOB_OPTIONS = DEFAULT_QUEUE_JOB_OPTIONS
 
 let queue = null
 let worker = null
@@ -46,8 +51,7 @@ export async function enqueueEmbeddingSyncRun(delayMs = 0) {
       {
         jobId: STARTUP_JOB_ID,
         delay: Math.max(0, delayMs),
-        removeOnComplete: true,
-        removeOnFail: 50,
+        ...DEFAULT_JOB_OPTIONS,
       }
     )
     return true
@@ -77,9 +81,7 @@ export async function startEmbeddingSyncWorker() {
     }
   )
 
-  worker.on('failed', (job, err) => {
-    logger.error(`[embeddingSyncQueue] Job ${job?.id} failed:`, err.message)
-  })
+  attachQueueFailureHandlers(worker, 'embedding-sync')
 
   logger.log('[embeddingSyncQueue] Worker started')
   return worker
@@ -113,18 +115,23 @@ export function scheduleEmbeddingSyncOnStartup() {
   if (!config.search.autoSyncEmbeddings) return
   if (config.isTest) return
 
+  void runEmbeddingStartupPipeline()
+}
+
+async function runEmbeddingStartupPipeline() {
+  await verifyEmbeddingDimensionOnStartup()
+
   if (isEmbeddingSyncQueueEnabled()) {
-    enqueueEmbeddingSyncRun(config.search.syncStartupDelayMs)
-      .then((queued) => {
-        if (queued) {
-          logger.log(
-            `[search] Embedding sync queued (delay ${config.search.syncStartupDelayMs}ms)`
-          )
-        }
-      })
-      .catch((err) => {
-        logger.warn('[search] Failed to queue embedding sync:', err.message)
-      })
+    try {
+      const queued = await enqueueEmbeddingSyncRun(config.search.syncStartupDelayMs)
+      if (queued) {
+        logger.log(
+          `[search] Embedding sync queued (delay ${config.search.syncStartupDelayMs}ms)`
+        )
+      }
+    } catch (err) {
+      logger.warn('[search] Failed to queue embedding sync:', err.message)
+    }
     return
   }
 

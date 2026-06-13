@@ -3,6 +3,7 @@ import {
   resetErrAction,
   resetSuccessAction,
 } from '../globalActions/globalActions'
+import { skipIfSameFetchInFlight } from '../../utils/skipIfFetching'
 const { createAsyncThunk, createSlice } = require('@reduxjs/toolkit')
 
 //initalsState
@@ -10,6 +11,10 @@ const initialState = {
   products: [],
   product: {},
   loading: false,
+  listFetching: false,
+  listFetchKey: null,
+  detailFetching: false,
+  detailFetchKey: null,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -131,6 +136,9 @@ export const fetchProductsAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
+  },
+  {
+    condition: skipIfSameFetchInFlight('products', {}, (arg) => arg?.url ?? ''),
   }
 )
 
@@ -146,6 +154,13 @@ export const fetchProductAction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
+  },
+  {
+    condition: skipIfSameFetchInFlight(
+      'products',
+      { fetchingKey: 'detailFetching', requestKey: 'detailFetchKey' },
+      (productId) => String(productId ?? '')
+    ),
   }
 )
 //slice
@@ -198,29 +213,41 @@ const productSlice = createSlice({
       state.error = action.payload
     })
     //fetch all
-    builder.addCase(fetchProductsAction.pending, (state) => {
+    builder.addCase(fetchProductsAction.pending, (state, action) => {
       state.loading = true
+      state.listFetching = true
+      state.listFetchKey = action.meta.arg?.url ?? null
     })
     builder.addCase(fetchProductsAction.fulfilled, (state, action) => {
       state.loading = false
+      state.listFetching = false
+      state.listFetchKey = null
       state.products = action.payload
     })
     builder.addCase(fetchProductsAction.rejected, (state, action) => {
       state.loading = false
+      state.listFetching = false
+      state.listFetchKey = null
       state.products = null
       state.isAdded = false
       state.error = action.payload
     })
     //fetch single product
-    builder.addCase(fetchProductAction.pending, (state) => {
+    builder.addCase(fetchProductAction.pending, (state, action) => {
       state.loading = true
+      state.detailFetching = true
+      state.detailFetchKey = String(action.meta.arg ?? '')
     })
     builder.addCase(fetchProductAction.fulfilled, (state, action) => {
       state.loading = false
+      state.detailFetching = false
+      state.detailFetchKey = null
       state.product = action.payload.product
     })
     builder.addCase(fetchProductAction.rejected, (state, action) => {
       state.loading = false
+      state.detailFetching = false
+      state.detailFetchKey = null
       state.product = null
       state.isAdded = false
       state.error = action.payload
