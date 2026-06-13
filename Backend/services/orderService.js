@@ -11,6 +11,7 @@ import {
 } from './orderFulfillment.js'
 import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
+import { AppError } from '../utils/appError.js'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
 
@@ -60,7 +61,7 @@ export class OrderService {
   async getForUserOrAdmin(orderId, userId) {
     const order = await Order.findById(orderId)
     if (!order) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     const user = await User.findById(userId).select('isAdmin')
     this.assertUserCanAccess(order, userId, { isAdmin: user?.isAdmin })
@@ -83,12 +84,10 @@ export class OrderService {
 
   assertUserCanAccess(order, userId, { isAdmin = false } = {}) {
     if (!order) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     if (order.user.toString() !== userId.toString() && !isAdmin) {
-      const err = new Error('Not authorised to view this order')
-      err.statusCode = 403
-      throw err
+      throw new AppError('Not authorised to view this order', 403)
     }
   }
 
@@ -119,9 +118,7 @@ export class OrderService {
     const filter = cursor ? buildAdminOrderCursorFilter(cursor) : {}
 
     if (cursor && !filter) {
-      const err = new Error('Invalid pagination cursor')
-      err.statusCode = 400
-      throw err
+      throw new AppError('Invalid pagination cursor', 400)
     }
 
     const [total, rows] = await Promise.all([
@@ -181,17 +178,13 @@ export class OrderService {
   async updateStatus(orderId, status) {
     const order = await Order.findById(orderId)
     if (!order) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     if (order.status === 'cancelled') {
-      const err = new Error('Cancelled orders cannot be updated')
-      err.statusCode = 400
-      throw err
+      throw new AppError('Cancelled orders cannot be updated', 400)
     }
     if (!ALLOWED_ORDER_STATUSES.includes(status)) {
-      const err = new Error('Invalid order status')
-      err.statusCode = 400
-      throw err
+      throw new AppError('Invalid order status', 400)
     }
 
     const update = { status }
@@ -212,13 +205,14 @@ export class OrderService {
   async cancelForUser(userId, orderId) {
     const order = await Order.findById(orderId)
     if (!order) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     this.assertUserCanAccess(order, userId)
 
     if (!canCancelOrder(order)) {
-      throw new Error(
-        'This order cannot be cancelled. Only pending or processing orders can be cancelled before they ship.'
+      throw new AppError(
+        'This order cannot be cancelled. Only pending or processing orders can be cancelled before they ship.',
+        400
       )
     }
 
@@ -322,17 +316,17 @@ export class OrderService {
   async verifyPaymentForUser(userId, sessionId) {
     const session = await this.retrieveStripeSession(sessionId)
     if (!session) {
-      throw new Error('Session not found')
+      throw new AppError('Session not found', 404)
     }
 
     const orderId = parseOrderId(session.metadata?.orderId)
     if (!orderId) {
-      throw new Error('No order associated with this session')
+      throw new AppError('No order associated with this session', 400)
     }
 
     const existingOrder = await Order.findById(orderId)
     if (!existingOrder) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     this.assertUserCanAccess(existingOrder, userId)
 
@@ -362,17 +356,17 @@ export class OrderService {
   async resendConfirmationForUser(userId, sessionId) {
     const session = await this.retrieveStripeSession(sessionId)
     if (!session) {
-      throw new Error('Session not found')
+      throw new AppError('Session not found', 404)
     }
 
     const orderId = parseOrderId(session.metadata?.orderId)
     if (!orderId) {
-      throw new Error('No order associated with this session')
+      throw new AppError('No order associated with this session', 400)
     }
 
     const order = await Order.findById(orderId)
     if (!order) {
-      throw new Error('Order not found')
+      throw new AppError('Order not found', 404)
     }
     this.assertUserCanAccess(order, userId)
 

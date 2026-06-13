@@ -128,6 +128,48 @@ describe('orderService', () => {
     })
   })
 
+  it('throws AppError 404 when order is missing', async () => {
+    const user = await User.create({
+      fullname: 'Missing Order User',
+      email: `missing-order-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const missingId = new mongoose.Types.ObjectId()
+
+    await expect(orderService.getForUserOrAdmin(missingId, user._id)).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'Order not found',
+      isOperational: true,
+    })
+  })
+
+  it('throws AppError 403 when user cannot access another customers order', async () => {
+    const owner = await User.create({
+      fullname: 'Order Owner',
+      email: `order-owner-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+    const other = await User.create({
+      fullname: 'Other User',
+      email: `order-other-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: owner._id,
+      orderItems: [testOrderItem({ name: 'Hat', price: 50 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 50,
+    })
+
+    await expect(orderService.getForUserOrAdmin(order._id, other._id)).rejects.toMatchObject({
+      statusCode: 403,
+      message: 'Not authorised to view this order',
+      isOperational: true,
+    })
+  })
+
   it('formats chat order summaries consistently', () => {
     const formatted = orderService.formatOrderForChat({
       _id: new mongoose.Types.ObjectId(),
