@@ -10,6 +10,12 @@ describe('chatDeterministicAssist', () => {
     vi.doMock('../../config/env.js', () => ({
       config: { chat: { deterministicAssist: true } },
     }))
+    vi.doMock('../../services/chatRetrievalAssist.js', () => ({
+      runRetrievalAssist: vi.fn(async (_userId, _text, _history, toolResults) => ({
+        toolResults,
+        reply: null,
+      })),
+    }))
     vi.doMock('../../services/chatCartAssist.js', () => ({
       runCartAssist: vi.fn(async () => ({ toolResults: [], reply: null })),
     }))
@@ -24,6 +30,7 @@ describe('chatDeterministicAssist', () => {
     }))
 
     const { runDeterministicChatAssist } = await import('../../services/chatDeterministicAssist.js')
+    const { runRetrievalAssist } = await import('../../services/chatRetrievalAssist.js')
     const { runCartAssist } = await import('../../services/chatCartAssist.js')
     const { runAddressAssist } = await import('../../services/chatAddressAssist.js')
     const { runCheckoutAssist } = await import('../../services/chatCheckoutAssist.js')
@@ -36,6 +43,7 @@ describe('chatDeterministicAssist', () => {
       graphResult: { reply: 'graph reply', toolResults: [], route: 'checkout' },
     })
 
+    expect(runRetrievalAssist).toHaveBeenCalledBefore(runCartAssist)
     expect(runCartAssist).toHaveBeenCalledBefore(runAddressAssist)
     expect(runAddressAssist).toHaveBeenCalledBefore(runCheckoutAssist)
     expect(runCheckoutAssist).toHaveBeenCalledBefore(ensureCheckoutOnConfirm)
@@ -44,6 +52,12 @@ describe('chatDeterministicAssist', () => {
   it('skips assists when disabled via config', async () => {
     vi.doMock('../../config/env.js', () => ({
       config: { chat: { deterministicAssist: false } },
+    }))
+    vi.doMock('../../services/chatRetrievalAssist.js', () => ({
+      runRetrievalAssist: vi.fn(async () => ({
+        toolResults: [],
+        reply: 'should not run',
+      })),
     }))
     vi.doMock('../../services/chatCartAssist.js', () => ({
       runCartAssist: vi.fn(async () => ({ toolResults: [], reply: 'should not run' })),
@@ -59,6 +73,7 @@ describe('chatDeterministicAssist', () => {
     }))
 
     const { runDeterministicChatAssist } = await import('../../services/chatDeterministicAssist.js')
+    const { runRetrievalAssist } = await import('../../services/chatRetrievalAssist.js')
     const { runCartAssist } = await import('../../services/chatCartAssist.js')
 
     const result = await runDeterministicChatAssist({
@@ -68,6 +83,7 @@ describe('chatDeterministicAssist', () => {
       graphResult: { reply: 'only graph', toolResults: [{ id: 1 }], route: 'checkout' },
     })
 
+    expect(runRetrievalAssist).not.toHaveBeenCalled()
     expect(runCartAssist).not.toHaveBeenCalled()
     expect(result.reply).toBe('only graph')
     expect(result.toolResults).toEqual([{ id: 1 }])
