@@ -72,6 +72,38 @@ export function findLastProductCatalog(messages) {
   return null
 }
 
+export function findSearchCatalog(messages = [], toolResults = []) {
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const row = toolResults[i]
+    if (row?.toolName !== 'search_products' && !Array.isArray(row?.products)) continue
+    if (row.error) {
+      return {
+        count: 0,
+        products: [],
+        message: row.error,
+        strictListing: true,
+      }
+    }
+    if (Array.isArray(row.products)) {
+      return {
+        count: row.count ?? row.products.length,
+        products: row.products,
+        message: row.message,
+        strictListing: true,
+      }
+    }
+  }
+  return findLastProductCatalog(messages)
+}
+
+/** Invented listings often use short numeric IDs instead of real 24-char Mongo IDs. */
+export function looksLikeHallucinatedProductLinks(reply) {
+  if (!reply || typeof reply !== 'string') return false
+  const links = [...reply.matchAll(/\[View product\]\(\/products\/([^)]+)\)/gi)]
+  if (!links.length) return false
+  return links.some((match) => !/^[a-f0-9]{24}$/i.test(match[1]))
+}
+
 export function formatInr(price) {
   return `₹${Number(price).toLocaleString('en-IN')}`
 }
@@ -277,32 +309,24 @@ export function buildProductDetailReply(product) {
   return lines.join('\n')
 }
 
-function lastToolWasSearchListing(messages) {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i]
-    if (msg.role !== 'tool') continue
-    const data = parseToolContent(msg.content)
-    if (!data) return false
-    return Array.isArray(data.products)
-  }
-  return false
-}
-
-export function formatAgentReply(reply, messages, userText = '') {
+export function formatAgentReply(reply, messages, userText = '', toolResults = []) {
   const lastDetails = findLastProductDetails(messages)
   if (lastDetails) {
     return sanitizeAssistantReply(buildProductDetailReply(lastDetails))
   }
 
+  const lastCatalog = findSearchCatalog(messages, toolResults)
   let formatted = reply
-  if (lastToolWasSearchListing(messages)) {
-    const lastCatalog = findLastProductCatalog(messages)
-    if (lastCatalog?.strictListing) {
-      formatted = buildCatalogBackedReply(lastCatalog, {
-        kitQuery: isKitBundleQuery(userText),
-      })
-    }
+
+  if (lastCatalog?.strictListing) {
+    formatted = buildCatalogBackedReply(lastCatalog, {
+      kitQuery: isKitBundleQuery(userText),
+    })
+  } else if (looksLikeHallucinatedProductLinks(reply)) {
+    formatted =
+      "I couldn't verify those products in our catalog. Tell me what you're looking for and I'll search our store."
   }
+
   formatted = applyKitSearchReply(formatted, userText)
   return sanitizeAssistantReply(formatted)
 }

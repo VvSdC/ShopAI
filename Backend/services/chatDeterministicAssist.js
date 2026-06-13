@@ -2,6 +2,7 @@ import { config } from '../config/env.js'
 import { runCartAssist } from './chatCartAssist.js'
 import { runAddressAssist } from './chatAddressAssist.js'
 import { runCheckoutAssist } from './chatCheckoutAssist.js'
+import { runRetrievalAssist } from './chatRetrievalAssist.js'
 import { ensureCheckoutOnConfirm } from './chatPostProcess.js'
 
 /**
@@ -41,6 +42,18 @@ export async function runDeterministicChatAssist({
 
   if (!isDeterministicAssistEnabled()) {
     return { reply, toolResults, cartQueue: undefined }
+  }
+
+  const retrievalAssist = await runRetrievalAssist(
+    userId,
+    userText,
+    history,
+    toolResults,
+    graphResult
+  )
+  toolResults = retrievalAssist.toolResults
+  if (retrievalAssist.reply) {
+    reply = retrievalAssist.reply
   }
 
   const cartAssist = await runCartAssist(userId, userText, history, toolResults, {

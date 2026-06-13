@@ -1,5 +1,5 @@
 import { getMaxTokensForRoute } from '../../constants/chatLimits.js'
-import { chatCompletion } from '../llmService.js'
+import { chatCompletion, sanitizeMessagesForLlmApi } from '../llmService.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { executeTool } from '../chatTools.js'
 import { getAgentSystemPrompt, shouldIncludePolicyKnowledge } from './agentPrompts.js'
@@ -38,7 +38,7 @@ export async function runAgentWithTools(state, route) {
     const assistantMessage = choice.message
 
     if (assistantMessage.tool_calls?.length) {
-      messages.push(assistantMessage)
+      messages.push(sanitizeMessagesForLlmApi([assistantMessage])[0])
 
       for (const toolCall of assistantMessage.tool_calls) {
         const fnName = toolCall.function.name

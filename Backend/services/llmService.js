@@ -48,6 +48,29 @@ function providerReady(provider) {
   return Boolean(provider.key())
 }
 
+const ROLE_ALLOWED_KEYS = {
+  system: ['role', 'content'],
+  user: ['role', 'content', 'name'],
+  assistant: ['role', 'content', 'tool_calls', 'name'],
+  tool: ['role', 'content', 'tool_call_id', 'name'],
+}
+
+/** Strip provider-specific fields (reasoning, refusal, …) that break OpenAI-compatible APIs. */
+export function sanitizeMessagesForLlmApi(messages) {
+  return (Array.isArray(messages) ? messages : []).map((msg) => {
+    if (!msg || typeof msg !== 'object') return msg
+    const allowed = ROLE_ALLOWED_KEYS[msg.role] || ['role', 'content']
+    const out = {}
+    for (const key of allowed) {
+      if (msg[key] !== undefined) out[key] = msg[key]
+    }
+    if (msg.role === 'assistant' && out.tool_calls?.length && out.content === undefined) {
+      out.content = null
+    }
+    return out
+  })
+}
+
 async function callProvider(provider, messages, tools, maxTokens) {
   const apiKey = provider.key()
   if (!apiKey) {
@@ -56,9 +79,10 @@ async function callProvider(provider, messages, tools, maxTokens) {
 
   const model = provider.model()
   const startedAt = Date.now()
+  const safeMessages = sanitizeMessagesForLlmApi(messages)
 
   if (provider.name === 'Gemini') {
-    const result = await callGeminiChat(messages, {
+    const result = await callGeminiChat(safeMessages, {
       model,
       maxTokens,
       temperature: 0.7,
@@ -97,7 +121,7 @@ async function callProvider(provider, messages, tools, maxTokens) {
 
   const body = {
     model,
-    messages,
+    messages: safeMessages,
     temperature: 0.7,
     max_tokens: maxTokens,
   }

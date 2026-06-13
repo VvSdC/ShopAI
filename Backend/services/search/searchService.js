@@ -36,49 +36,40 @@ async function keywordSearch(args, limit) {
 
   const products = await Product.find(filter)
     .limit(fetchLimit)
-    .populate('category', 'name')
     .select(
       'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
     )
     .lean()
 
-  return rankProductsByQuery(products, args.query || '').slice(0, limit)
+  const enriched = await enrichProductsWithCategoryNames(products)
+  return rankProductsByQuery(enriched, args.query || '').slice(0, limit)
 }
 
 async function normalizeSearchArgs(args = {}) {
   const normalized = { ...args }
+  delete normalized.category
   if (args.category) {
     normalized.categoryId = await resolveCategoryId(args.category)
-    if (!normalized.categoryId) {
-      return { normalized, categoryMissing: true }
-    }
+    // Unknown LLM category labels (e.g. "sports") are ignored — search by query instead.
   }
-  return { normalized, categoryMissing: false }
+  return { normalized }
 }
 
 export async function searchProducts(args = {}) {
   const query = args.query?.trim() || ''
   const limit = Math.min(Math.max(args.limit || 12, 1), 50)
-  const { normalized, categoryMissing } = await normalizeSearchArgs(args)
-  if (categoryMissing) {
-    return {
-      products: [],
-      count: 0,
-      mode: query ? 'hybrid' : 'browse',
-      message: 'No products found for this category.',
-    }
-  }
+  const { normalized } = await normalizeSearchArgs(args)
   const mongoFilter = buildMongoFilter(normalized)
 
   if (!query) {
     const products = await Product.find(mongoFilter)
       .limit(limit)
-      .populate('category', 'name')
       .select(
         'name brand category price totalQty totalSold colors sizes images description tags'
       )
       .lean()
-    return { products: products.map(mapProductSearchResult), count: products.length, mode: 'browse' }
+    const enriched = await enrichProductsWithCategoryNames(products)
+    return { products: enriched.map(mapProductSearchResult), count: enriched.length, mode: 'browse' }
   }
 
   const keywordResults = await keywordSearch(normalized, config.search.keywordLimit)

@@ -37,6 +37,11 @@ describe('categoryRef', () => {
     expect(id).toBeNull()
   })
 
+  it('does not treat arbitrary words as ObjectIds', async () => {
+    const id = await resolveCategoryId('sports')
+    expect(id).toBeNull()
+  })
+
   it('categoryDisplayName reads populated category documents', () => {
     expect(categoryDisplayName({ name: category.name })).toBe(category.name)
     expect(categoryDisplayName(category.name)).toBe(category.name)

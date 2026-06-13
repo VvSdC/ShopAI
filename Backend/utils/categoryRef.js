@@ -1,4 +1,3 @@
-import mongoose from 'mongoose'
 import Category from '../model/Category.js'
 
 function escapeRegex(value) {
@@ -13,13 +12,18 @@ export function categoryDisplayName(category) {
   return ''
 }
 
+/** Only 24-char hex strings are treated as Mongo ObjectIds (mongoose isValid is too loose). */
+function isStrictObjectIdString(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || ''))
+}
+
 /** Resolve a category name or id string to a Category ObjectId. */
 export async function resolveCategoryId(input) {
   if (input == null) return null
   const value = String(input).trim()
   if (!value) return null
 
-  if (mongoose.Types.ObjectId.isValid(value)) {
+  if (isStrictObjectIdString(value)) {
     const byId = await Category.findById(value).select('_id')
     if (byId) return byId._id
   }

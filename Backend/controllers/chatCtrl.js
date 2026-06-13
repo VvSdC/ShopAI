@@ -14,6 +14,7 @@ import {
   buildChatResponse,
   sanitizeAssistantReply,
   applyCheckoutReply,
+  formatAgentReply,
 } from '../services/chatPostProcess.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 import { recordChatRouteDecision } from '../services/llmUsageLogger.js'
@@ -95,7 +96,13 @@ async function persistAndRespond(
     sessionCartQueue,
   })
 
-  const reply = sanitizeAssistantReply(applyCheckoutReply(assistedReply, toolResults))
+  const formattedReply = formatAgentReply(
+    assistedReply,
+    graphResult.messages || [],
+    userText,
+    toolResults
+  )
+  const reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
   const payload = buildChatResponse(reply, toolResults)
   const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
   await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
