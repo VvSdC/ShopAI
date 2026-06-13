@@ -20,6 +20,18 @@ async function invalidateProductCatalogCaches() {
   await invalidateCategoriesCache()
 }
 
+function mapProductWithCreatedBy(product) {
+  const json = product.toJSON ? product.toJSON() : product
+  const creator = product.user
+  let createdBy = null
+  if (creator && typeof creator === 'object' && creator._id) {
+    createdBy = { id: String(creator._id), fullname: creator.fullname || null }
+  } else if (creator) {
+    createdBy = { id: String(creator) }
+  }
+  return { ...json, createdBy }
+}
+
 function isDuplicateKeyError(err) {
   return err?.code === 11000
 }
@@ -85,7 +97,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: 'success',
     message: 'Product created successfully',
-    product,
+    product: product.toJSON ? product.toJSON() : product,
   })
 })
 
@@ -190,6 +202,41 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   res.json(data)
 })
 
+// @desc    Products created by the current admin (audit field)
+// @route   GET /shopai/products/mine
+// @access  Private/Admin
+export const getMyProductsCtrl = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1
+  const limit = parseInt(req.query.limit, 10) || 12
+  const startIndex = (page - 1) * limit
+  const filter = { user: req.userAuthId }
+
+  const total = await Product.countDocuments(filter)
+  const products = await Product.find(filter)
+    .sort({ createdAt: -1 })
+    .skip(startIndex)
+    .limit(limit)
+    .populate('category', 'name')
+    .populate('user', 'fullname')
+
+  const pagination = {}
+  if (startIndex + products.length < total) {
+    pagination.next = { page: page + 1, limit }
+  }
+  if (startIndex > 0) {
+    pagination.prev = { page: page - 1, limit }
+  }
+
+  res.json({
+    status: 'success',
+    total,
+    results: products.length,
+    pagination,
+    message: 'Your products fetched successfully',
+    products: products.map(mapProductWithCreatedBy),
+  })
+})
+
 // @desc    Get single product
 // @route   GET /api/products/:id
 // @access  Public
@@ -226,7 +273,6 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     category,
     sizes,
     colors,
-    user,
     price,
     totalQty,
     brand,
@@ -251,7 +297,6 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       ...(categoryId ? { category: categoryId } : {}),
       sizes,
       colors,
-      user,
       price,
       totalQty,
       brand,

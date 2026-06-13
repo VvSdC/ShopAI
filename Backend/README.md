@@ -42,6 +42,7 @@ Frontend (separate folder): `cd ../Frontend && npm install && npm start`
 | `npm run start:worker` | Dedicated queue workers |
 | `npm test` | Vitest unit + integration tests |
 | `npm run search:reindex` | Rebuild product embeddings |
+| `npm run openapi:export` | Write `docs/openapi.json` from Zod schemas |
 | `npm run test:keys` | Smoke-test external API keys |
 
 ---

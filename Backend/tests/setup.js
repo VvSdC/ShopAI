@@ -1,3 +1,4 @@
+import '../openapi/initZodOpenApi.js'
 import mongoose from 'mongoose'
 import { beforeAll, afterAll } from 'vitest'
 import config from '../config/env.js'

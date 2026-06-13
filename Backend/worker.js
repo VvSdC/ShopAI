@@ -5,30 +5,16 @@
  */
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
-import { startAllQueueWorkers, stopAllQueueWorkers } from './services/queueWorkers.js'
-import { shutdownLlmUsageLogger } from './services/llmUsageLogger.js'
-import { shutdownCache } from './services/cacheService.js'
+import { startAllQueueWorkers } from './services/queueWorkers.js'
+import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
 
 async function startWorkerProcess() {
   validateConfig({ strict: config.isProduction })
   await dbConnect()
   await startAllQueueWorkers()
   console.log(`[worker] Queue workers running (${config.nodeEnv})`)
+  registerGracefulShutdown({ label: 'worker' })
 }
-
-let shuttingDown = false
-async function shutdown(signal) {
-  if (shuttingDown) return
-  shuttingDown = true
-  console.log(`[worker] ${signal} received — shutting down`)
-  await stopAllQueueWorkers()
-  await shutdownLlmUsageLogger()
-  await shutdownCache()
-  process.exit(0)
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGINT', () => shutdown('SIGINT'))
 
 startWorkerProcess().catch((err) => {
   console.error('[worker] Failed to start:', err.message)

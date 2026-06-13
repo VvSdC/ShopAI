@@ -348,7 +348,7 @@ export default function ShoppingCart() {
   const { coupon, loading: couponLoading, error: couponError, isAdded } = useSelector(
     (state) => state?.coupons
   )
-  const { cartItems, stockWarnings, mergeConflicts, validating } = useSelector(
+  const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating } = useSelector(
     (state) => state?.carts
   )
 
@@ -480,6 +480,24 @@ export default function ShoppingCart() {
                 >
                   Dismiss
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {priceWarnings?.length > 0 && (
+          <div className="mt-4 rounded-lg border border-blue-300 bg-blue-50 p-4 lg:mt-0">
+            <div className="flex gap-3">
+              <ExclamationTriangleIcon className="h-5 w-5 shrink-0 text-blue-600" />
+              <div className="flex-1 text-sm">
+                <p className="font-semibold text-blue-900">Prices updated to match the catalog</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-blue-900/90">
+                  {priceWarnings.map((w, i) => (
+                    <li key={i}>
+                      <span className="font-medium capitalize">{w.name}</span> — {w.reason}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>

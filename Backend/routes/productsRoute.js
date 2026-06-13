@@ -3,6 +3,7 @@ import upload from '../config/fileUpload.js'
 import {
   createProductCtrl,
   getProductsCtrl,
+  getMyProductsCtrl,
   getProductCtrl,
   updateProductCtrl,
   deleteProductCtrl,
@@ -22,6 +23,7 @@ productsRouter.post(
 )
 
 productsRouter.post('/validate-cart', validateCartCtrl)
+productsRouter.get('/mine', isLoggedIn, isAdmin, getMyProductsCtrl)
 productsRouter.get('/', getProductsCtrl)
 productsRouter.get('/:id', getProductCtrl)
 productsRouter.put('/:id', isLoggedIn, isAdmin, updateProductCtrl)

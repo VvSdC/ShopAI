@@ -1,3 +1,4 @@
+import '../openapi/initZodOpenApi.js'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -11,6 +12,7 @@ import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
 import path from 'path'
 import { config } from '../config/env.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
+import { mountOpenApi } from '../openapi/swagger.js'
 import brandsRouter from '../routes/brandsRouter.js'
 import categoriesRouter from '../routes/categoriesRouter.js'
 import colorRouter from '../routes/colorRouter.js'
@@ -130,6 +132,10 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+if (config.openapi.enabled) {
+  mountOpenApi(app)
+}
 
 app.get('/', (req, res) => {
   res.sendFile(path.join('public', 'index.html'))

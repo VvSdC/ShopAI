@@ -1,5 +1,6 @@
 import logger from '../utils/logger.js'
 import { config } from '../config/env.js'
+import { LLM_MAX_TOKENS_DEFAULT } from '../constants/chatLimits.js'
 import { callGeminiChat } from './geminiClient.js'
 import { recordLlmUsage } from './llmUsageLogger.js'
 
@@ -47,7 +48,7 @@ function providerReady(provider) {
   return Boolean(provider.key())
 }
 
-async function callProvider(provider, messages, tools) {
+async function callProvider(provider, messages, tools, maxTokens) {
   const apiKey = provider.key()
   if (!apiKey) {
     throw new Error(`${provider.name} API key not configured`)
@@ -59,7 +60,7 @@ async function callProvider(provider, messages, tools) {
   if (provider.name === 'Gemini') {
     const result = await callGeminiChat(messages, {
       model,
-      maxTokens: 2048,
+      maxTokens,
       temperature: 0.7,
       tools,
     })
@@ -98,7 +99,7 @@ async function callProvider(provider, messages, tools) {
     model,
     messages,
     temperature: 0.7,
-    max_tokens: 2048,
+    max_tokens: maxTokens,
   }
 
   if (tools && tools.length > 0) {
@@ -153,13 +154,14 @@ async function callProvider(provider, messages, tools) {
   return data
 }
 
-export async function chatCompletion(messages, tools) {
+export async function chatCompletion(messages, tools, options = {}) {
+  const maxTokens = options.maxTokens ?? LLM_MAX_TOKENS_DEFAULT
   let lastError = null
 
   for (const provider of providers) {
     try {
       if (!providerReady(provider)) continue
-      const result = await callProvider(provider, messages, tools)
+      const result = await callProvider(provider, messages, tools, maxTokens)
       return result
     } catch (err) {
       lastError = err

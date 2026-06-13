@@ -1,5 +1,9 @@
 import ChatSession from '../model/ChatSession.js'
-import { CHAT_HISTORY_MAX_ITEMS, CHAT_MESSAGE_MAX_LENGTH } from '../constants/chatLimits.js'
+import {
+  CHAT_HISTORY_MAX_ITEMS,
+  CHAT_MESSAGE_MAX_LENGTH,
+  CHAT_SESSION_CLIENT_PAGE_SIZE,
+} from '../constants/chatLimits.js'
 import { clampChatText, clampSessionMessageText } from '../utils/chatMessageLimits.js'
 import { trimHistoryToTokenBudget } from '../utils/chatHistoryTrim.js'
 import { CHAT_HISTORY_TOKEN_BUDGET } from '../constants/chatLimits.js'
@@ -52,6 +56,77 @@ export async function getSessionForUser(userId, sessionId) {
   const session = await ChatSession.findOne({ _id: sessionId, user: userId })
   if (!session) return null
   return session
+}
+
+/**
+ * Paginated session messages for the client (newest page first).
+ * @param {string} userId
+ * @param {string} sessionId
+ * @param {{ before?: number, limit?: number }} [options]
+ *   `before` — how many newest messages the client already has (0 on first open).
+ */
+export async function getSessionMessagesForClient(
+  userId,
+  sessionId,
+  { before = 0, limit = CHAT_SESSION_CLIENT_PAGE_SIZE } = {}
+) {
+  const meta = await ChatSession.findOne({ _id: sessionId, user: userId })
+    .select('title updatedAt createdAt messageCount')
+    .lean()
+
+  if (!meta) return null
+
+  const total = meta.messageCount ?? 0
+  const alreadyFromEnd = Math.max(0, Number(before) || 0)
+  const pageSize = Math.min(
+    Math.max(1, Number(limit) || CHAT_SESSION_CLIENT_PAGE_SIZE),
+    50
+  )
+
+  if (alreadyFromEnd >= total) {
+    return {
+      id: String(meta._id),
+      title: meta.title,
+      updatedAt: meta.updatedAt,
+      createdAt: meta.createdAt,
+      messageCount: total,
+      messages: [],
+      hasMoreOlder: false,
+      loadedFromEnd: alreadyFromEnd,
+    }
+  }
+
+  const remaining = total - alreadyFromEnd
+  const take = Math.min(pageSize, remaining)
+  const skip = Math.max(0, total - alreadyFromEnd - take)
+
+  const sliced = await ChatSession.findOne({ _id: sessionId, user: userId })
+    .select({ messages: { $slice: [skip, take] } })
+    .lean()
+
+  return {
+    id: String(meta._id),
+    title: meta.title,
+    updatedAt: meta.updatedAt,
+    createdAt: meta.createdAt,
+    messageCount: total,
+    messages: sliced?.messages || [],
+    hasMoreOlder: skip > 0,
+    loadedFromEnd: alreadyFromEnd + take,
+  }
+}
+
+export function mapClientSessionPayload(sessionData) {
+  return {
+    id: sessionData.id,
+    title: sessionData.title,
+    updatedAt: sessionData.updatedAt,
+    createdAt: sessionData.createdAt,
+    messageCount: sessionData.messageCount,
+    hasMoreOlder: sessionData.hasMoreOlder,
+    loadedFromEnd: sessionData.loadedFromEnd,
+    messages: (sessionData.messages || []).map(mapSessionMessageForClient),
+  }
 }
 
 export async function createSession(userId, userName) {

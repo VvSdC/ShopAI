@@ -2,11 +2,13 @@ import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
 import {
   listSessions,
-  getSessionForUser,
+  getSessionMessagesForClient,
   createSession,
   deleteSession,
+  mapClientSessionPayload,
   mapSessionMessageForClient,
 } from '../services/chatSessionService.js'
+import { CHAT_SESSION_CLIENT_PAGE_SIZE } from '../constants/chatLimits.js'
 
 export const listChatSessionsCtrl = asyncHandler(async (req, res) => {
   const sessions = await listSessions(req.userAuthId)
@@ -14,7 +16,7 @@ export const listChatSessionsCtrl = asyncHandler(async (req, res) => {
 })
 
 export const getChatSessionCtrl = asyncHandler(async (req, res) => {
-  const session = await getSessionForUser(req.userAuthId, req.params.id)
+  const session = await getSessionMessagesForClient(req.userAuthId, req.params.id)
   if (!session) {
     res.status(404)
     throw new Error('Conversation not found')
@@ -22,13 +24,30 @@ export const getChatSessionCtrl = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    session: {
-      id: String(session._id),
-      title: session.title,
-      updatedAt: session.updatedAt,
-      createdAt: session.createdAt,
-      messages: session.messages.map(mapSessionMessageForClient),
-    },
+    session: mapClientSessionPayload(session),
+  })
+})
+
+export const getChatSessionMessagesCtrl = asyncHandler(async (req, res) => {
+  const before = parseInt(req.query.before, 10)
+  const limit = parseInt(req.query.limit, 10)
+
+  const page = await getSessionMessagesForClient(req.userAuthId, req.params.id, {
+    before: Number.isNaN(before) ? 0 : before,
+    limit: Number.isNaN(limit) ? CHAT_SESSION_CLIENT_PAGE_SIZE : limit,
+  })
+
+  if (!page) {
+    res.status(404)
+    throw new Error('Conversation not found')
+  }
+
+  res.json({
+    success: true,
+    messages: page.messages.map(mapSessionMessageForClient),
+    messageCount: page.messageCount,
+    hasMoreOlder: page.hasMoreOlder,
+    loadedFromEnd: page.loadedFromEnd,
   })
 })
 
@@ -38,13 +57,16 @@ export const createChatSessionCtrl = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     success: true,
-    session: {
+    session: mapClientSessionPayload({
       id: String(session._id),
       title: session.title,
       updatedAt: session.updatedAt,
       createdAt: session.createdAt,
-      messages: session.messages.map(mapSessionMessageForClient),
-    },
+      messageCount: session.messageCount ?? session.messages.length,
+      hasMoreOlder: false,
+      loadedFromEnd: session.messages.length,
+      messages: session.messages,
+    }),
   })
 })
 

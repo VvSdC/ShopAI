@@ -79,12 +79,12 @@ function computeTotals(items, discountRate) {
   return { subtotal, discountAmount, total }
 }
 
-export function formatCartPayload(cart, discountMeta = null) {
+export function formatCartPayload(cart, discountMeta = null, { priceWarnings = [] } = {}) {
   const discountRate = discountMeta?.discountRate ?? 0
   const { subtotal, discountAmount, total } = computeTotals(cart.items, discountRate)
   const itemCount = cart.items.reduce((sum, i) => sum + (i.qty || 0), 0)
 
-  return {
+  const payload = {
     items: cart.items.map((item) => ({
       _id: String(item._id),
       name: item.name,
@@ -106,10 +106,101 @@ export function formatCartPayload(cart, discountMeta = null) {
     itemCount,
     isEmpty: cart.items.length === 0,
   }
+
+  if (priceWarnings.length > 0) {
+    payload.priceWarnings = priceWarnings
+  }
+
+  return payload
+}
+
+async function loadProductMapForCartItems(items) {
+  const productIds = [...new Set(items.map((i) => productIdKey(i._id)).filter(Boolean))]
+  if (!productIds.length) return {}
+
+  const products = await Product.find({ _id: { $in: productIds } }).select(
+    'name price description images totalQty totalSold'
+  )
+  const productMap = {}
+  products.forEach((p) => {
+    productMap[productIdKey(p._id)] = p
+  })
+  return productMap
+}
+
+function plainCartItem(item) {
+  return typeof item.toObject === 'function' ? item.toObject() : { ...item }
+}
+
+function snapshotFromProduct(item, product) {
+  const plain = plainCartItem(item)
+  const livePrice = product.price
+  const priceChanged = plain.price !== livePrice
+  const updated = {
+    ...plain,
+    name: product.name,
+    description: product.description || '',
+    image: product.images?.[0] || plain.image || '',
+    price: livePrice,
+    totalPrice: livePrice * plain.qty,
+  }
+
+  const priceWarning = priceChanged
+    ? {
+        _id: String(item._id),
+        color: item.color,
+        size: item.size,
+        name: product.name,
+        reason: `Price updated from ₹${plain.price} to ₹${livePrice}`,
+        previousPrice: plain.price,
+        currentPrice: livePrice,
+      }
+    : null
+
+  return { item: updated, priceWarning }
+}
+
+function cartLineSnapshotChanged(before, after) {
+  return (
+    before.price !== after.price ||
+    before.totalPrice !== after.totalPrice ||
+    before.name !== after.name ||
+    before.description !== after.description ||
+    before.image !== after.image
+  )
+}
+
+/** Batch-refresh cart line snapshots from live catalog (price, name, image). */
+async function refreshCartItemsFromCatalog(cart) {
+  if (!cart.items?.length) {
+    return { priceWarnings: [], saved: false }
+  }
+
+  const productMap = await loadProductMapForCartItems(cart.items)
+  const priceWarnings = []
+  let saved = false
+
+  cart.items = cart.items.map((item) => {
+    const product = productMap[productIdKey(item._id)]
+    if (!product) return plainCartItem(item)
+
+    const before = plainCartItem(item)
+    const { item: updated, priceWarning } = snapshotFromProduct(item, product)
+    if (priceWarning) priceWarnings.push(priceWarning)
+    if (cartLineSnapshotChanged(before, updated)) saved = true
+    return updated
+  })
+
+  if (saved) {
+    await cart.save()
+  }
+
+  return { priceWarnings, saved }
 }
 
 export async function getCart(userId) {
   const cart = await findOrCreateCart(userId)
+  const { priceWarnings } = await refreshCartItemsFromCatalog(cart)
   let discountMeta = { discountRate: 0, discountPercent: 0 }
   if (cart.couponCode) {
     try {
@@ -119,7 +210,7 @@ export async function getCart(userId) {
       await cart.save()
     }
   }
-  return formatCartPayload(cart, discountMeta)
+  return formatCartPayload(cart, discountMeta, { priceWarnings })
 }
 
 export function resolveOptionMatch(requested, options) {
@@ -339,12 +430,7 @@ export async function getCartOrderItems(userId) {
 
 export async function validateCartStock(userId) {
   const cart = await findOrCreateCart(userId)
-  const productIds = [...new Set(cart.items.map((i) => productIdKey(i._id)))]
-  const products = await Product.find({ _id: { $in: productIds } })
-  const productMap = {}
-  products.forEach((p) => {
-    productMap[productIdKey(p._id)] = p
-  })
+  const productMap = await loadProductMapForCartItems(cart.items)
 
   const warnings = []
   const validItems = []
@@ -361,6 +447,7 @@ export async function validateCartStock(userId) {
       })
       continue
     }
+
     const qtyLeft = product.totalQty - product.totalSold
     if (qtyLeft <= 0) {
       warnings.push({
@@ -372,9 +459,8 @@ export async function validateCartStock(userId) {
       })
       continue
     }
-    const plainItem =
-      typeof item.toObject === 'function' ? item.toObject() : { ...item }
 
+    let qty = item.qty
     if (item.qty > qtyLeft) {
       warnings.push({
         _id: String(item._id),
@@ -383,19 +469,15 @@ export async function validateCartStock(userId) {
         name: item.name,
         reason: `Only ${qtyLeft} left in stock`,
       })
-      validItems.push({
-        ...plainItem,
-        qty: qtyLeft,
-        price: product.price,
-        totalPrice: product.price * qtyLeft,
-      })
-    } else {
-      validItems.push({
-        ...plainItem,
-        price: product.price,
-        totalPrice: product.price * item.qty,
-      })
+      qty = qtyLeft
     }
+
+    const { item: refreshed, priceWarning } = snapshotFromProduct(
+      { ...plainCartItem(item), qty },
+      product
+    )
+    if (priceWarning) warnings.push(priceWarning)
+    validItems.push(refreshed)
   }
 
   cart.items = validItems

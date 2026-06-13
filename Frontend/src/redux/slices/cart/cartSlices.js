@@ -10,6 +10,7 @@ const initialState = {
   isUpdated: false,
   isDelete: false,
   stockWarnings: [],
+  priceWarnings: [],
   mergeConflicts: [],
   validating: false,
   serverCouponCode: null,
@@ -65,6 +66,15 @@ function mapServerCartItems(items) {
   }))
 }
 
+function mapServerCartResponse(data) {
+  return {
+    cartItems: mapServerCartItems(data.cart?.items),
+    serverCouponCode: data.cart?.couponCode || null,
+    serverTotal: data.cart?.total ?? null,
+    priceWarnings: data.cart?.priceWarnings || [],
+  }
+}
+
 function persistCartItems(items) {
   localStorage.setItem('cartItems', JSON.stringify(items))
 }
@@ -87,13 +97,11 @@ export const getCartFromServerAction = createAsyncThunk(
     }
     try {
       const { data } = await axiosInstance.get('/cart')
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
       return {
-        cartItems,
+        ...payload,
         fromServer: true,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
       }
     } catch (error) {
       return rejectWithValue(error?.response?.data)
@@ -118,16 +126,14 @@ export const syncAndLoadCartAction = createAsyncThunk(
       }
 
       const { data } = await axiosInstance.get('/cart')
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
       if (data.cart?.couponCode) {
         dispatch(fetchCouponAction(data.cart.couponCode))
       }
       return {
-        cartItems,
+        ...payload,
         fromServer: true,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
         mergeConflicts,
       }
     } catch (error) {
@@ -165,13 +171,9 @@ export const addOrderToCartaction = createAsyncThunk(
         size: cartItem.size,
         qty: cartItem.qty,
       })
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
-      return {
-        cartItems,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
-      }
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
+      return payload
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -215,13 +217,9 @@ export const changeOrderItemQty = createAsyncThunk(
         size,
         qty,
       })
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
-      return {
-        cartItems,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
-      }
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
+      return payload
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -248,13 +246,9 @@ export const removeOrderItemQty = createAsyncThunk(
       const { data } = await axiosInstance.delete('/cart/items', {
         data: { productId, color, size },
       })
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
-      return {
-        cartItems,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
-      }
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
+      return payload
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -275,13 +269,9 @@ export const applyCartCouponAction = createAsyncThunk(
     try {
       const { data } = await axiosInstance.post('/cart/coupon', { code: trimmed })
       await dispatch(fetchCouponAction(trimmed))
-      const cartItems = mapServerCartItems(data.cart?.items)
-      persistCartItems(cartItems)
-      return {
-        cartItems,
-        serverCouponCode: data.cart?.couponCode || null,
-        serverTotal: data.cart?.total ?? null,
-      }
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
+      return payload
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -355,6 +345,9 @@ function handleCartFulfilled(state, action) {
   }
   if (action.payload?.mergeConflicts !== undefined) {
     state.mergeConflicts = action.payload.mergeConflicts
+  }
+  if (action.payload?.priceWarnings !== undefined) {
+    state.priceWarnings = action.payload.priceWarnings
   }
 }
 

@@ -16,9 +16,11 @@ export async function startAllQueueWorkers() {
 }
 
 export async function stopAllQueueWorkers() {
-  await stopCheckoutExpiryWorker()
-  await stopEmbeddingSyncWorker()
-  await stopCouponCacheWorker()
-  await stopModerationWorker()
-  await stopProductTaggingWorker()
+  await Promise.all([
+    stopCheckoutExpiryWorker(),
+    stopEmbeddingSyncWorker(),
+    stopCouponCacheWorker(),
+    stopModerationWorker(),
+    stopProductTaggingWorker(),
+  ])
 }

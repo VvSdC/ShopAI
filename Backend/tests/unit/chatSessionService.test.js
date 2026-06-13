@@ -3,12 +3,14 @@ import {
   MAX_SESSIONS_PER_USER,
   maybeTrimOldSessions,
   listSessions,
+  getSessionMessagesForClient,
 } from '../../services/chatSessionService.js'
 
 vi.mock('../../model/ChatSession.js', () => ({
   default: {
     countDocuments: vi.fn(),
     find: vi.fn(),
+    findOne: vi.fn(),
     deleteMany: vi.fn(),
   },
 }))
@@ -89,5 +91,78 @@ describe('listSessions', () => {
     expect(selectMock).toHaveBeenCalledWith({ messages: { $slice: -1 } })
     expect(rows[0].messageCount).toBe(12)
     expect(rows[0].preview).toBe('Last message preview text')
+  })
+})
+
+describe('getSessionMessagesForClient', () => {
+  beforeEach(async () => {
+    const ChatSession = (await import('../../model/ChatSession.js')).default
+    ChatSession.findOne.mockReset()
+  })
+
+  it('loads only the last page via $slice on initial open', async () => {
+    const ChatSession = (await import('../../model/ChatSession.js')).default
+    ChatSession.findOne
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockResolvedValue({
+          _id: '507f1f77bcf86cd799439011',
+          title: 'Long chat',
+          updatedAt: new Date('2026-01-02'),
+          createdAt: new Date('2026-01-01'),
+          messageCount: 45,
+        }),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockResolvedValue({
+          messages: [{ role: 'assistant', content: 'msg-45' }],
+        }),
+      })
+
+    const page = await getSessionMessagesForClient('user-1', '507f1f77bcf86cd799439011')
+
+    expect(ChatSession.findOne).toHaveBeenCalledTimes(2)
+    expect(ChatSession.findOne.mock.calls[1][0]).toEqual({
+      _id: '507f1f77bcf86cd799439011',
+      user: 'user-1',
+    })
+    expect(ChatSession.findOne.mock.results[1].value.select).toHaveBeenCalledWith({
+      messages: { $slice: [25, 20] },
+    })
+    expect(page.hasMoreOlder).toBe(true)
+    expect(page.loadedFromEnd).toBe(20)
+    expect(page.messageCount).toBe(45)
+  })
+
+  it('loads the next older page when before is set', async () => {
+    const ChatSession = (await import('../../model/ChatSession.js')).default
+    ChatSession.findOne
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockResolvedValue({
+          _id: '507f1f77bcf86cd799439011',
+          title: 'Long chat',
+          updatedAt: new Date('2026-01-02'),
+          createdAt: new Date('2026-01-01'),
+          messageCount: 45,
+        }),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        lean: vi.fn().mockResolvedValue({
+          messages: [{ role: 'user', content: 'msg-25' }],
+        }),
+      })
+
+    const page = await getSessionMessagesForClient('user-1', '507f1f77bcf86cd799439011', {
+      before: 20,
+    })
+
+    expect(ChatSession.findOne.mock.results[1].value.select).toHaveBeenCalledWith({
+      messages: { $slice: [5, 20] },
+    })
+    expect(page.hasMoreOlder).toBe(true)
+    expect(page.loadedFromEnd).toBe(40)
   })
 })

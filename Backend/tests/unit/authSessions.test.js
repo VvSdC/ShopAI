@@ -9,6 +9,7 @@ import {
   createAuthSession,
   formatDeviceIdCookie,
   getRefreshExpiresAt,
+  hashRefreshToken,
   invalidateUserRefreshToken,
   resolveDeviceId,
   verifyRefreshToken,
@@ -18,7 +19,7 @@ import { fetchCsrf, withCsrf, cookiePartsFromResponse } from '../helpers/csrf.js
 async function addSession(user, { token, deviceId = 'test-device' }) {
   user.sessions = user.sessions || []
   user.sessions.push({
-    token,
+    token: hashRefreshToken(token),
     deviceId,
     createdAt: new Date(),
     expiresAt: getRefreshExpiresAt(),
@@ -105,7 +106,7 @@ describe('multi-device auth sessions', () => {
 
     const afterRefresh = await User.findById(user._id)
     expect(afterRefresh.sessions).toHaveLength(2)
-    expect(afterRefresh.sessions.some((s) => s.token === tokenB)).toBe(true)
+    expect(afterRefresh.sessions.some((s) => s.token === hashRefreshToken(tokenB))).toBe(true)
   })
 
   it('caps concurrent sessions at AUTH_MAX_SESSIONS', async () => {
@@ -148,7 +149,8 @@ describe('refresh token rotation', () => {
 
     const afterFirst = await User.findById(user._id)
     const sessionAfterFirst = afterFirst.sessions.find((s) => s.deviceId === 'rotate-device')
-    expect(sessionAfterFirst.token).not.toBe(initialRefresh)
+    expect(sessionAfterFirst.token).not.toBe(hashRefreshToken(initialRefresh))
+    expect(sessionAfterFirst.token).toMatch(/^[a-f0-9]{64}$/)
 
     const rotateCookies = cookiePartsFromResponse(first)
     const second = await withCsrf(request(app).post('/shopai/users/refresh'), {
@@ -174,7 +176,7 @@ describe('refresh token rotation', () => {
     const currentToken = generateRefreshToken(user._id)
     user.sessions = [
       {
-        token: currentToken,
+        token: hashRefreshToken(currentToken),
         deviceId: 'active-device',
         createdAt: new Date(),
         expiresAt: getRefreshExpiresAt(),
@@ -201,6 +203,22 @@ describe('refresh token rotation', () => {
     const token = generateRefreshToken(userId)
     const decoded = verifyRefreshToken(token)
     expect(decoded.id).toBe(userId)
+  })
+
+  it('stores SHA-256 digests in MongoDB, not raw refresh JWTs', async () => {
+    const user = await User.create({
+      fullname: 'Hash Store User',
+      email: `hash-store-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const { refreshToken } = await createAuthSession(user._id, 'hash-device')
+    const reloaded = await User.findById(user._id)
+    const stored = reloaded.sessions[0].token
+
+    expect(stored).toBe(hashRefreshToken(refreshToken))
+    expect(stored).not.toBe(refreshToken)
+    expect(stored).toMatch(/^[a-f0-9]{64}$/)
   })
 })
 

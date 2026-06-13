@@ -60,6 +60,7 @@ describe('chatGraph guard (LLM classifier)', () => {
     const result = await evaluateGuard('create a python-printed hoodie')
     expect(result.allowed).toBe(true)
     expect(chatCompletion).toHaveBeenCalledOnce()
+    expect(chatCompletion.mock.calls[0][2]).toEqual({ maxTokens: 100 })
   })
 
   it('blocks prompt injection when the classifier flags it', async () => {
@@ -220,6 +221,7 @@ describe('classifyIntent (heuristic short-circuit)', () => {
     expect(result.route).toBe('checkout')
     expect(result.reason).toBe('confirmed checkout')
     expect(chatCompletion).toHaveBeenCalledOnce()
+    expect(chatCompletion.mock.calls[0][2]).toEqual({ maxTokens: 100 })
   })
 
   it('falls back to heuristic when LLM fails', async () => {

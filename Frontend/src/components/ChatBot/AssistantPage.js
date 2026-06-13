@@ -47,6 +47,9 @@ export default function AssistantPage() {
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [loadedFromEnd, setLoadedFromEnd] = useState(0)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadingSessions, setLoadingSessions] = useState(true)
@@ -73,17 +76,40 @@ export default function AssistantPage() {
     scrollToBottom()
   }, [messages, isLoading, scrollToBottom])
 
-  const loadSession = useCallback(async (sessionId) => {
-    const { data } = await axiosInstance.get(`/chat/sessions/${sessionId}`)
-    setActiveSessionId(data.session.id)
-    setMessages(
-      (data.session.messages || []).map((m) => ({
+  const mapApiMessages = useCallback(
+    (items) =>
+      (items || []).map((m) => ({
         role: m.role,
         content: m.content,
         checkout: m.checkout || null,
-      }))
-    )
-  }, [])
+      })),
+    []
+  )
+
+  const loadSession = useCallback(async (sessionId) => {
+    const { data } = await axiosInstance.get(`/chat/sessions/${sessionId}`)
+    setActiveSessionId(data.session.id)
+    setMessages(mapApiMessages(data.session.messages))
+    setHasMoreOlder(Boolean(data.session.hasMoreOlder))
+    setLoadedFromEnd(data.session.loadedFromEnd ?? data.session.messages?.length ?? 0)
+  }, [mapApiMessages])
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!activeSessionId || loadingOlder || !hasMoreOlder) return
+
+    setLoadingOlder(true)
+    try {
+      const { data } = await axiosInstance.get(
+        `/chat/sessions/${activeSessionId}/messages`,
+        { params: { before: loadedFromEnd } }
+      )
+      setMessages((prev) => [...mapApiMessages(data.messages), ...prev])
+      setHasMoreOlder(Boolean(data.hasMoreOlder))
+      setLoadedFromEnd(data.loadedFromEnd ?? loadedFromEnd)
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [activeSessionId, hasMoreOlder, loadedFromEnd, loadingOlder, mapApiMessages])
 
   const startNewConversation = useCallback(async () => {
     const { data } = await axiosInstance.post('/chat/sessions')
@@ -98,16 +124,12 @@ export default function AssistantPage() {
       ...prev.filter((s) => s.id !== session.id),
     ])
     setActiveSessionId(session.id)
-    setMessages(
-      (session.messages || []).map((m) => ({
-        role: m.role,
-        content: m.content,
-        checkout: m.checkout || null,
-      }))
-    )
+    setMessages(mapApiMessages(session.messages))
+    setHasMoreOlder(Boolean(session.hasMoreOlder))
+    setLoadedFromEnd(session.loadedFromEnd ?? session.messages?.length ?? 0)
     setSidebarOpen(false)
     inputRef.current?.focus()
-  }, [])
+  }, [mapApiMessages])
 
   useEffect(() => {
     const init = async () => {
@@ -172,6 +194,7 @@ export default function AssistantPage() {
           checkout: data.checkout || null,
         },
       ])
+      setLoadedFromEnd((count) => count + 2)
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -356,6 +379,19 @@ export default function AssistantPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {hasMoreOlder && (
+              <div className="flex justify-center pb-2">
+                <button
+                  type="button"
+                  onClick={loadOlderMessages}
+                  disabled={loadingOlder}
+                  className="rounded-full border border-stone-300 bg-white px-4 py-1.5 text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+                >
+                  {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+                </button>
               </div>
             )}
 

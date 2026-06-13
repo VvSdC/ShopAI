@@ -186,6 +186,11 @@ export const config = {
       max: envInt('RATE_LIMIT_CHAT_MAX', 15),
     },
   },
+
+  openapi: {
+    /** Swagger UI at /shopai/docs and spec at /shopai/openapi.json */
+    enabled: envBool('OPENAPI_ENABLED', nodeEnv !== 'production'),
+  },
 }
 
 /** Warn or fail on missing secrets — strict in production, lenient in dev/test. */

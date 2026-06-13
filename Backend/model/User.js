@@ -47,6 +47,7 @@ const UserShema = new Schema(
     },
     sessions: [
       {
+        /** SHA-256 hex digest of the refresh JWT — never store the raw token. */
         token: { type: String, required: true },
         deviceId: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },

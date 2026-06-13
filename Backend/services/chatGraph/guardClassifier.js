@@ -1,3 +1,4 @@
+import { LLM_MAX_TOKENS_CLASSIFIER } from '../../constants/chatLimits.js'
 import { chatCompletion } from '../llmService.js'
 import logger from '../../utils/logger.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
@@ -77,7 +78,8 @@ ${text}`
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      null
+      null,
+      { maxTokens: LLM_MAX_TOKENS_CLASSIFIER }
     )
     const parsed = parseGuardJson(response.choices?.[0]?.message?.content)
     if (parsed) return parsed

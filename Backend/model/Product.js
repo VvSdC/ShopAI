@@ -33,9 +33,9 @@ const ProductSchema = new Schema(
       required: true,
     },
 
+    /** Admin who created the product (audit only — not exposed on public catalog). */
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
       ref: 'User',
     },
 
@@ -94,6 +94,7 @@ const ProductSchema = new Schema(
         if (ret.category && typeof ret.category === 'object' && ret.category.name) {
           ret.category = ret.category.name
         }
+        delete ret.user
         return ret
       },
     },
@@ -131,6 +132,7 @@ ProductSchema.index({ category: 1 })
 ProductSchema.index({ brand: 1 })
 ProductSchema.index({ price: 1 })
 ProductSchema.index({ tags: 1 })
+ProductSchema.index({ user: 1, createdAt: -1 })
 
 const Product = mongoose.model('Product', ProductSchema)
 

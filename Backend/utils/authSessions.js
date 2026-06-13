@@ -14,6 +14,11 @@ export function verifyRefreshToken(token) {
   return jwt.verify(token, config.auth.jwtRefreshKey)
 }
 
+/** Store only a SHA-256 digest — raw refresh JWT stays in the httpOnly cookie. */
+export function hashRefreshToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex')
+}
+
 function signDeviceId(deviceId) {
   const signature = crypto
     .createHmac('sha256', config.auth.jwtRefreshKey)
@@ -78,10 +83,10 @@ function capSessions(sessions, max) {
   return list
 }
 
-function buildSessionEntry(token, deviceId) {
+function buildSessionEntry(rawRefreshToken, deviceId) {
   const now = new Date()
   return {
-    token,
+    token: hashRefreshToken(rawRefreshToken),
     deviceId,
     createdAt: now,
     expiresAt: getRefreshExpiresAt(),
@@ -116,12 +121,13 @@ export async function createAuthSession(userId, deviceId) {
 export async function rotateRefreshToken(presentedToken, userId, res) {
   const newRefreshToken = generateRefreshToken(userId)
   const newExpiry = getRefreshExpiresAt()
+  const presentedHash = hashRefreshToken(presentedToken)
 
   const user = await User.findOneAndUpdate(
-    { _id: userId, 'sessions.token': presentedToken },
+    { _id: userId, 'sessions.token': presentedHash },
     {
       $set: {
-        'sessions.$.token': newRefreshToken,
+        'sessions.$.token': hashRefreshToken(newRefreshToken),
         'sessions.$.expiresAt': newExpiry,
       },
     },
@@ -146,7 +152,7 @@ export async function rotateRefreshToken(presentedToken, userId, res) {
 export async function revokeAuthSession(userId, token) {
   if (!userId || !token) return
   await User.findByIdAndUpdate(userId, {
-    $pull: { sessions: { token } },
+    $pull: { sessions: { token: hashRefreshToken(token) } },
   })
 }
 

@@ -180,7 +180,8 @@ All routes require a **logged-in user** (JWT). Base path: `/shopai/chat/`
 |--------|------|---------|
 | `GET` | `/sessions` | List conversations |
 | `POST` | `/sessions` | Start new conversation |
-| `GET` | `/sessions/:id` | Load messages |
+| `GET` | `/sessions/:id` | Load newest messages (20 by default) |
+| `GET` | `/sessions/:id/messages?before=N` | Load older messages (`before` = `loadedFromEnd` from prior response) |
 | `DELETE` | `/sessions/:id` | Delete conversation |
 | `POST` | `/message` | Send a message and get a reply |
 

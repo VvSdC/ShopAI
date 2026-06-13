@@ -42,4 +42,20 @@ describe('Product model', () => {
       createTestProduct({ name, user: user._id })
     ).rejects.toMatchObject({ code: 11000 })
   })
+
+  it('allows products without a user (legacy / import rows)', async () => {
+    const product = await createTestProduct({ user: undefined })
+    expect(product.user).toBeUndefined()
+  })
+
+  it('omits user from public JSON output', async () => {
+    const user = await User.create({
+      fullname: 'Audit User',
+      email: `audit-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+    const product = await createTestProduct({ user: user._id })
+    const json = product.toJSON()
+    expect(json.user).toBeUndefined()
+  })
 })
