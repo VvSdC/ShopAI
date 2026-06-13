@@ -11,8 +11,12 @@ import CategoryCard from './CategoryCard'
 import LoadingComponent from '../LoadingComp/LoadingComponent'
 import ErrorMsg from '../ErrorMsg/ErrorMsg'
 
+function categoryProductCount(category) {
+  return category?.productCount ?? category?.products?.length ?? 0
+}
+
 function sortByPopularity(list) {
-  return [...list].sort((a, b) => (b?.products?.length ?? 0) - (a?.products?.length ?? 0))
+  return [...list].sort((a, b) => categoryProductCount(b) - categoryProductCount(a))
 }
 
 export default function AllCategories() {
@@ -39,7 +43,7 @@ export default function AllCategories() {
 
   const featured = useMemo(() => sorted.slice(0, 4), [sorted])
   const totalProducts = useMemo(
-    () => allCategories.reduce((sum, c) => sum + (c?.products?.length ?? 0), 0),
+    () => allCategories.reduce((sum, c) => sum + categoryProductCount(c), 0),
     [allCategories]
   )
 
@@ -145,7 +149,7 @@ export default function AllCategories() {
                       >
                         <span className="truncate">{category.name}</span>
                         <span className="ml-2 shrink-0 text-xs text-stone-400">
-                          {category.products?.length ?? 0}
+                          {categoryProductCount(category)}
                         </span>
                       </Link>
                     </li>

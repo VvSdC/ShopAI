@@ -1,4 +1,5 @@
 import Category from '../model/Category.js'
+import Product from '../model/Product.js'
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -33,6 +34,52 @@ export async function resolveCategoryId(input) {
   }).select('_id')
 
   return byName?._id ?? null
+}
+
+/**
+ * Mongo filter for products in a category — matches modern ObjectId refs,
+ * legacy string category names, and legacy Category.products[] embed lists.
+ */
+export async function buildCategoryProductFilter(input) {
+  const categoryId = await resolveCategoryId(input)
+  if (!categoryId) return null
+
+  const category = await Category.findById(categoryId).select('name products').lean()
+  const clauses = [{ category: categoryId }]
+
+  if (category?.name) {
+    clauses.push({
+      category: { $regex: `^${escapeRegex(category.name)}$`, $options: 'i' },
+    })
+  }
+
+  const legacyProductIds = (category?.products || []).filter(Boolean)
+  if (legacyProductIds.length) {
+    clauses.push({ _id: { $in: legacyProductIds } })
+  }
+
+  return clauses.length === 1 ? clauses[0] : { $or: clauses }
+}
+
+export async function countProductsMatchingFilter(filter) {
+  return Product.collection.countDocuments(filter)
+}
+
+export async function findProductIdsMatchingFilter(filter, { skip = 0, limit = 12 } = {}) {
+  const rows = await Product.collection
+    .find(filter, { projection: { _id: 1 } })
+    .skip(skip)
+    .limit(limit)
+    .toArray()
+  return rows.map((row) => row._id)
+}
+
+export async function findLeanProductsMatchingFilter(filter, { skip = 0, limit = 12, projection = null } = {}) {
+  let cursor = Product.collection.find(filter)
+  if (projection) cursor = cursor.project(projection)
+  if (skip) cursor = cursor.skip(skip)
+  if (limit) cursor = cursor.limit(limit)
+  return cursor.toArray()
 }
 
 /** Attach `{ name }` category subdocs for lean products that only store ObjectIds. */

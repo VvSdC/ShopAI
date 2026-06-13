@@ -1,6 +1,10 @@
 import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
-import { enrichProductsWithCategoryNames, resolveCategoryId } from '../../utils/categoryRef.js'
+import {
+  buildCategoryProductFilter,
+  enrichProductsWithCategoryNames,
+  findLeanProductsMatchingFilter,
+} from '../../utils/categoryRef.js'
 import { config } from '../../config/env.js'
 import {
   buildProductSearchFilter,
@@ -15,7 +19,9 @@ import { rerankDocuments } from './rerankService.js'
 
 function buildMongoFilter(args) {
   const filter = {}
-  if (args.categoryId) filter.category = args.categoryId
+  if (args.categoryFilter) {
+    Object.assign(filter, args.categoryFilter)
+  }
   if (args.brand) filter.brand = args.brand
   if (args.color) filter.colors = args.color
   if (args.size) filter.sizes = args.size
@@ -33,13 +39,27 @@ function buildMongoFilter(args) {
 async function keywordSearch(args, limit) {
   const filter = buildProductSearchFilter(args)
   const fetchLimit = Math.min(Math.max(limit * 4, 24), config.search.keywordLimit)
+  const projection = {
+    name: 1,
+    brand: 1,
+    category: 1,
+    price: 1,
+    totalQty: 1,
+    totalSold: 1,
+    colors: 1,
+    sizes: 1,
+    images: 1,
+    description: 1,
+    tags: 1,
+    searchDocument: 1,
+  }
 
-  const products = await Product.find(filter)
-    .limit(fetchLimit)
-    .select(
-      'name brand category price totalQty totalSold colors sizes images description tags searchDocument'
-    )
-    .lean()
+  const products = args.categoryFilter
+    ? await findLeanProductsMatchingFilter(filter, { limit: fetchLimit, projection })
+    : await Product.find(filter)
+        .limit(fetchLimit)
+        .select(Object.keys(projection).join(' '))
+        .lean()
 
   const enriched = await enrichProductsWithCategoryNames(products)
   return rankProductsByQuery(enriched, args.query || '').slice(0, limit)
@@ -49,8 +69,8 @@ async function normalizeSearchArgs(args = {}) {
   const normalized = { ...args }
   delete normalized.category
   if (args.category) {
-    normalized.categoryId = await resolveCategoryId(args.category)
-    // Unknown LLM category labels (e.g. "sports") are ignored — search by query instead.
+    normalized.categoryFilter = await buildCategoryProductFilter(args.category)
+    // Unknown category labels (e.g. "sports") are ignored — search by query instead.
   }
   return { normalized }
 }
@@ -62,12 +82,29 @@ export async function searchProducts(args = {}) {
   const mongoFilter = buildMongoFilter(normalized)
 
   if (!query) {
-    const products = await Product.find(mongoFilter)
-      .limit(limit)
-      .select(
-        'name brand category price totalQty totalSold colors sizes images description tags'
-      )
-      .lean()
+    const products = normalized.categoryFilter
+      ? await findLeanProductsMatchingFilter(mongoFilter, {
+          limit,
+          projection: {
+            name: 1,
+            brand: 1,
+            category: 1,
+            price: 1,
+            totalQty: 1,
+            totalSold: 1,
+            colors: 1,
+            sizes: 1,
+            images: 1,
+            description: 1,
+            tags: 1,
+          },
+        })
+      : await Product.find(mongoFilter)
+          .limit(limit)
+          .select(
+            'name brand category price totalQty totalSold colors sizes images description tags'
+          )
+          .lean()
     const enriched = await enrichProductsWithCategoryNames(products)
     return { products: enriched.map(mapProductSearchResult), count: enriched.length, mode: 'browse' }
   }

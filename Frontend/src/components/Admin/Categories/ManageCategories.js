@@ -125,7 +125,7 @@ export default function ManageCategories() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           <div className="text-gray-900">
-                            {category?.products?.length}
+                            {category?.productCount ?? category?.products?.length ?? 0}
                           </div>
                         </td>
 

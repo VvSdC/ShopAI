@@ -7,6 +7,7 @@ import {
   getCachedOrFetch,
   invalidateCategoriesCache,
 } from '../services/catalogCache.js'
+import { attachProductCountsToCategories } from '../services/catalogProductCounts.js'
 
 const cloudinary = cloudinaryPackage.v2
 // @desc    Create new category
@@ -52,10 +53,11 @@ export const getAllCategoriesCtrl = asyncHandler(async (req, res) => {
     CACHE_TTL.categories,
     async () => {
       const categories = await Category.find().lean()
+      const categoriesWithCounts = await attachProductCountsToCategories(categories)
       return {
         status: 'success',
         message: 'Categories fetched successfully',
-        categories,
+        categories: categoriesWithCounts,
       }
     }
   )

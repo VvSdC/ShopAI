@@ -8,7 +8,7 @@ const FEATURED_IMAGE_CLASS =
   'relative aspect-[16/10] w-full overflow-hidden bg-stone-100'
 
 export default function CategoryCard({ category, className = '', featured = false }) {
-  const count = category?.products?.length ?? 0
+  const count = category?.productCount ?? category?.products?.length ?? 0
   const imageWrapClass = featured ? FEATURED_IMAGE_CLASS : CATEGORY_IMAGE_CLASS
 
   return (

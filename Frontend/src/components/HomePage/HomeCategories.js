@@ -14,7 +14,11 @@ export default function HomeCategories() {
   const categoriesToShow = useMemo(() => {
     const list = [...(categories?.categories ?? [])]
     return list
-      .sort((a, b) => (b?.products?.length ?? 0) - (a?.products?.length ?? 0))
+      .sort(
+        (a, b) =>
+          (b?.productCount ?? b?.products?.length ?? 0) -
+          (a?.productCount ?? a?.products?.length ?? 0)
+      )
       .slice(0, 5)
   }, [categories?.categories])
 

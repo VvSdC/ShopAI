@@ -19,6 +19,10 @@ import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
 import ProductSearchBar from '../Users/Products/ProductSearchBar'
 import { getCartUnitCount } from '../../utils/cartCount'
 
+function categoryProductCount(category) {
+  return category?.productCount ?? category?.products?.length ?? 0
+}
+
 export default function Navbar() {
   const navigate = useNavigate()
   //dispatch
@@ -32,7 +36,7 @@ export default function Navbar() {
 
   // compute top categories by number of products
   const sortedCategories = (categories?.categories || []).slice().sort((a, b) => {
-    return (b?.products?.length || 0) - (a?.products?.length || 0)
+    return categoryProductCount(b) - categoryProductCount(a)
   })
   const categoriesToDisplay = sortedCategories.slice(0, 4)
 
@@ -201,7 +205,7 @@ export default function Navbar() {
                             <div className="h-5 w-5 rounded-full bg-gray-200 mr-2" />
                           )}
                           <span className="uppercase">{category?.name}</span>
-                          <span className="ml-2 text-xs text-gray-500">({category?.products?.length || 0})</span>
+                          <span className="ml-2 text-xs text-gray-500">({categoryProductCount(category)})</span>
                         </Link>
                       ))}
                       <Link to="/all-categories" className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-800">ALL CATEGORIES</Link>
@@ -345,7 +349,7 @@ export default function Navbar() {
                                         <span className="uppercase">{category?.name}</span>
                                       </div>
                                       <span className="text-xs text-gray-500">
-                                        {category?.products?.length || 0}
+                                        {categoryProductCount(category)}
                                       </span>
                                     </Link>
                                   ))

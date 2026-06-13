@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import Category from '../../model/Category.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
-import { categoryDisplayName, resolveCategoryId } from '../../utils/categoryRef.js'
+import { categoryDisplayName, resolveCategoryId, buildCategoryProductFilter } from '../../utils/categoryRef.js'
 
 describe('categoryRef', () => {
   let category
@@ -66,5 +66,27 @@ describe('categoryRef', () => {
     expect(loaded.category).toBeTruthy()
     expect(loaded.category.name).toBe(category.name)
     expect(loaded.toJSON().category).toBe(category.name)
+  })
+
+  it('buildCategoryProductFilter matches ObjectId and legacy string category refs', async () => {
+    await Product.collection.insertOne({
+      name: `Legacy Category Product ${Date.now()}`,
+      description: 'Test',
+      brand: 'TestBrand',
+      category: category.name,
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/img.jpg'],
+      price: 100,
+      totalQty: 5,
+      totalSold: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const filter = await buildCategoryProductFilter(category.name)
+    const matches = await Product.collection.find(filter).toArray()
+    expect(matches.length).toBeGreaterThanOrEqual(1)
   })
 })
