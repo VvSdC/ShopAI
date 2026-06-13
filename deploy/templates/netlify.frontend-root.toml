@@ -3,7 +3,7 @@
   publish = "build"
 
 [build.environment]
-  REACT_APP_API_URL = "https://YOUR-BACKEND.onrender.com/shopai"
+  # Set REACT_APP_API_URL in Netlify UI — do not hardcode placeholder URLs here.
 
 [[redirects]]
   from = "/*"
