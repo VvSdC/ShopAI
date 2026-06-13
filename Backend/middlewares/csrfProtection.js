@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import config from '../config/env.js'
+import { getCsrfCookieOptions } from '../utils/cookieOptions.js'
 
 export const CSRF_COOKIE_NAME = 'shopai_csrf'
 /** Must match Frontend/src/utils/csrfConstants.js (lowercase HTTP header name). */
@@ -13,13 +13,7 @@ function generateCsrfToken() {
 }
 
 function csrfCookieOptions() {
-  return {
-    httpOnly: false,
-    secure: config.isProduction,
-    sameSite: config.isProduction ? 'strict' : 'lax',
-    maxAge: 24 * 60 * 60 * 1000,
-    path: '/',
-  }
+  return getCsrfCookieOptions()
 }
 
 export function setCsrfCookie(res, token) {

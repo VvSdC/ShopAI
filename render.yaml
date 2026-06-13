@@ -1,9 +1,32 @@
-# Render Blueprint — deploy from main; API root is Backend/
+# Render Blueprint — free-tier deploy from main branch; API root is Backend/
 # Docs: https://render.com/docs/blueprint-spec
+#
+# FREE TIER NOTES:
+#   - Free web services spin down after 15 min of inactivity (cold start ~30s)
+#   - No background workers on free tier — all queues are disabled below
+#   - Redis via Upstash (free, external) — set REDIS_URL manually in dashboard
+#
+# REQUIRED env vars to set in Render Dashboard (Environment tab):
+#   MONGO_URL           — MongoDB Atlas free cluster connection string
+#   JWT_KEY             — random secret (openssl rand -hex 32)
+#   JWT_REFRESH_KEY     — random secret (openssl rand -hex 32)
+#   FRONTEND_URL        — https://YOUR-SITE.netlify.app  (no trailing slash)
+#   API_PUBLIC_URL      — https://YOUR-SERVICE.onrender.com
+#   REDIS_URL           — redis://default:<password>@<host>:<port>  (Upstash free)
+#   CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET_KEY
+#   At least ONE LLM key: GROQ_API_KEY (free) or GEMINI_API_KEY (free) recommended
+#
+# OPTIONAL (leave unset to disable):
+#   STRIPE_KEY, STRIPE_WEBHOOK_SECRET  — needed only if taking real payments
+#   RESEND_API_KEY + EMAIL_FROM        — for order confirmation emails
+#   OPENROUTER_API_KEY, MISTRAL_API_KEY, HUGGINGFACE_API_KEY
+#   VOYAGE_API_KEY                     — for reranking (free tier available)
+
 services:
   - type: web
     name: shopai-api
     runtime: node
+    plan: free
     branch: main
     rootDir: Backend
     buildCommand: npm install
@@ -15,26 +38,23 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: TRUST_PROXY
-        value: true
-      # Render injects PORT — do not set it here.
-      # Required in dashboard: MONGO_URL, JWT_KEY, JWT_REFRESH_KEY, FRONTEND_URL,
-      # STRIPE_KEY, STRIPE_WEBHOOK_SECRET, at least one LLM key, CLOUDINARY_*.
-      # Recommended: API_PUBLIC_URL=https://YOUR-SERVICE.onrender.com
-      # Optional Redis: REDIS_URL + ENABLE_CHECKOUT_QUEUE / ENABLE_EMBEDDING_SYNC_QUEUE /
-      # ENABLE_MODERATION_QUEUE / ENABLE_PRODUCT_TAGGING_QUEUE
-      # Production queues: RUN_QUEUE_WORKERS_IN_API=false and add a Background Worker
-      # (see shopai-worker below) with npm run start:worker
-
-  # Optional — enable when REDIS_URL and queue flags are set (paid Background Worker).
-  # - type: worker
-  #   name: shopai-worker
-  #   runtime: node
-  #   branch: main
-  #   rootDir: Backend
-  #   buildCommand: npm install
-  #   startCommand: npm run start:worker
-  #   envVars:
-  #     - key: NODE_ENV
-  #       value: production
-  #     - key: RUN_QUEUE_WORKERS_IN_API
-  #       value: false
+        value: "true"
+      # All BullMQ queues disabled — free tier has no background worker
+      - key: RUN_QUEUE_WORKERS_IN_API
+        value: "false"
+      - key: ENABLE_CHECKOUT_QUEUE
+        value: "false"
+      - key: ENABLE_EMBEDDING_SYNC_QUEUE
+        value: "false"
+      - key: ENABLE_MODERATION_QUEUE
+        value: "false"
+      - key: ENABLE_PRODUCT_TAGGING_QUEUE
+        value: "false"
+      - key: ENABLE_EMAIL_QUEUE
+        value: "false"
+      - key: ENABLE_LLM_USAGE_SUMMARY_QUEUE
+        value: "false"
+      - key: ENABLE_CHAT_DETERMINISTIC_ASSIST
+        value: "true"
+      - key: VECTOR_SEARCH_BACKEND
+        value: auto

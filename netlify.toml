@@ -1,14 +1,23 @@
-# Netlify — frontend (branch: frontend, base: Frontend/)
+# Netlify — React frontend (monorepo: base is Frontend/)
+# Docs: https://docs.netlify.com/configure-builds/file-based-configuration/
+#
+# REQUIRED: Set REACT_APP_API_URL in Netlify UI:
+#   Site settings → Environment variables
+#   Value: https://YOUR-SERVICE.onrender.com/shopai   (no trailing slash)
+
 [build]
-  base = "Frontend"
+  base    = "Frontend"
   command = "npm run build"
   publish = "build"
 
 [build.environment]
-  # Override in Netlify UI → Site settings → Environment variables
-  REACT_APP_API_URL = "https://YOUR-BACKEND.onrender.com/shopai"
+  # Placeholder — override in Netlify UI with your real Render URL
+  REACT_APP_API_URL = "https://YOUR-SERVICE.onrender.com/shopai"
+  # Suppress react-scripts CI strict warnings-as-errors on Netlify
+  CI = "false"
 
+# SPA catch-all — all routes serve index.html so React Router works
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from   = "/*"
+  to     = "/index.html"
   status = 200

@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import config from '../config/env.js'
+import { getAuthCookieClearOptions } from './cookieOptions.js'
 import User from '../model/User.js'
 import { generateRefreshToken } from './generateToken.js'
 
@@ -170,6 +171,7 @@ export async function invalidateUserRefreshToken(userOrId) {
 }
 
 export function clearAuthCookies(res) {
-  res.clearCookie('shopai_token')
-  res.clearCookie('shopai_refresh_token')
+  const opts = getAuthCookieClearOptions()
+  res.clearCookie('shopai_token', opts)
+  res.clearCookie('shopai_refresh_token', opts)
 }

@@ -20,28 +20,16 @@ import {
 } from "../utils/authSessions.js";
 import config from "../config/env.js";
 import { AppError } from "../utils/appError.js";
+import {
+  getAccessCookieOptions,
+  getDeviceCookieOptions,
+  getRefreshCookieOptions,
+} from "../utils/cookieOptions.js";
 
-// Cookie options
-const accessCookieOptions = {
-  httpOnly: true,
-  secure: config.isProduction,
-  sameSite: config.isProduction ? "strict" : "lax",
-  maxAge: 15 * 60 * 1000, // 15 minutes
-};
-
-const refreshCookieOptions = {
-  httpOnly: true,
-  secure: config.isProduction,
-  sameSite: config.isProduction ? "strict" : "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-
-const deviceCookieOptions = {
-  httpOnly: true,
-  secure: config.isProduction,
-  sameSite: config.isProduction ? "strict" : "lax",
-  maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
-};
+// Cookie options — sameSite:'none' in production for Netlify + Render cross-origin deploy
+const accessCookieOptions = getAccessCookieOptions();
+const refreshCookieOptions = getRefreshCookieOptions();
+const deviceCookieOptions = getDeviceCookieOptions();
 
 // @desc    Register user
 // @route   POST /api/v1/users/register
@@ -156,8 +144,7 @@ export const logoutUserCtrl = asyncHandler(async (req, res) => {
       // Token invalid, just clear cookies
     }
   }
-  res.clearCookie("shopai_token");
-  res.clearCookie("shopai_refresh_token");
+  clearAuthCookies(res);
   res.json({
     status: "success",
     message: "User logged out successfully",
@@ -396,8 +383,7 @@ export const deleteAccountCtrl = asyncHandler(async (req, res) => {
   const userId = req.userAuthId;
   await Order.updateMany({ user: userId }, { $unset: { user: "" } });
   await User.findByIdAndDelete(userId);
-  res.clearCookie("shopai_token");
-  res.clearCookie("shopai_refresh_token");
+  clearAuthCookies(res);
   res.json({
     status: "success",
     message: "Account deleted successfully",
