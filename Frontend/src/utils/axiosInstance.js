@@ -9,6 +9,10 @@ const axiosInstance = axios.create({
 
 let cachedCsrfToken = null
 
+export function resetCsrfTokenCache() {
+  cachedCsrfToken = null
+}
+
 async function ensureCsrfToken() {
   if (cachedCsrfToken) return cachedCsrfToken
   const { data } = await axios.get(`${baseURL}/users/csrf-token`, { withCredentials: true })
@@ -37,7 +41,7 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config
 
     if (error.response?.status === 403 && isMutatingMethod(originalRequest?.method)) {
-      cachedCsrfToken = null
+      resetCsrfTokenCache()
       if (!originalRequest._csrfRetry) {
         originalRequest._csrfRetry = true
         const token = await ensureCsrfToken()
@@ -61,6 +65,7 @@ axiosInstance.interceptors.response.use(
         // Retry original request with new cookie
         return axiosInstance(originalRequest)
       } catch (refreshError) {
+        resetCsrfTokenCache()
         // Refresh failed — redirect to login only if not already there
         if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
           window.location.href = '/login'

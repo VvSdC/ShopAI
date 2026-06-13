@@ -170,6 +170,97 @@ describe('orderService', () => {
     })
   })
 
+  it('allows admins to view orders after the owner account is deleted', async () => {
+    const admin = await User.create({
+      fullname: 'Admin User',
+      email: `admin-orphan-${Date.now()}@test.com`,
+      password: 'hashed',
+      isAdmin: true,
+    })
+    const owner = await User.create({
+      fullname: 'Deleted Owner',
+      email: `deleted-owner-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: owner._id,
+      orderItems: [testOrderItem({ name: 'Ball', price: 100 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 100,
+    })
+    await Order.updateOne({ _id: order._id }, { $unset: { user: '' } })
+
+    const result = await orderService.getForUserOrAdmin(order._id, admin._id)
+    expect(result._id.toString()).toBe(order._id.toString())
+  })
+
+  it('rejects non-admins for orders with a deleted owner account', async () => {
+    const owner = await User.create({
+      fullname: 'Deleted Owner 2',
+      email: `deleted-owner-2-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+    const other = await User.create({
+      fullname: 'Other User',
+      email: `other-orphan-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: owner._id,
+      orderItems: [testOrderItem({ name: 'Bat', price: 80 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 80,
+    })
+    await Order.updateOne({ _id: order._id }, { $unset: { user: '' } })
+
+    await expect(orderService.getForUserOrAdmin(order._id, other._id)).rejects.toMatchObject({
+      statusCode: 403,
+      message: 'Not authorised to view this order',
+      isOperational: true,
+    })
+  })
+
+  it('counts only paid, non-cancelled orders in sales stats', async () => {
+    const { orders: beforeOrders } = await orderService.getSalesStats()
+    const baselineTotal = beforeOrders[0]?.totalSales ?? 0
+
+    const user = await User.create({
+      fullname: 'Stats User',
+      email: `stats-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Paid', price: 100 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 100,
+      paymentStatus: 'paid',
+      status: 'processing',
+    })
+    await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Unpaid', price: 200 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 200,
+      paymentStatus: 'Not paid',
+      status: 'pending',
+    })
+    await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Cancelled', price: 300 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 300,
+      paymentStatus: 'paid',
+      status: 'cancelled',
+    })
+
+    const { orders } = await orderService.getSalesStats()
+    expect(orders[0].totalSales).toBe(baselineTotal + 100)
+  })
+
   it('formats chat order summaries consistently', () => {
     const formatted = orderService.formatOrderForChat({
       _id: new mongoose.Types.ObjectId(),

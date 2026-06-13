@@ -158,3 +158,45 @@ describe('syncLocalItems', () => {
     findSpy.mockRestore()
   })
 })
+
+describe('cart coupon metadata', () => {
+  it('includes expiry info when a live coupon is applied', async () => {
+    const Coupon = (await import('../../model/Coupon.js')).default
+    const admin = await User.create({
+      fullname: 'Coupon Cart User',
+      email: `coupon-cart-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+    const shopper = await User.create({
+      fullname: 'Shopper',
+      email: `shopper-coupon-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() + 3)
+
+    await Coupon.create({
+      code: `SAVE${Date.now()}`.slice(0, 10),
+      discount: 10,
+      startDate: new Date(),
+      endDate,
+      user: admin._id,
+    })
+
+    const couponCode = (await Coupon.findOne({ user: admin._id })).code
+
+    await Cart.create({
+      user: shopper._id,
+      items: [],
+      couponCode,
+    })
+
+    const cart = await getCart(shopper._id)
+
+    expect(cart.couponCode).toBe(couponCode)
+    expect(cart.couponDiscount).toBe(10)
+    expect(cart.couponValidUntil).toBeTruthy()
+    expect(cart.couponDaysLeft).toMatch(/day/)
+  })
+})

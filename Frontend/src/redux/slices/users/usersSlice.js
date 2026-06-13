@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import axiosInstance from '../../../utils/axiosInstance'
+import axiosInstance, { resetCsrfTokenCache } from '../../../utils/axiosInstance'
 
 import {
   resetErrAction,
@@ -177,6 +177,7 @@ export const logoutAction = createAsyncThunk(
     } catch (error) {
       // Continue with local cleanup even if backend call fails
     }
+    resetCsrfTokenCache()
     localStorage.removeItem('cartItems')
     return true
   }
@@ -214,6 +215,7 @@ export const deleteAccountAction = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.delete(`/users/delete-account`)
+      resetCsrfTokenCache()
       localStorage.removeItem('cartItems')
       return data
     } catch (error) {
@@ -234,6 +236,7 @@ const usersSlice = createSlice({
       state.userAuth.loading = true
     })
     builder.addCase(loginUserAction.fulfilled, (state, action) => {
+      resetCsrfTokenCache()
       state.userAuth.isLoggedIn = true
       state.userAuth.loading = false
     })

@@ -14,6 +14,7 @@ import {
   invalidateProductListCache,
 } from '../services/catalogCache.js'
 import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
+import { AppError } from '../utils/appError.js'
 
 async function invalidateProductCatalogCaches() {
   await invalidateProductListCache()
@@ -42,6 +43,9 @@ function isDuplicateKeyError(err) {
 export const createProductCtrl = asyncHandler(async (req, res) => {
   const { name, description, category, sizes, colors, price, totalQty, brand } =
     req.body
+  if (!req.files?.length) {
+    throw new AppError('At least one product image is required', 400)
+  }
   const convertedImgs = req.files.map((file) => file?.path)
   //Product exists
   const productExists = await Product.findOne({ name })
@@ -253,7 +257,7 @@ export const getProductCtrl = asyncHandler(async (req, res) => {
       },
     })
   if (!product) {
-    throw new Error('Prouduct not found')
+    throw new AppError('Product not found', 404)
   }
   res.json({
     status: 'success',
@@ -300,6 +304,9 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       price,
       totalQty,
       brand,
+      ...(req.files?.length
+        ? { images: req.files.map((file) => file?.path) }
+        : {}),
     },
     {
       new: true,

@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Order from "../model/Order.js";
+import Cart from "../model/Cart.js";
 import User from "../model/User.js";
 import {
   generateAccessToken,
@@ -254,7 +255,7 @@ export const changePasswordCtrl = asyncHandler(async (req, res) => {
 // @route   PUT /api/v1/users/update/shipping
 // @access  Private
 
-export const updateShippingAddresctrl = asyncHandler(async (req, res) => {
+export const updateShippingAddressCtrl = asyncHandler(async (req, res) => {
   const {
     firstName,
     lastName,
@@ -266,6 +267,9 @@ export const updateShippingAddresctrl = asyncHandler(async (req, res) => {
     country,
   } = req.body;
   const user = await User.findById(req.userAuthId);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
   user.shippingAddresses.push({
     firstName,
     lastName,
@@ -382,6 +386,7 @@ export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
 export const deleteAccountCtrl = asyncHandler(async (req, res) => {
   const userId = req.userAuthId;
   await Order.updateMany({ user: userId }, { $unset: { user: "" } });
+  await Cart.deleteOne({ user: userId });
   await User.findByIdAndDelete(userId);
   clearAuthCookies(res);
   res.json({
@@ -428,6 +433,11 @@ export const verifyOTPCtrl = asyncHandler(async (req, res) => {
     throw new AppError("Invalid or expired OTP", 400);
   }
 
+  user.passwordResetOTP = undefined;
+  user.passwordResetExpires = undefined;
+  user.passwordResetVerifiedUntil = Date.now() + 10 * 60 * 1000;
+  await user.save({ validateBeforeSave: false });
+
   res.json({ status: "success", message: "OTP verified" });
 });
 
@@ -440,20 +450,25 @@ export const resetPasswordCtrl = asyncHandler(async (req, res) => {
     throw new AppError("Email, OTP and new password are required", 400);
   }
 
-  const user = await User.findByEmailAndValidResetOtp(email, otp);
+  let user = await User.findByEmailAndVerifiedReset(email);
+
+  if (!user && otp) {
+    user = await User.findByEmailAndValidResetOtp(email, otp);
+    if (user) {
+      user.passwordResetOTP = undefined;
+      user.passwordResetExpires = undefined;
+    }
+  }
 
   if (!user) {
     throw new AppError("Invalid or expired OTP", 400);
-  }
-
-  if (password.length < 6) {
-    throw new AppError("Password must be at least 6 characters", 400);
   }
 
   const salt = await bcrypt.genSalt(10);
   user.password = await bcrypt.hash(password, salt);
   user.passwordResetOTP = undefined;
   user.passwordResetExpires = undefined;
+  user.passwordResetVerifiedUntil = undefined;
   await invalidateUserRefreshToken(user);
 
   clearAuthCookies(res);

@@ -26,6 +26,6 @@ productsRouter.post('/validate-cart', validateCartCtrl)
 productsRouter.get('/mine', isLoggedIn, isAdmin, getMyProductsCtrl)
 productsRouter.get('/', getProductsCtrl)
 productsRouter.get('/:id', getProductCtrl)
-productsRouter.put('/:id', isLoggedIn, isAdmin, updateProductCtrl)
+productsRouter.put('/:id', isLoggedIn, isAdmin, upload.array('files'), updateProductCtrl)
 productsRouter.delete('/:id/delete', isLoggedIn, isAdmin, deleteProductCtrl)
 export default productsRouter

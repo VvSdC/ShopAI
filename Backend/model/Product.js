@@ -127,7 +127,7 @@ ProductSchema.virtual('averageRating').get(function () {
   approved.forEach((review) => {
     ratingsTotal += review?.rating
   })
-  return Number(ratingsTotal / approved.length).toFixed(1)
+  return Math.round((ratingsTotal / approved.length) * 10) / 10
 })
 ProductSchema.index({ name: 'text', description: 'text', tags: 'text' })
 ProductSchema.index({ category: 1 })

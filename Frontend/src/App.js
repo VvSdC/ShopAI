@@ -33,7 +33,7 @@ import AuthRoute from "./components/AuthRoute/AuthRoute";
 import AdminRoutes from "./components/AuthRoute/AdminRoutes";
 import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
 import ChatUsagePanel from "./components/Admin/Analytics/ChatUsagePanel";
-import ProductUpdate from "./components/Admin/Products/ProuductUpdate";
+import ProductUpdate from "./components/Admin/Products/ProductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ManageReturns from "./components/Admin/Orders/ManageReturns";
 import ColorsList from "./components/Admin/Categories/ColorsList";

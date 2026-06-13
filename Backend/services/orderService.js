@@ -53,6 +53,11 @@ function buildAdminOrderCursorFilter(cursor) {
   }
 }
 
+const PAID_SALES_MATCH = {
+  paymentStatus: 'paid',
+  status: { $ne: 'cancelled' },
+}
+
 export class OrderService {
   async findById(orderId) {
     return Order.findById(orderId)
@@ -86,7 +91,7 @@ export class OrderService {
     if (!order) {
       throw new AppError('Order not found', 404)
     }
-    if (order.user.toString() !== userId.toString() && !isAdmin) {
+    if (!isAdmin && (!order.user || order.user.toString() !== userId.toString())) {
       throw new AppError('Not authorised to view this order', 403)
     }
   }
@@ -115,10 +120,14 @@ export class OrderService {
 
   async listAll({ limit = 5, cursor = null } = {}) {
     const safeLimit = Math.min(Math.max(1, limit), 50)
-    const filter = cursor ? buildAdminOrderCursorFilter(cursor) : {}
+    let filter = {}
 
-    if (cursor && !filter) {
-      throw new AppError('Invalid pagination cursor', 400)
+    if (cursor) {
+      const cursorFilter = buildAdminOrderCursorFilter(cursor)
+      if (!cursorFilter) {
+        throw new AppError('Invalid pagination cursor', 400)
+      }
+      filter = cursorFilter
     }
 
     const [total, rows] = await Promise.all([
@@ -151,6 +160,7 @@ export class OrderService {
 
     const [orders, saleToday] = await Promise.all([
       Order.aggregate([
+        { $match: PAID_SALES_MATCH },
         {
           $group: {
             _id: null,
@@ -162,7 +172,12 @@ export class OrderService {
         },
       ]),
       Order.aggregate([
-        { $match: { createdAt: { $gte: today } } },
+        {
+          $match: {
+            ...PAID_SALES_MATCH,
+            createdAt: { $gte: today },
+          },
+        },
         {
           $group: {
             _id: null,

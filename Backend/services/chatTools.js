@@ -577,22 +577,12 @@ const toolExecutors = {
         item.size === matchedSize
     )
 
-    let cart
-    if (existing) {
-      cart = await updateItemQty(userId, {
-        productId,
-        color: matchedColor,
-        size: matchedSize,
-        qty,
-      })
-    } else {
-      cart = await addItem(userId, {
-        productId,
-        color: matchedColor,
-        size: matchedSize,
-        qty,
-      })
-    }
+    const cart = await addItem(userId, {
+      productId,
+      color: matchedColor,
+      size: matchedSize,
+      qty,
+    })
 
     return {
       success: true,

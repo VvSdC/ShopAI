@@ -9,6 +9,7 @@ import {
   isCouponExpired,
   isCouponLive,
   isCouponNotStarted,
+  daysLeftLabel,
 } from '../utils/couponDates.js'
 
 export function productIdKey(id) {
@@ -110,6 +111,11 @@ export function formatCartPayload(cart, discountMeta = null, { priceWarnings = [
 
   if (priceWarnings.length > 0) {
     payload.priceWarnings = priceWarnings
+  }
+
+  if (discountMeta?.coupon) {
+    payload.couponValidUntil = discountMeta.coupon.endDate
+    payload.couponDaysLeft = daysLeftLabel(discountMeta.coupon.endDate)
   }
 
   return payload

@@ -293,6 +293,31 @@ describe('password reset OTP', () => {
     const wrong = await User.findByEmailAndValidResetOtp(user.email, '000000')
     expect(wrong).toBeNull()
   })
+
+  it('consumes OTP on verify so the same code cannot be reused', async () => {
+    const user = await User.create({
+      fullname: 'OTP Consume User',
+      email: `otp-consume-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+    })
+
+    const otp = await user.createPasswordResetOTP()
+    await user.save({ validateBeforeSave: false })
+
+    const first = await User.findByEmailAndValidResetOtp(user.email, otp)
+    expect(first?._id.toString()).toBe(user._id.toString())
+
+    first.passwordResetOTP = undefined
+    first.passwordResetExpires = undefined
+    first.passwordResetVerifiedUntil = Date.now() + 10 * 60 * 1000
+    await first.save({ validateBeforeSave: false })
+
+    const second = await User.findByEmailAndValidResetOtp(user.email, otp)
+    expect(second).toBeNull()
+
+    const verified = await User.findByEmailAndVerifiedReset(user.email)
+    expect(verified?._id.toString()).toBe(user._id.toString())
+  })
 })
 
 describe('POST /shopai/users/reset-password', () => {

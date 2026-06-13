@@ -24,12 +24,6 @@ const UserShema = new Schema(
         ref: "Order",
       },
     ],
-    wishlist: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-      },
-    ],
     phone: {
       type: String,
       default: "",
@@ -74,6 +68,8 @@ const UserShema = new Schema(
     /** Bcrypt hash of the 6-digit password-reset OTP — never store plaintext or SHA-256. */
     passwordResetOTP: { type: String },
     passwordResetExpires: { type: Date },
+    /** Set after successful OTP verification; allows one password reset without reusing the OTP hash. */
+    passwordResetVerifiedUntil: { type: Date },
   },
   {
     timestamps: true,
@@ -84,6 +80,7 @@ UserShema.methods.createPasswordResetOTP = async function () {
   const otp = String(crypto.randomInt(100000, 999999));
   this.passwordResetOTP = await bcrypt.hash(otp, 10);
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+  this.passwordResetVerifiedUntil = undefined;
   return otp;
 };
 
@@ -107,6 +104,13 @@ UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
 
   const valid = await user.verifyPasswordResetOTP(otp);
   return valid ? user : null;
+};
+
+UserShema.statics.findByEmailAndVerifiedReset = async function (email) {
+  return this.findOne({
+    email: String(email || "").toLowerCase().trim(),
+    passwordResetVerifiedUntil: { $gt: Date.now() },
+  });
 };
 
 UserShema.index({ "sessions.token": 1 });

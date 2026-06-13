@@ -4,7 +4,7 @@ import {
   loginUserCtrl,
   getUserProfileCtrl,
   updateProfileCtrl,
-  updateShippingAddresctrl,
+  updateShippingAddressCtrl,
   editShippingAddressCtrl,
   deleteShippingAddressCtrl,
   refreshTokenCtrl,
@@ -51,7 +51,7 @@ userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);
 userRoutes.put("/update/profile", isLoggedIn, updateProfileCtrl);
 userRoutes.get("/all", isLoggedIn, isAdmin, getAllUsersCtrl);
-userRoutes.put("/update/shipping", isLoggedIn, updateShippingAddresctrl);
+userRoutes.put("/update/shipping", isLoggedIn, updateShippingAddressCtrl);
 userRoutes.put("/update/shipping/:addressId", isLoggedIn, editShippingAddressCtrl);
 userRoutes.delete("/update/shipping/:addressId", isLoggedIn, deleteShippingAddressCtrl);
 userRoutes.put("/block/:id", isLoggedIn, isAdmin, toggleBlockUserCtrl);

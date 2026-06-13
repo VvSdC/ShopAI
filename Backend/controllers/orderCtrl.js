@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
+import { AppError } from '../utils/appError.js'
 import { createCheckoutSession } from '../services/orderCheckout.js'
 import {
   pollOrderPaymentStatus,
@@ -13,10 +14,10 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.userAuthId)
   if (!user?.hasShippingAddress && !shippingAddress) {
-    throw new Error('Please provide shipping address')
+    throw new AppError('Please provide shipping address', 400)
   }
   if (orderItems?.length <= 0) {
-    throw new Error('No Order Items')
+    throw new AppError('No Order Items', 400)
   }
 
   const session = await createCheckoutSession({
@@ -68,8 +69,8 @@ export const resendConfirmationCtrl = asyncHandler(async (req, res) => {
   )
 
   if (!result.success) {
-    res.status(result.error?.includes('Maximum') ? 429 : 502)
-    throw new Error(result.error || 'Failed to send confirmation email')
+    const statusCode = result.error?.includes('Maximum') ? 429 : 502
+    throw new AppError(result.error || 'Failed to send confirmation email', statusCode)
   }
 
   res.json({
