@@ -19,7 +19,6 @@ import {
   verifyRefreshToken,
 } from "../utils/authSessions.js";
 import config from "../config/env.js";
-import logger from "../utils/logger.js";
 import { AppError } from "../utils/appError.js";
 
 // Cookie options

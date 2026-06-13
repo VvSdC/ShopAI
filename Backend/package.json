@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:keys": "node scripts/test-keys.js",
+    "build": "npm run lint && npm run test",
     "search:reindex": "node scripts/reindex-embeddings.js",
     "analytics:backfill-usage": "node scripts/backfill-llm-usage-summary.js",
     "openapi:export": "node scripts/export-openapi.js",
