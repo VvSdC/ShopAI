@@ -3,6 +3,7 @@ import Order from '../model/Order.js'
 import User from '../model/User.js'
 import { sendOrderConfirmationEmail } from './emailService.js'
 import { atomicallyReserveStockForOrderItems } from './stockService.js'
+import { clearCart } from './cartService.js'
 
 const MAX_CONFIRMATION_EMAIL_ATTEMPTS = 5
 
@@ -148,6 +149,17 @@ export async function processPaidOrder(orderId, options = {}) {
         reason: 'insufficient_stock',
         error: err.message,
       }
+    }
+  }
+
+  if (claimed.user) {
+    try {
+      await clearCart(claimed.user)
+    } catch (err) {
+      logger.warn(
+        `[fulfillment] clear cart failed for order ${claimed.orderNumber}:`,
+        err.message
+      )
     }
   }
 
