@@ -1,7 +1,7 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import {
   attachQueueFailureHandlers,
   DEFAULT_QUEUE_JOB_OPTIONS,
@@ -19,7 +19,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isProductTaggingQueueEnabled() {
-  return isRedisConfigured() && config.redis.productTaggingQueueEnabled
+  return isRedisOperational() && config.redis.productTaggingQueueEnabled
 }
 
 function getProductTaggingQueue() {
@@ -106,6 +106,7 @@ export async function startProductTaggingWorker() {
   )
 
   attachQueueFailureHandlers(worker, 'product-tagging')
+  attachBullMqWorkerErrorHandler(worker, 'productTaggingQueue')
 
   logger.log('[productTaggingQueue] Worker started')
   return worker

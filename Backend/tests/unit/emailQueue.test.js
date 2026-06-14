@@ -5,7 +5,7 @@ const { sendWelcomeEmail } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../config/redisClient.js', () => ({
-  isRedisConfigured: () => false,
+  isRedisOperational: () => false,
   createRedisConnection: vi.fn(),
 }))
 

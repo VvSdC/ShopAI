@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { invalidateCouponsCache } from './catalogCache.js'
 
 const QUEUE_NAME = 'coupon-cache-bust'
@@ -12,7 +12,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isCouponCacheQueueEnabled() {
-  return isRedisConfigured()
+  return isRedisOperational()
 }
 
 function getCouponCacheQueue() {
@@ -91,6 +91,8 @@ export async function startCouponCacheWorker() {
   worker.on('failed', (job, err) => {
     logger.error(`[couponCacheQueue] Job ${job?.id} failed:`, err.message)
   })
+
+  attachBullMqWorkerErrorHandler(worker, 'couponCacheQueue')
 
   logger.log('[couponCacheQueue] Worker started')
   return worker

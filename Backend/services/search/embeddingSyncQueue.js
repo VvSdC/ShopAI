@@ -1,7 +1,7 @@
 import logger from '../../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../../config/env.js'
-import { createRedisConnection, isRedisConfigured } from '../../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../../config/redisClient.js'
 import {
   attachQueueFailureHandlers,
   DEFAULT_QUEUE_JOB_OPTIONS,
@@ -19,7 +19,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isEmbeddingSyncQueueEnabled() {
-  return isRedisConfigured() && config.redis.embeddingSyncQueueEnabled
+  return isRedisOperational() && config.redis.embeddingSyncQueueEnabled
 }
 
 function getEmbeddingSyncQueue() {
@@ -82,6 +82,7 @@ export async function startEmbeddingSyncWorker() {
   )
 
   attachQueueFailureHandlers(worker, 'embedding-sync')
+  attachBullMqWorkerErrorHandler(worker, 'embeddingSyncQueue')
 
   logger.log('[embeddingSyncQueue] Worker started')
   return worker

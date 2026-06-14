@@ -1,10 +1,10 @@
 import rateLimit from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
 import { config } from './env.js'
-import { getRateLimitRedisClient, isRedisConfigured } from './redisClient.js'
+import { getRateLimitRedisClient, isRedisOperational } from './redisClient.js'
 
 function shouldUseRedisStore() {
-  return isRedisConfigured() && !config.isTest
+  return isRedisOperational()
 }
 
 function createRedisStore(prefix) {

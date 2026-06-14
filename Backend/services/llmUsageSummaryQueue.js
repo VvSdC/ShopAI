@@ -1,7 +1,7 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { runLlmUsageSummaryAggregation } from './llmUsageSummaryService.js'
 
 const QUEUE_NAME = 'llm-usage-summary'
@@ -15,7 +15,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isLlmUsageSummaryQueueEnabled() {
-  return isRedisConfigured() && config.analytics.llmUsageSummaryQueueEnabled
+  return isRedisOperational() && config.analytics.llmUsageSummaryQueueEnabled
 }
 
 function getLlmUsageSummaryQueue() {
@@ -112,6 +112,8 @@ export async function startLlmUsageSummaryWorker() {
   worker.on('failed', (job, err) => {
     logger.error(`[llmUsageSummaryQueue] Job ${job?.id} failed:`, err.message)
   })
+
+  attachBullMqWorkerErrorHandler(worker, 'llmUsageSummaryQueue')
 
   await ensureRepeatableSchedule()
   await enqueueLlmUsageSummaryRun({

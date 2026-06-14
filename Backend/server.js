@@ -2,6 +2,7 @@ import './openapi/initZodOpenApi.js'
 import app from './app/app.js'
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
+import { probeRedisHealth } from './config/redisClient.js'
 import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncQueue.js'
 import { startAllQueueWorkers } from './services/queueWorkers.js'
 import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
@@ -17,6 +18,11 @@ async function startServer() {
   })
 
   scheduleEmbeddingSyncOnStartup()
+
+  const redisOk = await probeRedisHealth()
+  if (!redisOk && config.redis.url) {
+    console.warn('[redis] Unavailable at startup — API will run without Redis cache/queues')
+  }
 
   if (config.redis.runQueueWorkersInApi) {
     if (config.isProduction) {

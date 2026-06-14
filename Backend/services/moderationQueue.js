@@ -1,7 +1,7 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { moderateReview, failOpenModerateReview } from './reviewModeration.js'
 
 const QUEUE_NAME = 'review-moderation'
@@ -20,7 +20,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isModerationQueueEnabled() {
-  return isRedisConfigured() && config.redis.moderationQueueEnabled
+  return isRedisOperational() && config.redis.moderationQueueEnabled
 }
 
 function getModerationQueue() {
@@ -124,6 +124,8 @@ export async function startModerationWorker() {
   worker.on('failed', (job, err) => {
     logger.error(`[moderationQueue] Job ${job?.id} failed:`, err.message)
   })
+
+  attachBullMqWorkerErrorHandler(worker, 'moderationQueue')
 
   logger.log(`[moderationQueue] Worker started (concurrency ${concurrency})`)
   return worker

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../../config/redisClient.js', () => ({
-  isRedisConfigured: () => false,
+  isRedisOperational: () => false,
   createRedisConnection: vi.fn(),
 }))
 

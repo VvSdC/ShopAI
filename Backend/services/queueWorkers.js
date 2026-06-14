@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js'
 import { startEmailWorker, stopEmailWorker } from './emailQueue.js'
 import { startCheckoutExpiryWorker, stopCheckoutExpiryWorker } from './checkoutQueue.js'
 import {
@@ -11,21 +12,36 @@ import {
   startEmbeddingSyncWorker,
   stopEmbeddingSyncWorker,
 } from './search/embeddingSyncQueue.js'
-
 import {
   startLlmUsageSummaryWorker,
   stopLlmUsageSummaryWorker,
 } from './llmUsageSummaryQueue.js'
+import { isRedisOperational } from '../config/redisClient.js'
+
+const WORKER_STARTERS = [
+  ['checkoutExpiry', startCheckoutExpiryWorker],
+  ['checkoutFulfillment', startCheckoutFulfillmentWorker],
+  ['embeddingSync', startEmbeddingSyncWorker],
+  ['couponCache', startCouponCacheWorker],
+  ['moderation', startModerationWorker],
+  ['productTagging', startProductTaggingWorker],
+  ['llmUsageSummary', startLlmUsageSummaryWorker],
+  ['email', startEmailWorker],
+]
 
 export async function startAllQueueWorkers() {
-  await startCheckoutExpiryWorker()
-  await startCheckoutFulfillmentWorker()
-  await startEmbeddingSyncWorker()
-  await startCouponCacheWorker()
-  await startModerationWorker()
-  await startProductTaggingWorker()
-  await startLlmUsageSummaryWorker()
-  await startEmailWorker()
+  if (!isRedisOperational()) {
+    logger.log('[queues] Skipped — Redis is not operational')
+    return
+  }
+
+  for (const [name, start] of WORKER_STARTERS) {
+    try {
+      await start()
+    } catch (err) {
+      logger.warn(`[queues] ${name} worker failed to start:`, err.message)
+    }
+  }
 }
 
 export async function stopAllQueueWorkers() {

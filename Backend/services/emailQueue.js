@@ -1,7 +1,7 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import {
   attachQueueFailureHandlers,
   DEFAULT_QUEUE_JOB_OPTIONS,
@@ -19,7 +19,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isEmailQueueEnabled() {
-  return isRedisConfigured() && config.redis.emailQueueEnabled
+  return isRedisOperational() && config.redis.emailQueueEnabled
 }
 
 function getEmailQueue() {
@@ -121,6 +121,7 @@ export async function startEmailWorker() {
   )
 
   attachQueueFailureHandlers(worker, QUEUE_NAME)
+  attachBullMqWorkerErrorHandler(worker, 'emailQueue')
 
   worker.on('failed', (job, err) => {
     logger.error(`[emailQueue] Job ${job?.id} failed:`, err.message)

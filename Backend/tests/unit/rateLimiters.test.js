@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockCall = vi.fn()
 
 vi.mock('../../config/redisClient.js', () => ({
-  isRedisConfigured: vi.fn(),
+  isRedisOperational: vi.fn(),
   getRateLimitRedisClient: vi.fn(() => ({ call: mockCall })),
 }))
 
@@ -11,18 +11,18 @@ describe('rateLimiters', () => {
   beforeEach(async () => {
     vi.resetModules()
     mockCall.mockClear()
-    const { isRedisConfigured, getRateLimitRedisClient } = await import(
+    const { isRedisOperational, getRateLimitRedisClient } = await import(
       '../../config/redisClient.js'
     )
-    isRedisConfigured.mockReset()
+    isRedisOperational.mockReset()
     getRateLimitRedisClient.mockClear()
   })
 
   it('wires Redis-backed limiters when REDIS_URL is set', async () => {
-    const { isRedisConfigured, getRateLimitRedisClient } = await import(
+    const { isRedisOperational, getRateLimitRedisClient } = await import(
       '../../config/redisClient.js'
     )
-    isRedisConfigured.mockReturnValue(true)
+    isRedisOperational.mockReturnValue(true)
 
     vi.doMock('../../config/env.js', () => ({
       config: {
@@ -46,10 +46,10 @@ describe('rateLimiters', () => {
   })
 
   it('falls back to in-memory stores when Redis is not configured', async () => {
-    const { isRedisConfigured, getRateLimitRedisClient } = await import(
+    const { isRedisOperational, getRateLimitRedisClient } = await import(
       '../../config/redisClient.js'
     )
-    isRedisConfigured.mockReturnValue(false)
+    isRedisOperational.mockReturnValue(false)
 
     vi.doMock('../../config/env.js', () => ({
       config: {

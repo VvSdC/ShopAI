@@ -2,7 +2,7 @@ import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
-import { createRedisConnection, isRedisConfigured } from '../config/redisClient.js'
+import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { orderService } from './orderService.js'
 import {
   attachQueueFailureHandlers,
@@ -19,7 +19,7 @@ let queueConnection = null
 let workerConnection = null
 
 export function isCheckoutFulfillmentQueueEnabled() {
-  return isRedisConfigured() && config.redis.checkoutQueueEnabled
+  return isRedisOperational() && config.redis.checkoutQueueEnabled
 }
 
 function getCheckoutFulfillmentQueue() {
@@ -141,6 +141,7 @@ export async function startCheckoutFulfillmentWorker() {
   )
 
   attachQueueFailureHandlers(worker, 'checkout-fulfillment')
+  attachBullMqWorkerErrorHandler(worker, 'checkoutFulfillmentQueue')
 
   logger.log('[checkoutFulfillmentQueue] Worker started (concurrency 3)')
   return worker
