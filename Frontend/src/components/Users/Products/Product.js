@@ -331,7 +331,7 @@ export default function Product() {
               <div className="lg:grid lg:grid-cols-2 lg:items-stretch">
                 {/* Gallery */}
                 <div className="flex min-h-0 flex-col border-b border-stone-100 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
-                  <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-stretch">
+                  <div className="flex min-h-0 flex-1 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-start">
                     {images.length > 1 && (
                       <div className="order-2 flex gap-2 overflow-x-auto pb-1 lg:order-1 lg:w-[4.5rem] lg:flex-col lg:justify-center lg:overflow-visible lg:pb-0">
                         {images.map((image, index) => (
@@ -360,7 +360,7 @@ export default function Product() {
                       </div>
                     )}
 
-                    <div className="order-1 flex min-h-[280px] flex-1 items-center justify-center rounded-2xl bg-gradient-to-b from-stone-50 to-white sm:min-h-[340px] lg:min-h-0 lg:h-full">
+                    <div className="order-1 mx-auto flex h-72 w-full max-w-lg items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-stone-50 to-white sm:h-80 md:h-96 lg:mx-0 lg:h-[28rem] lg:max-w-none">
                       {images.length > 0 ? (
                         <img
                           key={images[activeImage]}
@@ -371,7 +371,7 @@ export default function Product() {
                           decoding="async"
                           fetchPriority="high"
                           sizes="(max-width: 1024px) 100vw, 50vw"
-                          className="mx-auto max-h-full max-w-full object-contain p-4 sm:p-6"
+                          className="h-full w-full object-contain p-4 sm:p-6"
                         />
                       ) : (
                         <p className="text-sm text-stone-400">No image available</p>
