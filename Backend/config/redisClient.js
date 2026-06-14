@@ -36,6 +36,39 @@ export function isRedisFatalError(err) {
   )
 }
 
+export function isRedisTeardownError(err) {
+  const message = String(err?.message || err || '')
+  return (
+    message.includes('Connection is closed') ||
+    message.includes('CONNECTION_CLOSED') ||
+    message.includes('max requests limit exceeded')
+  )
+}
+
+let processGuardInstalled = false
+
+/** Prevent BullMQ/ioredis teardown errors from crashing the API after degradation. */
+export function installRedisProcessErrorGuard() {
+  if (processGuardInstalled || config.isTest) return
+  processGuardInstalled = true
+
+  process.on('uncaughtException', (err) => {
+    if (isRedisDegraded() && isRedisTeardownError(err)) {
+      logger.warn('[redis] suppressed process error during teardown:', err.message)
+      return
+    }
+    logger.error('[process] uncaughtException:', err)
+    process.exit(1)
+  })
+
+  process.on('unhandledRejection', (reason) => {
+    if (isRedisDegraded() && isRedisTeardownError(reason)) {
+      logger.warn('[redis] suppressed rejection during teardown:', String(reason?.message || reason))
+      return
+    }
+  })
+}
+
 function handleRedisConnectionError(err, role) {
   const message = String(err?.message || err)
   logger.warn(`[redis:${role}]`, message)
@@ -101,6 +134,9 @@ export async function probeRedisHealth() {
 export function attachBullMqWorkerErrorHandler(worker, label) {
   worker.on('error', (err) => {
     const message = String(err?.message || err)
+    if (redisDisabled && isRedisTeardownError(err)) {
+      return
+    }
     logger.error(`[${label}] worker error:`, message)
     if (isRedisFatalError(err)) {
       void disableRedis(message)

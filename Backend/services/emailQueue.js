@@ -2,6 +2,7 @@ import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
 import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
+import { safeTeardownBullMq } from './bullMqTeardown.js'
 import {
   attachQueueFailureHandlers,
   DEFAULT_QUEUE_JOB_OPTIONS,
@@ -132,20 +133,10 @@ export async function startEmailWorker() {
 }
 
 export async function stopEmailWorker() {
-  if (worker) {
-    await worker.close()
-    worker = null
-  }
-  if (queue) {
-    await queue.close()
-    queue = null
-  }
-  if (workerConnection) {
-    await workerConnection.quit()
-    workerConnection = null
-  }
-  if (queueConnection) {
-    await queueConnection.quit()
-    queueConnection = null
-  }
+  const refs = { worker, queue, workerConnection, queueConnection }
+  worker = null
+  queue = null
+  workerConnection = null
+  queueConnection = null
+  await safeTeardownBullMq(refs)
 }

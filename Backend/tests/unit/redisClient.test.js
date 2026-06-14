@@ -74,7 +74,7 @@ describe('redisClient', () => {
       },
     }))
 
-    const { isRedisFatalError } = await import('../../config/redisClient.js')
+    const { isRedisFatalError, isRedisTeardownError } = await import('../../config/redisClient.js')
 
     expect(
       isRedisFatalError(
@@ -85,6 +85,7 @@ describe('redisClient', () => {
     ).toBe(true)
     expect(isRedisFatalError(new Error('ECONNREFUSED'))).toBe(true)
     expect(isRedisFatalError(new Error('some transient glitch'))).toBe(false)
+    expect(isRedisTeardownError(new Error('Connection is closed'))).toBe(true)
   })
 
   it('degrades Redis and stops queue workers on fatal errors', async () => {

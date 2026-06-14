@@ -4,6 +4,7 @@ import Order from '../model/Order.js'
 import { config } from '../config/env.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
+import { safeTeardownBullMq } from './bullMqTeardown.js'
 
 const QUEUE_NAME = 'checkout-expiry'
 const JOB_NAME = 'expire-checkout'
@@ -127,20 +128,10 @@ export async function startCheckoutExpiryWorker() {
 }
 
 export async function stopCheckoutExpiryWorker() {
-  if (worker) {
-    await worker.close()
-    worker = null
-  }
-  if (queue) {
-    await queue.close()
-    queue = null
-  }
-  if (workerConnection) {
-    await workerConnection.quit()
-    workerConnection = null
-  }
-  if (queueConnection) {
-    await queueConnection.quit()
-    queueConnection = null
-  }
+  const refs = { worker, queue, workerConnection, queueConnection }
+  worker = null
+  queue = null
+  workerConnection = null
+  queueConnection = null
+  await safeTeardownBullMq(refs)
 }

@@ -2,13 +2,14 @@ import './openapi/initZodOpenApi.js'
 import app from './app/app.js'
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
-import { probeRedisHealth } from './config/redisClient.js'
+import { probeRedisHealth, installRedisProcessErrorGuard } from './config/redisClient.js'
 import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncQueue.js'
 import { startAllQueueWorkers } from './services/queueWorkers.js'
 import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
 
 async function startServer() {
   validateConfig({ strict: config.isProduction })
+  installRedisProcessErrorGuard()
   await dbConnect()
 
   const server = app.listen(config.server.port, config.server.host, () => {

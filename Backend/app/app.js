@@ -10,6 +10,7 @@ import { validateCsrf } from '../middlewares/csrfProtection.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { config } from '../config/env.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
 import { mountOpenApi } from '../openapi/swagger.js'
@@ -28,6 +29,9 @@ import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
 import { orderService } from '../services/orderService.js'
 import { parseOrderId } from '../services/orderFulfillment.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const publicDir = path.join(__dirname, '..', 'public')
 import {
   enqueueCheckoutFulfillment,
   isCheckoutFulfillmentQueueEnabled,
@@ -150,7 +154,7 @@ app.post(
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-app.use(express.static('public'))
+app.use(express.static(publicDir))
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -165,7 +169,7 @@ if (config.openapi.enabled) {
 }
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join('public', 'index.html'))
+  res.sendFile(path.join(publicDir, 'index.html'))
 })
 
 app.use('/shopai/users/login', authLimiter, loginRoute)

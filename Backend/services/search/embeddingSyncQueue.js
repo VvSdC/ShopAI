@@ -6,6 +6,7 @@ import {
   attachQueueFailureHandlers,
   DEFAULT_QUEUE_JOB_OPTIONS,
 } from '../queueFailureHandler.js'
+import { safeTeardownBullMq } from '../bullMqTeardown.js'
 import { syncMissingProductEmbeddings, verifyEmbeddingDimensionOnStartup } from './embeddingSyncService.js'
 
 const QUEUE_NAME = 'embedding-sync'
@@ -141,20 +142,10 @@ async function runEmbeddingStartupPipeline() {
 }
 
 export async function stopEmbeddingSyncWorker() {
-  if (worker) {
-    await worker.close()
-    worker = null
-  }
-  if (queue) {
-    await queue.close()
-    queue = null
-  }
-  if (workerConnection) {
-    await workerConnection.quit()
-    workerConnection = null
-  }
-  if (queueConnection) {
-    await queueConnection.quit()
-    queueConnection = null
-  }
+  const refs = { worker, queue, workerConnection, queueConnection }
+  worker = null
+  queue = null
+  workerConnection = null
+  queueConnection = null
+  await safeTeardownBullMq(refs)
 }

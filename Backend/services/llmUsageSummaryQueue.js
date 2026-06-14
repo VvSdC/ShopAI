@@ -3,6 +3,7 @@ import { Queue, Worker } from 'bullmq'
 import { config } from '../config/env.js'
 import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { runLlmUsageSummaryAggregation } from './llmUsageSummaryService.js'
+import { safeTeardownBullMq } from './bullMqTeardown.js'
 
 const QUEUE_NAME = 'llm-usage-summary'
 const JOB_NAME = 'aggregate-daily-stats'
@@ -126,20 +127,10 @@ export async function startLlmUsageSummaryWorker() {
 }
 
 export async function stopLlmUsageSummaryWorker() {
-  if (worker) {
-    await worker.close()
-    worker = null
-  }
-  if (queue) {
-    await queue.close()
-    queue = null
-  }
-  if (workerConnection) {
-    await workerConnection.quit()
-    workerConnection = null
-  }
-  if (queueConnection) {
-    await queueConnection.quit()
-    queueConnection = null
-  }
+  const refs = { worker, queue, workerConnection, queueConnection }
+  worker = null
+  queue = null
+  workerConnection = null
+  queueConnection = null
+  await safeTeardownBullMq(refs)
 }

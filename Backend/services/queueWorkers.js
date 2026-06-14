@@ -45,14 +45,24 @@ export async function startAllQueueWorkers() {
 }
 
 export async function stopAllQueueWorkers() {
-  await Promise.all([
-    stopCheckoutExpiryWorker(),
-    stopCheckoutFulfillmentWorker(),
-    stopEmbeddingSyncWorker(),
-    stopCouponCacheWorker(),
-    stopModerationWorker(),
-    stopProductTaggingWorker(),
-    stopLlmUsageSummaryWorker(),
-    stopEmailWorker(),
-  ])
+  const stoppers = [
+    stopCheckoutExpiryWorker,
+    stopCheckoutFulfillmentWorker,
+    stopEmbeddingSyncWorker,
+    stopCouponCacheWorker,
+    stopModerationWorker,
+    stopProductTaggingWorker,
+    stopLlmUsageSummaryWorker,
+    stopEmailWorker,
+  ]
+
+  await Promise.all(
+    stoppers.map(async (stop) => {
+      try {
+        await stop()
+      } catch (err) {
+        logger.warn('[queues] worker stop failed:', err.message)
+      }
+    })
+  )
 }

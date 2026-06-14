@@ -5,12 +5,13 @@
  */
 import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
-import { probeRedisHealth } from './config/redisClient.js'
+import { probeRedisHealth, installRedisProcessErrorGuard } from './config/redisClient.js'
 import { startAllQueueWorkers } from './services/queueWorkers.js'
 import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
 
 async function startWorkerProcess() {
   validateConfig({ strict: config.isProduction })
+  installRedisProcessErrorGuard()
   await dbConnect()
 
   const redisOk = await probeRedisHealth()

@@ -1,6 +1,7 @@
 import logger from '../utils/logger.js'
 import { Queue, Worker } from 'bullmq'
 import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
+import { safeTeardownBullMq } from './bullMqTeardown.js'
 import { invalidateCouponsCache } from './catalogCache.js'
 
 const QUEUE_NAME = 'coupon-cache-bust'
@@ -99,20 +100,10 @@ export async function startCouponCacheWorker() {
 }
 
 export async function stopCouponCacheWorker() {
-  if (worker) {
-    await worker.close()
-    worker = null
-  }
-  if (queue) {
-    await queue.close()
-    queue = null
-  }
-  if (workerConnection) {
-    await workerConnection.quit()
-    workerConnection = null
-  }
-  if (queueConnection) {
-    await queueConnection.quit()
-    queueConnection = null
-  }
+  const refs = { worker, queue, workerConnection, queueConnection }
+  worker = null
+  queue = null
+  workerConnection = null
+  queueConnection = null
+  await safeTeardownBullMq(refs)
 }
