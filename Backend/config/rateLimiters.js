@@ -13,7 +13,12 @@ function createRedisStore(prefix) {
   const client = getRateLimitRedisClient()
   return new RedisStore({
     prefix: `rl:${prefix}:`,
-    sendCommand: (command, ...args) => client.call(command, ...args),
+    sendCommand: (command, ...args) => {
+      if (!isRedisOperational()) {
+        throw new Error('Redis unavailable (rate-limit)')
+      }
+      return client.call(command, ...args)
+    },
   })
 }
 
@@ -22,6 +27,7 @@ function buildLimiter(prefix, options) {
   return rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
+    passOnStoreError: true,
     ...options,
     ...(store ? { store } : {}),
   })

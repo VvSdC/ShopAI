@@ -12,6 +12,7 @@ import { apiLimiter, authLimiter, chatLimiter } from '../config/rateLimiters.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { config } from '../config/env.js'
+import { isRedisDegraded } from '../config/redisClient.js'
 import { globalErrhandler, notFound } from '../middlewares/globalErrHandler.js'
 import { mountOpenApi } from '../openapi/swagger.js'
 import brandsRouter from '../routes/brandsRouter.js'
@@ -161,6 +162,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     env: config.nodeEnv,
     timestamp: new Date().toISOString(),
+    redis: isRedisDegraded() ? 'degraded' : 'ok',
   })
 })
 
