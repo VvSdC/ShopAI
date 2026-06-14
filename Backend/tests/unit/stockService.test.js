@@ -73,6 +73,15 @@ describe('stockService', () => {
     expect(refreshed.totalSold).toBe(2)
   })
 
+  it('releases previously reserved stock', async () => {
+    const product = await createTestProduct({ totalQty: 23, totalSold: 2 })
+    const { releaseStock } = await import('../../services/stockService.js')
+    await releaseStock(product._id, 2)
+
+    const refreshed = await Product.findById(product._id)
+    expect(refreshed.totalSold).toBe(0)
+  })
+
   it('rolls back partial reservations when a later line fails', async () => {
     const productA = await createTestProduct({ name: 'Test Product', totalQty: 3 })
     const productB = await createTestProduct({

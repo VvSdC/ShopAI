@@ -104,6 +104,7 @@ export async function processPaidOrder(orderId, options = {}) {
     {
       _id: id,
       paymentStatus: 'paid',
+      status: { $ne: 'cancelled' },
       postPaymentProcessed: { $ne: true },
     },
     { postPaymentProcessed: true },

@@ -5,9 +5,16 @@ export function productIdKey(id) {
   return String(id)
 }
 
+function toPlainItem(item) {
+  if (item && typeof item.toObject === 'function') {
+    return item.toObject()
+  }
+  return item
+}
+
 export function normalizeOrderItems(orderItems = []) {
   return orderItems.map((item, idx) => {
-    const base = { ...item }
+    const base = { ...toPlainItem(item) }
     if (!base.lineId) {
       base.lineId = `legacy-${idx}-${productIdKey(base._id)}`
     }

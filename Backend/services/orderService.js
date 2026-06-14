@@ -3,7 +3,8 @@ import mongoose from 'mongoose'
 import { getStripeClient } from '../config/stripeClient.js'
 import User from '../model/User.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
-import { normalizeOrderItems } from './orderLineItems.js'
+import { normalizeOrderItems, getActiveQty } from './orderLineItems.js'
+import { productIdKey } from './cartService.js'
 import {
   processPaidOrder,
   resendOrderConfirmation,
@@ -212,8 +213,10 @@ export class OrderService {
 
   async restoreStockForCancelledItems(items) {
     for (const item of normalizeOrderItems(items)) {
-      if (!item._id) continue
-      await releaseStock(item._id, item.qty)
+      const productId = productIdKey(item._id)
+      const qty = getActiveQty(item)
+      if (!productId || qty <= 0) continue
+      await releaseStock(productId, qty)
     }
   }
 
@@ -231,6 +234,10 @@ export class OrderService {
       )
     }
 
+    if (order.postPaymentProcessed) {
+      await this.restoreStockForCancelledItems(order.orderItems)
+    }
+
     let stripeRefundId = null
     let refundAmount = 0
 
@@ -241,10 +248,6 @@ export class OrderService {
         const refund = await createStripeRefund(order, refundAmount)
         stripeRefundId = refund.id
       }
-    }
-
-    if (order.postPaymentProcessed) {
-      await this.restoreStockForCancelledItems(order.orderItems)
     }
 
     order.status = 'cancelled'
@@ -289,6 +292,16 @@ export class OrderService {
     const existingOrder = await Order.findById(id)
     if (!existingOrder) {
       return { order: null, updatedOrder: null, fulfillment: null }
+    }
+
+    if (existingOrder.status === 'cancelled') {
+      return {
+        order: existingOrder,
+        updatedOrder: existingOrder,
+        fulfillment: null,
+        skipped: true,
+        reason: 'order_cancelled',
+      }
     }
 
     if (existingOrder.paymentStatus === 'paid') {
