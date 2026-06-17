@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
+import { getCartFromServerAction } from '../../redux/slices/cart/cartSlices'
 
 export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assistant' }) {
+  const dispatch = useDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const onVerifiedRef = useRef(onVerified)
@@ -23,6 +26,8 @@ export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assista
       .get(`/orders/verify-payment/${sessionId}`)
       .then((res) => {
         if (!mounted) return
+        localStorage.setItem('cartItems', JSON.stringify([]))
+        dispatch(getCartFromServerAction())
         onVerifiedRef.current?.(res.data)
         const redirectTo = res.data?.order?.checkoutSource === 'cart'
           ? '/customer-profile'
@@ -41,5 +46,5 @@ export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assista
     return () => {
       mounted = false
     }
-  }, [searchParams, setSearchParams, navigate, defaultRedirect])
+  }, [searchParams, setSearchParams, navigate, defaultRedirect, dispatch])
 }

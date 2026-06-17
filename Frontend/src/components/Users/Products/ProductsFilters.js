@@ -14,16 +14,12 @@ import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import NoDataFound from '../../NoDataFound/NoDataFound'
 import ProductSearchBar from './ProductSearchBar'
-
-const allPrice = [
-  { amount: '0 - 1000' },
-  { amount: '1000 - 2000' },
-  { amount: '2000 - 4000' },
-  { amount: '4000 - 6000' },
-  { amount: '6000 - 10000' },
-  { amount: '10000 - 20000' },
-  { amount: '20000 - 100000' },
-]
+import PriceRangeSlider, {
+  PRICE_SLIDER_MIN,
+  PRICE_SLIDER_MAX,
+  isPriceFilterActive,
+  formatPriceRangeLabel,
+} from './PriceRangeSlider'
 
 const sizeCategories = ['S', 'M', 'L', 'XL', 'XXL']
 
@@ -36,8 +32,9 @@ function ShopFiltersPanel({
   brands,
   color,
   setColor,
-  price,
-  setPrice,
+  priceMin,
+  priceMax,
+  setPriceRange,
   brand,
   setBrand,
   size,
@@ -49,22 +46,14 @@ function ShopFiltersPanel({
   return (
     <div className="space-y-5">
       <div>
-        <label htmlFor="filter-price" className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
           Price
-        </label>
-        <select
-          id="filter-price"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className={selectClass}
-        >
-          <option value="">Any price</option>
-          {allPrice.map((p) => (
-            <option key={p.amount} value={p.amount}>
-              ₹ {p.amount}
-            </option>
-          ))}
-        </select>
+        </p>
+        <PriceRangeSlider
+          minValue={priceMin}
+          maxValue={priceMax}
+          onChange={setPriceRange}
+        />
       </div>
 
       <div>
@@ -153,11 +142,38 @@ export default function ProductsFilters() {
   const searchQuery = (params.get('q') || '').trim()
 
   const [color, setColor] = useState('')
-  const [price, setPrice] = useState('')
+  const [priceMin, setPriceMin] = useState(PRICE_SLIDER_MIN)
+  const [priceMax, setPriceMax] = useState(PRICE_SLIDER_MAX)
+  const [appliedPriceMin, setAppliedPriceMin] = useState(PRICE_SLIDER_MIN)
+  const [appliedPriceMax, setAppliedPriceMax] = useState(PRICE_SLIDER_MAX)
   const [brand, setBrand] = useState('')
   const [size, setSize] = useState('')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(15)
+
+  const setPriceRange = (min, max) => {
+    setPriceMin(min)
+    setPriceMax(max)
+    if (min === PRICE_SLIDER_MIN && max === PRICE_SLIDER_MAX) {
+      setAppliedPriceMin(min)
+      setAppliedPriceMax(max)
+    }
+  }
+
+  const priceFilterActive = isPriceFilterActive(priceMin, priceMax)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setAppliedPriceMin(priceMin)
+      setAppliedPriceMax(priceMax)
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [priceMin, priceMax])
+
+  const appliedPriceFilterActive = isPriceFilterActive(
+    appliedPriceMin,
+    appliedPriceMax
+  )
 
   const buildProductUrl = () => {
     let url = `${baseURL}/products`
@@ -170,7 +186,7 @@ export default function ProductsFilters() {
     if (searchQuery) appendParam('q', searchQuery)
     if (brand) appendParam('brand', brand)
     if (size) appendParam('size', size)
-    if (price) appendParam('price', price)
+    if (appliedPriceFilterActive) appendParam('price', `${appliedPriceMin}-${appliedPriceMax}`)
     if (color?.name) appendParam('color', color.name)
     appendParam('page', String(page))
     appendParam('limit', String(limit))
@@ -181,7 +197,7 @@ export default function ProductsFilters() {
 
   useEffect(() => {
     setPage(1)
-  }, [category, size, brand, price, color, limit, searchQuery])
+  }, [category, size, brand, appliedPriceMin, appliedPriceMax, color, limit, searchQuery])
 
   const handleSearch = (q) => {
     const next = new URLSearchParams(params)
@@ -214,12 +230,13 @@ export default function ProductsFilters() {
 
   const clearFilters = () => {
     setColor('')
-    setPrice('')
+    setPriceRange(PRICE_SLIDER_MIN, PRICE_SLIDER_MAX)
     setBrand('')
     setSize('')
   }
 
-  const hasFilters = !!(color || price || brand || size || searchQuery)
+  const hasFilters =
+    !!(color || priceFilterActive || brand || size || searchQuery)
   const totalPages = Math.max(1, Math.ceil(total / limit) || 1)
   const pageTitle = searchQuery
     ? `Results for “${searchQuery}”`
@@ -232,8 +249,9 @@ export default function ProductsFilters() {
     brands,
     color,
     setColor,
-    price,
-    setPrice,
+    priceMin,
+    priceMax,
+    setPriceRange,
     brand,
     setBrand,
     size,
@@ -356,10 +374,14 @@ export default function ProductsFilters() {
                   </button>
                 </span>
               )}
-              {price && (
+              {priceFilterActive && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-stone-700 ring-1 ring-stone-200">
-                  ₹ {price}
-                  <button type="button" onClick={() => setPrice('')} aria-label="Remove price">
+                  {formatPriceRangeLabel(priceMin, priceMax)}
+                  <button
+                    type="button"
+                    onClick={() => setPriceRange(PRICE_SLIDER_MIN, PRICE_SLIDER_MAX)}
+                    aria-label="Remove price filter"
+                  >
                     <XMarkIcon className="h-3.5 w-3.5 text-stone-400" />
                   </button>
                 </span>

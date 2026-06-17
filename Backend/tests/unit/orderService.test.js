@@ -6,6 +6,11 @@ import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
 const processPaidOrder = vi.fn()
 
+vi.mock('../../services/orderRefund.js', () => ({
+  createStripeRefund: vi.fn().mockResolvedValue({ id: 're_test' }),
+  persistPaymentReferences: vi.fn().mockResolvedValue({}),
+}))
+
 vi.mock('../../services/orderFulfillment.js', async (importOriginal) => {
   const actual = await importOriginal()
   return {
@@ -15,6 +20,8 @@ vi.mock('../../services/orderFulfillment.js', async (importOriginal) => {
 })
 
 import { orderService } from '../../services/orderService.js'
+import Product from '../../model/Product.js'
+import { atomicallyReserveStock } from '../../services/stockService.js'
 
 describe('orderService', () => {
   beforeEach(() => {
@@ -259,6 +266,134 @@ describe('orderService', () => {
 
     const { orders } = await orderService.getSalesStats()
     expect(orders[0].totalSales).toBe(baselineTotal + 100)
+  })
+
+  it('restoreStockForCancelledItems releases active line quantities', async () => {
+    const user = await User.create({
+      fullname: 'Restore Lines User',
+      email: `restore-lines-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const product = await Product.create({
+      name: 'Restore Lines Product',
+      description: 'Test',
+      brand: 'TestBrand',
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/img.jpg'],
+      price: 100,
+      totalQty: 23,
+      totalSold: 2,
+    })
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [
+        testOrderItem({
+          _id: product._id,
+          name: product.name,
+          qty: 2,
+          price: 100,
+          totalPrice: 200,
+        }),
+      ],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 200,
+      paymentStatus: 'paid',
+      postPaymentProcessed: true,
+      status: 'pending',
+    })
+
+    const loaded = await Order.findById(order._id)
+    await orderService.restoreStockForCancelledItems(loaded.orderItems)
+
+    const refreshed = await Product.findById(product._id)
+    expect(String(loaded.orderItems[0]._id)).toBe(String(product._id))
+    expect(refreshed.totalSold).toBe(0)
+  })
+
+  it('restores stock when a paid order is cancelled', async () => {
+    const user = await User.create({
+      fullname: 'Cancel Stock User',
+      email: `cancel-stock-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const product = await Product.create({
+      name: 'Cancel Stock Product',
+      description: 'Test',
+      brand: 'TestBrand',
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/img.jpg'],
+      price: 100,
+      totalQty: 23,
+      totalSold: 0,
+    })
+
+    await atomicallyReserveStock(product._id, 2)
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [
+        testOrderItem({
+          _id: product._id,
+          name: product.name,
+          qty: 2,
+          price: 100,
+          totalPrice: 200,
+        }),
+      ],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 200,
+      paymentStatus: 'paid',
+      postPaymentProcessed: true,
+      status: 'pending',
+    })
+
+    await orderService.cancelForUser(user._id, order._id)
+
+    const refreshed = await Product.findById(product._id)
+    expect(refreshed.totalSold).toBe(0)
+    expect(refreshed.totalQty - refreshed.totalSold).toBe(23)
+  })
+
+  it('does not fulfill Stripe checkout for cancelled orders', async () => {
+    const user = await User.create({
+      fullname: 'Cancelled Fulfillment User',
+      email: `cancel-fulfill-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Cancelled Item', price: 50 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 50,
+      paymentStatus: 'Not paid',
+      status: 'cancelled',
+    })
+
+    const result = await orderService.applyStripeCheckoutSession(order._id, {
+      id: 'cs_test_cancelled',
+      amount_total: 5000,
+      currency: 'inr',
+      payment_method_types: ['card'],
+      payment_status: 'paid',
+      payment_intent: 'pi_test_cancelled',
+    })
+
+    expect(result.reason).toBe('order_cancelled')
+    expect(processPaidOrder).not.toHaveBeenCalled()
+
+    const unchanged = await Order.findById(order._id)
+    expect(unchanged.paymentStatus).toBe('Not paid')
+    expect(unchanged.status).toBe('cancelled')
   })
 
   it('formats chat order summaries consistently', () => {
