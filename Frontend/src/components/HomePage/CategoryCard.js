@@ -14,14 +14,16 @@ export default function CategoryCard({ category, className = '', featured = fals
   return (
     <Link
       to={`/products-filters?category=${encodeURIComponent(category.name)}`}
-      className={`group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md ${className}`}
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${className}`}
     >
       <div className={imageWrapClass}>
         {category.image ? (
           <img
             src={category.image}
             alt={category.name}
-            className="h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-110"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-100 to-indigo-200 text-2xl font-bold text-indigo-600">

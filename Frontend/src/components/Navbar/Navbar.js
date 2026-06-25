@@ -8,7 +8,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDownIcon } from '@heroicons/react/24/solid'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
@@ -25,6 +25,7 @@ function categoryProductCount(category) {
 
 export default function Navbar() {
   const navigate = useNavigate()
+  const location = useLocation()
   //dispatch
   const dispatch = useDispatch()
   useEffect(() => {
@@ -42,6 +43,11 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cartCountReady, setCartCountReady] = useState(false)
+
+  // Close the mobile drawer on any navigation so the destination page is visible.
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname, location.search])
   const { cartItems, listFetching } = useSelector((state) => state?.carts)
   const cartUnitCount = getCartUnitCount(cartItems)
   const showCartCount = cartCountReady && !listFetching
@@ -136,7 +142,16 @@ export default function Navbar() {
               leaveFrom="translate-x-0"
               leaveTo="-translate-x-full"
             >
-              <Dialog.Panel className="relative flex w-full max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-xl">
+              <Dialog.Panel
+                className="relative flex w-full max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-xl"
+                onClick={(e) => {
+                  // Close the drawer whenever a navigation link is tapped so the
+                  // user lands on the new page without the sidebar covering it.
+                  if (e.target.closest('a')) {
+                    setMobileMenuOpen(false)
+                  }
+                }}
+              >
                 <div className="flex items-center justify-between px-4 pt-5 pb-2">
                   <ShopAILogo compact />
                   <button
@@ -299,10 +314,16 @@ export default function Navbar() {
                   <button
                     type="button"
                     className="-ml-2 inline-flex items-center justify-center rounded-md p-2 text-gray-400"
-                    onClick={() => setMobileMenuOpen(true)}
+                    onClick={() => setMobileMenuOpen((open) => !open)}
+                    aria-expanded={mobileMenuOpen}
+                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                   >
-                    <span className="sr-only">Open menu</span>
-                    <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                    <span className="sr-only">{mobileMenuOpen ? 'Close menu' : 'Open menu'}</span>
+                    {mobileMenuOpen ? (
+                      <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                    ) : (
+                      <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                    )}
                   </button>
                   <ShopAILogo compact />
                 </div>
