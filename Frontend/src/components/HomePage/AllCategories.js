@@ -8,8 +8,43 @@ import {
 } from '@heroicons/react/24/outline'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import CategoryCard from './CategoryCard'
-import LoadingComponent from '../LoadingComp/LoadingComponent'
 import ErrorMsg from '../ErrorMsg/ErrorMsg'
+
+function CategoriesSkeleton() {
+  return (
+    <div className="lg:grid lg:grid-cols-12 lg:gap-8">
+      <aside className="hidden lg:col-span-3 lg:block">
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+          <div className="skeleton-shimmer h-4 w-1/2 rounded bg-stone-100" />
+          <div className="mt-4 space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="skeleton-shimmer h-8 rounded-lg bg-stone-100" />
+            ))}
+          </div>
+        </div>
+      </aside>
+      <div className="lg:col-span-9">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
+            >
+              <div className="skeleton-shimmer aspect-[4/3] bg-stone-100" />
+              <div className="flex items-center justify-between gap-2 border-t border-stone-100 px-3 py-2.5">
+                <div className="flex-1 space-y-1.5">
+                  <div className="skeleton-shimmer h-3.5 w-2/3 rounded bg-stone-100" />
+                  <div className="skeleton-shimmer h-2.5 w-1/2 rounded bg-stone-100" />
+                </div>
+                <div className="skeleton-shimmer h-9 w-9 shrink-0 rounded-full bg-stone-100" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function categoryProductCount(category) {
   return category?.productCount ?? 0
@@ -120,9 +155,7 @@ export default function AllCategories() {
         )}
 
         {loading ? (
-          <div className="py-20">
-            <LoadingComponent />
-          </div>
+          <CategoriesSkeleton />
         ) : allCategories.length === 0 ? (
           <div className="rounded-2xl border border-stone-200 bg-white py-16 text-center shadow-sm">
             <Squares2X2Icon className="mx-auto h-12 w-12 text-stone-300" />
