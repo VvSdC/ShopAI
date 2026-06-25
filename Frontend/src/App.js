@@ -48,13 +48,18 @@ import NotFoundPage from "./components/NotFound/NotFoundPage";
 
 function AppShell() {
   const location = useLocation();
+  const isAssistant = location.pathname === "/assistant";
   const hideFloatingChat =
-    location.pathname === "/assistant" ||
+    isAssistant ||
     location.pathname.startsWith("/admin/developer-analytics");
+  // The assistant is a full-screen, app-like experience (à la ChatGPT/Claude).
+  // It supplies its own header + sidebar, so the global chrome is hidden there
+  // to avoid the awkward double-navbar / double-hamburger on mobile.
+  const hideGlobalChrome = isAssistant;
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
+      {!hideGlobalChrome && <Navbar />}
       <main className="flex-1">
         <Routes>
         {/* admin route */}
@@ -266,7 +271,7 @@ function AppShell() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </main>
-      <SiteFooter />
+      {!hideGlobalChrome && <SiteFooter />}
       {!hideFloatingChat && <ChatWidget />}
     </div>
   );
