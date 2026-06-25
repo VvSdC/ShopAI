@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import axiosInstance from '../../../utils/axiosInstance'
 
 const STATUS_STYLES = {
-  idle: 'bg-gray-100 text-gray-600',
+  idle: 'bg-stone-100 text-stone-600',
   testing: 'bg-blue-100 text-blue-700',
   working: 'bg-green-100 text-green-800',
   not_working: 'bg-red-100 text-red-800',
@@ -105,7 +105,7 @@ export default function InferencePanel() {
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-sm text-gray-500">Loading inference providers…</p>
+        <p className="text-sm text-stone-500">Loading inference providers…</p>
       </div>
     )
   }
@@ -113,8 +113,8 @@ export default function InferencePanel() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Inference</h2>
-        <p className="mt-2 text-sm text-gray-600">
+        <h2 className="text-2xl font-bold text-stone-900">Inference</h2>
+        <p className="mt-2 text-sm text-stone-600">
           Send a short &quot;Hi&quot; message to each provider and verify the
           response.
         </p>
@@ -126,44 +126,44 @@ export default function InferencePanel() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-stone-200">
+            <thead className="bg-stone-50">
               <tr>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
                 >
                   Provider
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
                 >
                   Model
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
                 >
                   Status
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
                 >
                   Result
                 </th>
                 <th
                   scope="col"
-                  className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500"
                 >
                   Action
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-stone-200 bg-white">
               {providers.map((provider) => {
                 const result = results[provider.id] || { status: 'idle' }
                 const displayStatus = provider.configured
@@ -175,10 +175,10 @@ export default function InferencePanel() {
 
                 return (
                   <tr key={provider.id} className="align-top">
-                    <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
+                    <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-stone-900">
                       {provider.name}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-700">
+                    <td className="px-4 py-4 text-sm text-stone-700">
                       <select
                         value={
                           selectedModels[provider.id] || provider.defaultModel
@@ -190,7 +190,7 @@ export default function InferencePanel() {
                           }))
                         }
                         disabled={!provider.configured}
-                        className="block w-full min-w-[12rem] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                        className="block w-full min-w-[12rem] rounded-md border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400"
                       >
                         {provider.models.map((model) => (
                           <option key={model} value={model}>
@@ -207,7 +207,7 @@ export default function InferencePanel() {
                         {statusLabel(displayStatus, provider.configured)}
                       </span>
                     </td>
-                    <td className="max-w-md px-4 py-4 text-sm text-gray-600">
+                    <td className="max-w-md px-4 py-4 text-sm text-stone-600">
                       <p
                         className={
                           result.error && provider.configured

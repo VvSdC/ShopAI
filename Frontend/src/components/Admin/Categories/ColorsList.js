@@ -48,20 +48,20 @@ export default function ColorsList() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:flex-auto">
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-stone-900">
             All Colors [{colors?.length}]
           </h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <p className="mt-2 text-sm text-stone-700">
             A list of all the colors in your store.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div className="sm:ml-16 sm:flex-none">
           <Link
             to="/admin/add-color"
             type="button"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">
+            className="inline-flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">
             Add New Color
           </Link>
         </div>
@@ -76,33 +76,33 @@ export default function ColorsList() {
         <div className="mt-8 flex flex-col">
           <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
             <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                <table className="min-w-full divide-y divide-gray-300">
-                  <thead className="bg-gray-50">
+              <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-stone-300">
+                  <thead className="bg-stone-50">
                     <tr>
                       <th
                         scope="col"
-                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
                         Name
                       </th>
                       <th
                         scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                         Hex
                       </th>
                       <th
                         scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                         Created At
                       </th>
                       <th
                         scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
+                  <tbody className="divide-y divide-stone-200 bg-white">
                     {colors?.map((color) => (
                       <tr key={color?._id}>
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
@@ -111,33 +111,33 @@ export default function ColorsList() {
                               type="text"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                              className="rounded border border-stone-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
                             />
                           ) : (
                             <div className="flex items-center">
                               <span
-                                className="inline-block h-4 w-4 rounded-full mr-2 border border-gray-300"
+                                className="inline-block h-4 w-4 rounded-full mr-2 border border-stone-300"
                                 style={{ backgroundColor: color?.hex || "#ccc" }}
                               />
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-stone-900">
                                 {color?.name}
                               </span>
                             </div>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                           {editingId === color._id ? (
                             <input
                               type="color"
                               value={editHex || "#000000"}
                               onChange={(e) => setEditHex(e.target.value)}
-                              className="h-8 w-10 cursor-pointer rounded border border-gray-300"
+                              className="h-8 w-10 cursor-pointer rounded border border-stone-300"
                             />
                           ) : (
                             <span className="font-mono text-xs">{color?.hex || "—"}</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                           {new Date(color?.createdAt).toLocaleDateString()}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
@@ -150,7 +150,7 @@ export default function ColorsList() {
                               </button>
                               <button
                                 onClick={() => setEditingId(null)}
-                                className="inline-flex items-center rounded bg-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-300">
+                                className="inline-flex items-center rounded bg-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-300">
                                 Cancel
                               </button>
                             </div>

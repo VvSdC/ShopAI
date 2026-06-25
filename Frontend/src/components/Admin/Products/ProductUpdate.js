@@ -167,23 +167,22 @@ export default function ProductUpdate() {
     <>
       {error && <ErrorMsg message={error?.message} />}
       {isUpdated && <SuccessMsg message="Product Updated Successfully" />}
-      <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-2xl">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-stone-900">
             Update Product
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-stone-600">
             <p className="font-medium text-indigo-600 hover:text-indigo-500">
               Manage Products
             </p>
           </p>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="mx-auto mt-8 w-full max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
             <form className="space-y-6" onSubmit={handleOnSubmit}>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Product Name
                 </label>
                 <div className="mt-1">
@@ -191,13 +190,13 @@ export default function ProductUpdate() {
                     name="name"
                     value={formData?.name}
                     onChange={handleOnChange}
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
               {/* size option */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Size
                 </label>
                 <Select
@@ -217,14 +216,14 @@ export default function ProductUpdate() {
               </div>
               {/* Select category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Category
                 </label>
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleOnChange}
-                  className="mt-1  block w-full rounded-md border-gray-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
+                  className="mt-1  block w-full rounded-md border-stone-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
                   defaultValue="Canada">
                   <option>-- Select Category --</option>
                   {categories?.map((category) => (
@@ -236,14 +235,14 @@ export default function ProductUpdate() {
               </div>
               {/* Select Brand */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Brand
                 </label>
                 <select
                   name="brand"
                   value={formData.brand}
                   onChange={handleOnChange}
-                  className="mt-1  block w-full rounded-md border-gray-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
+                  className="mt-1  block w-full rounded-md border-stone-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
                   defaultValue="Canada">
                   <option>-- Select Brand --</option>
                   {brands?.map((brand) => (
@@ -256,7 +255,7 @@ export default function ProductUpdate() {
 
               {/* Select Color */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Color
                 </label>
                 <Select
@@ -277,7 +276,7 @@ export default function ProductUpdate() {
 
               {/* price */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Price
                 </label>
                 <div className="mt-1">
@@ -286,14 +285,14 @@ export default function ProductUpdate() {
                     value={formData.price}
                     onChange={handleOnChange}
                     type="number"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
 
               {/* Quantity */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Total Quantity
                 </label>
                 <div className="mt-1">
@@ -302,7 +301,7 @@ export default function ProductUpdate() {
                     value={formData.totalQty}
                     onChange={handleOnChange}
                     type="number"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
@@ -310,7 +309,7 @@ export default function ProductUpdate() {
               <div>
                 <label
                   htmlFor="comment"
-                  className="block text-sm font-medium text-gray-700">
+                  className="block text-sm font-medium text-stone-700">
                   Add Product Description
                 </label>
                 <div className="mt-1">
@@ -319,7 +318,7 @@ export default function ProductUpdate() {
                     name="description"
                     value={formData.description}
                     onChange={handleOnChange}
-                    className="block w-full rounded-md border-gray-300 border shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full rounded-md border-stone-300 border shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
@@ -335,7 +334,6 @@ export default function ProductUpdate() {
                 )}
               </div>
             </form>
-          </div>
         </div>
       </div>
     </>

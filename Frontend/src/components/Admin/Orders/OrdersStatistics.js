@@ -42,12 +42,12 @@ export default function OrdersStats() {
       {statCards.map((card, i) => (
         <div
           key={card.key}
-          className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+          className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm"
         >
           <div className={`${card.headerClass} px-4 py-3`}>
             <dt className="text-sm font-medium text-white">{card.label}</dt>
           </div>
-          <dd className="px-4 py-5 text-2xl font-bold text-gray-900">{values[i]}</dd>
+          <dd className="px-4 py-5 text-2xl font-bold text-stone-900">{values[i]}</dd>
         </div>
       ))}
     </dl>

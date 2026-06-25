@@ -32,43 +32,43 @@ export default function OrdersList() {
   return (
     <>
       {error && <ErrorMsg message={error?.message} />}
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
         <div className="sm:flex sm:items-center"></div>
         {/* order stats */}
         <OrdersStats />
 
         <div className="mt-10">
-          <h3 className="text-lg font-semibold text-gray-900">Recent orders</h3>
-          <p className="mt-1 text-sm text-gray-500">Latest successful payments</p>
+          <h3 className="text-lg font-semibold text-stone-900">Recent orders</h3>
+          <p className="mt-1 text-sm text-stone-500">Latest successful payments</p>
         </div>
-        <div className="-mx-4 mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:-mx-6 md:mx-0">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-stone-300">
+            <thead className="bg-stone-50">
               <tr>
                 <th
                   scope="col"
-                  className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                  className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
                   Order ID
                 </th>
                 <th
                   scope="col"
-                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 lg:table-cell">
+                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 lg:table-cell">
                   Payment Status
                 </th>
                 <th
                   scope="col"
-                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 sm:table-cell">
+                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 sm:table-cell">
                   Oder Date
                 </th>
                 <th
                   scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                   Status
                 </th>
 
                 <th
                   scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                   Total
                 </th>
                 {/* <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -93,16 +93,16 @@ export default function OrdersList() {
                 </tr>
               </tbody>
             ) : (
-              <tbody className="divide-y divide-gray-200 bg-white">
+              <tbody className="divide-y divide-stone-200 bg-white">
                 {recentSuccessful?.map((order) => (
                   <tr key={order._id}>
-                    <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-6">
+                    <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-stone-900 sm:w-auto sm:max-w-none sm:pl-6">
                       {order._id}
                     </td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">{order.paymentStatus}</td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">{new Date(order?.createdAt).toLocaleDateString()}</td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">{order?.status}</td>
-                    <td className="px-3 py-4 text-sm text-gray-500">{order?.totalPrice}</td>
+                    <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{order.paymentStatus}</td>
+                    <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{new Date(order?.createdAt).toLocaleDateString()}</td>
+                    <td className="hidden px-3 py-4 text-sm text-stone-500 sm:table-cell">{order?.status}</td>
+                    <td className="px-3 py-4 text-sm text-stone-500">{order?.totalPrice}</td>
                     <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                       <Link to={`/admin/orders/${order?._id}`} className="text-indigo-600 hover:text-indigo-900">Edit</Link>
                     </td>

@@ -145,23 +145,22 @@ export default function AddProduct() {
         <ErrorMsg message="file too large or upload an image" />
       )}
       <SuccessMsg show={isAdded} message="Product Added Successfully" />
-      <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-2xl">
+          <h2 className="text-center text-3xl font-bold tracking-tight text-stone-900">
             Create New Product
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-stone-600">
             <p className="font-medium text-indigo-600 hover:text-indigo-500">
               Manage Products
             </p>
           </p>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="mx-auto mt-8 w-full max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
             <form className="space-y-6" onSubmit={handleOnSubmit}>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Product Name
                 </label>
                 <div className="mt-1">
@@ -169,13 +168,13 @@ export default function AddProduct() {
                     name="name"
                     value={formData?.name}
                     onChange={handleOnChange}
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
               {/* size option */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Size
                 </label>
                 <Select
@@ -194,14 +193,14 @@ export default function AddProduct() {
               </div>
               {/* Select category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Category
                 </label>
                 <select
                   name="category"
                   value={formData.category}
                   onChange={handleOnChange}
-                  className="mt-1  block w-full rounded-md border-gray-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
+                  className="mt-1  block w-full rounded-md border-stone-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
                   defaultValue="Canada"
                 >
                   <option>-- Select Category --</option>
@@ -214,14 +213,14 @@ export default function AddProduct() {
               </div>
               {/* Select Brand */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Brand
                 </label>
                 <select
                   name="brand"
                   value={formData.brand}
                   onChange={handleOnChange}
-                  className="mt-1  block w-full rounded-md border-gray-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
+                  className="mt-1  block w-full rounded-md border-stone-300 py-2  pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
                   defaultValue="Canada"
                 >
                   <option>-- Select Brand --</option>
@@ -235,7 +234,7 @@ export default function AddProduct() {
 
               {/* Select Color */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Select Color
                 </label>
                 <Select
@@ -254,18 +253,18 @@ export default function AddProduct() {
               </div>
 
               {/* upload images */}
-              <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-gray-200 sm:pt-5">
+              <div className="sm:grid sm:grid-cols-3 sm:items-start sm:gap-4 sm:border-t sm:border-stone-200 sm:pt-5">
                 <label
                   htmlFor="cover-photo"
-                  className="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2"
+                  className="block text-sm font-medium text-stone-700 sm:mt-px sm:pt-2"
                 >
                   Upload Images
                 </label>
                 <div className="mt-1 sm:col-span-2 sm:mt-0">
-                  <div className="flex max-w-lg justify-center rounded-md border-2 border-dashed border-gray-300 px-6 pt-5 pb-6">
+                  <div className="flex max-w-lg justify-center rounded-md border-2 border-dashed border-stone-300 px-6 pt-5 pb-6">
                     <div className="space-y-1 text-center">
                       <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
+                        className="mx-auto h-12 w-12 text-stone-400"
                         stroke="currentColor"
                         fill="none"
                         viewBox="0 0 48 48"
@@ -278,7 +277,7 @@ export default function AddProduct() {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <div className="flex text-sm text-gray-600">
+                      <div className="flex text-sm text-stone-600">
                         <label
                           htmlFor="file-upload"
                           className="relative cursor-pointer rounded-md bg-white font-medium text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:text-indigo-500"
@@ -291,7 +290,7 @@ export default function AddProduct() {
                           />
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-stone-500">
                         PNG, JPG, GIF up to 1MB
                       </p>
                     </div>
@@ -301,7 +300,7 @@ export default function AddProduct() {
 
               {/* price */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Price
                 </label>
                 <div className="mt-1">
@@ -310,14 +309,14 @@ export default function AddProduct() {
                     value={formData.price}
                     onChange={handleOnChange}
                     type="number"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
 
               {/* Quantity */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Total Quantity
                 </label>
                 <div className="mt-1">
@@ -326,7 +325,7 @@ export default function AddProduct() {
                     value={formData.totalQty}
                     onChange={handleOnChange}
                     type="number"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
@@ -334,7 +333,7 @@ export default function AddProduct() {
               <div>
                 <label
                   htmlFor="comment"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-stone-700"
                 >
                   Add Product Description
                 </label>
@@ -344,7 +343,7 @@ export default function AddProduct() {
                     name="description"
                     value={formData.description}
                     onChange={handleOnChange}
-                    className="block w-full rounded-md border-gray-300 border shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full rounded-md border-stone-300 border shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
@@ -362,7 +361,6 @@ export default function AddProduct() {
                 )}
               </div>
             </form>
-          </div>
         </div>
       </div>
     </>
