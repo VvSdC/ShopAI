@@ -74,6 +74,7 @@ export default function ChatWidget() {
   const [input, setInput] = useState('')
 
   const [isLoading, setIsLoading] = useState(false)
+  const [streamStatus, setStreamStatus] = useState(null)
 
   const [cartHint, setCartHint] = useState('')
   const [sessionId, setSessionId] = useState(null)
@@ -143,7 +144,7 @@ export default function ChatWidget() {
 
     scrollToBottom()
 
-  }, [messages, isLoading, scrollToBottom])
+  }, [messages, isLoading, streamStatus, scrollToBottom])
 
 
 
@@ -184,13 +185,32 @@ export default function ChatWidget() {
 
     setInput('')
 
+    const streamMessageId = `stream-${Date.now()}`
+    setMessages((prev) => [
+      ...prev,
+      { id: streamMessageId, role: 'assistant', content: '', streaming: true },
+    ])
+    setStreamStatus(null)
     setIsLoading(true)
 
-
-
     try {
+      const data = await sendMessage(
+        { text, sessionId: sessionId ?? undefined },
+        {
+          onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
+          onTextDelta: ({ delta }) => {
+            setStreamStatus(null)
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === streamMessageId
+                  ? { ...msg, content: `${msg.content || ''}${delta || ''}` }
+                  : msg
+              )
+            )
+          },
+        }
+      )
 
-      const data = await sendMessage({ text, sessionId: sessionId ?? undefined })
       if (data.sessionId) {
         setSessionId(data.sessionId)
         writeWidgetSessionId(userId, data.sessionId)
@@ -204,35 +224,32 @@ export default function ChatWidget() {
         )
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: data.reply,
-          checkout: data.checkout || null,
-        },
-      ])
-
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamMessageId
+            ? {
+                ...msg,
+                content: data.reply,
+                checkout: data.checkout || null,
+                streaming: false,
+              }
+            : msg
+        )
+      )
     } catch (err) {
-
       const errorMsg =
+        err.message || 'Sorry, I had trouble processing that. Please try again.'
 
-        err.response?.data?.message ||
-
-        'Sorry, I had trouble processing that. Please try again.'
-
-      setMessages((prev) => [
-
-        ...prev,
-
-        { role: 'assistant', content: errorMsg },
-
-      ])
-
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamMessageId
+            ? { ...msg, content: errorMsg, streaming: false }
+            : msg
+        )
+      )
     } finally {
-
       setIsLoading(false)
-
+      setStreamStatus(null)
     }
 
   }
@@ -404,7 +421,7 @@ export default function ChatWidget() {
 
             {messages.map((msg, i) => (
               <div
-                key={i}
+                key={msg.id || i}
                 className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
@@ -414,7 +431,19 @@ export default function ChatWidget() {
                       : 'bg-white text-gray-800 rounded-bl-md border border-gray-200'
                   }`}
                 >
-                  {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
+                  {msg.role === 'assistant' ? (
+                    msg.streaming && !msg.content ? (
+                      streamStatus ? (
+                        <span className="text-gray-500 italic">{streamStatus}…</span>
+                      ) : (
+                        <TypingDots />
+                      )
+                    ) : (
+                      formatMessage(msg.content)
+                    )
+                  ) : (
+                    msg.content
+                  )}
                 </div>
                 {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[85%]">
@@ -433,20 +462,6 @@ export default function ChatWidget() {
                 )}
               </div>
             ))}
-
-            {isLoading && (
-
-              <div className="flex justify-start">
-
-                <div className="bg-white rounded-2xl rounded-bl-md px-4 py-1.5 border border-gray-200">
-
-                  <TypingDots />
-
-                </div>
-
-              </div>
-
-            )}
 
             <div ref={messagesEndRef} />
 

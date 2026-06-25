@@ -54,6 +54,7 @@ export default function AssistantPage() {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [streamStatus, setStreamStatus] = useState(null)
   const [loadingSessions, setLoadingSessions] = useState(true)
   const [sessionsLoadError, setSessionsLoadError] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -77,7 +78,7 @@ export default function AssistantPage() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, isLoading, scrollToBottom])
+  }, [messages, isLoading, streamStatus, scrollToBottom])
 
   useEffect(() => {
     if (!input) resetTextareaHeight(inputRef.current)
@@ -196,10 +197,31 @@ export default function AssistantPage() {
 
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
+    const streamMessageId = `stream-${Date.now()}`
+    setMessages((prev) => [
+      ...prev,
+      { id: streamMessageId, role: 'assistant', content: '', streaming: true },
+    ])
+    setStreamStatus(null)
     setIsLoading(true)
 
     try {
-      const data = await sendMessage({ text, sessionId: activeSessionId })
+      const data = await sendMessage(
+        { text, sessionId: activeSessionId },
+        {
+          onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
+          onTextDelta: ({ delta }) => {
+            setStreamStatus(null)
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === streamMessageId
+                  ? { ...msg, content: `${msg.content || ''}${delta || ''}` }
+                  : msg
+              )
+            )
+          },
+        }
+      )
       const { cartSummary } = handleClientActions(data)
       if (cartSummary?.itemCount > 0) {
         setCartHint(
@@ -207,14 +229,18 @@ export default function AssistantPage() {
         )
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: data.reply,
-          checkout: data.checkout || null,
-        },
-      ])
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamMessageId
+            ? {
+                ...msg,
+                content: data.reply,
+                checkout: data.checkout || null,
+                streaming: false,
+              }
+            : msg
+        )
+      )
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -227,11 +253,17 @@ export default function AssistantPage() {
       }
     } catch (err) {
       const errorMsg =
-        err.response?.data?.message ||
-        'Sorry, I had trouble processing that. Please try again.'
-      setMessages((prev) => [...prev, { role: 'assistant', content: errorMsg }])
+        err.message || 'Sorry, I had trouble processing that. Please try again.'
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === streamMessageId
+            ? { ...msg, content: errorMsg, streaming: false }
+            : msg
+        )
+      )
     } finally {
       setIsLoading(false)
+      setStreamStatus(null)
     }
   }
 
@@ -450,9 +482,19 @@ export default function AssistantPage() {
                       : 'bg-white text-stone-800 rounded-bl-md border border-stone-200 shadow-sm'
                   }`}
                 >
-                  {msg.role === 'assistant'
-                    ? formatMessage(msg.content)
-                    : msg.content}
+                  {msg.role === 'assistant' ? (
+                    msg.streaming && !msg.content ? (
+                      streamStatus ? (
+                        <span className="text-stone-500 italic">{streamStatus}…</span>
+                      ) : (
+                        <TypingDots />
+                      )
+                    ) : (
+                      formatMessage(msg.content)
+                    )
+                  ) : (
+                    msg.content
+                  )}
                 </div>
                 {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[90%] sm:max-w-[80%]">
@@ -472,13 +514,6 @@ export default function AssistantPage() {
               </div>
             ))}
 
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md border border-stone-200 bg-white px-4 py-1.5 shadow-sm">
-                  <TypingDots />
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </div>

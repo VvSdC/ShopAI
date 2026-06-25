@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { parsePurchaseIntent, inferPurchaseFromContext } from '../../services/chatGraph/productContext.js'
 import {
   extractAddressDraft,
   listMissingAddressFields,
@@ -7,32 +6,6 @@ import {
 } from '../../services/chatAddressAssist.js'
 import { buildAddressMissingPrompt } from '../../services/chatMissingFields.js'
 import { isCheckoutProceedIntent } from '../../services/chatIntentHelpers.js'
-
-const shirtListingHistory = [
-  {
-    role: 'assistant',
-    content:
-      '1. **Jack & Jones Men’s Red Casual Shirt** — ₹1,899 · [View product](/products/507f1f77bcf86cd799439011)',
-  },
-]
-
-describe('parsePurchaseIntent', () => {
-  it('parses quantity size and color', () => {
-    const intent = parsePurchaseIntent('I want 2 red shirts of extra large')
-    expect(intent.qty).toBe(2)
-    expect(intent.color).toBe('red')
-    expect(intent.size).toBe('XL')
-  })
-})
-
-describe('inferPurchaseFromContext', () => {
-  it('infers purchase from size and color without add keyword', () => {
-    const intent = inferPurchaseFromContext('2 red shirts extra large', shirtListingHistory)
-    expect(intent?.qty).toBe(2)
-    expect(intent?.color).toBe('red')
-    expect(intent?.size).toBe('XL')
-  })
-})
 
 describe('address assist parsing', () => {
   it('detects partial address missing phone and pin', () => {

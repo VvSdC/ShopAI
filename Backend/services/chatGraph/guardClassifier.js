@@ -2,6 +2,7 @@ import { LLM_MAX_TOKENS_CLASSIFIER } from '../../constants/chatLimits.js'
 import { chatCompletion } from '../llmService.js'
 import logger from '../../utils/logger.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
+import { isObviousInjection, isObviousShoppingAllow } from './guardPatterns.js'
 
 const VALID_REASONS = new Set(['injection', 'off_topic'])
 
@@ -41,11 +42,19 @@ export function parseGuardJson(raw) {
 }
 
 /**
- * LLM safety gate — no regex heuristics. Fails open (allows) if classification unavailable.
+ * LLM safety gate with regex fast-paths. Fails open (allows) if classification unavailable.
  */
 export async function classifyMessageSafety(userText, history = []) {
   const text = String(userText || '').trim()
   if (!text) {
+    return { allowed: true }
+  }
+
+  if (isObviousInjection(text)) {
+    return { allowed: false, reason: 'injection' }
+  }
+
+  if (isObviousShoppingAllow(text, history)) {
     return { allowed: true }
   }
 

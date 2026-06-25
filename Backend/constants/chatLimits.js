@@ -16,6 +16,12 @@ export const CHAT_SESSION_CLIENT_PAGE_SIZE = 20
 /** Guard + intent classifiers — JSON with one or two fields. */
 export const LLM_MAX_TOKENS_CLASSIFIER = 100
 
+/** Fused safety + routing classifier — single compact JSON object. */
+export const LLM_MAX_TOKENS_FUSED = 60
+
+/** Structured cart/product intent extraction — compact JSON. */
+export const LLM_MAX_TOKENS_PURCHASE_INTENT = 120
+
 /** Greeting, policies, and other short conversational replies. */
 export const LLM_MAX_TOKENS_GREETING_POLICIES = 512
 

@@ -50,6 +50,12 @@ export default function Navbar() {
   const isLoggedIn = userAuth?.isLoggedIn
 
   useEffect(() => {
+    if (isLoggedIn && !user) {
+      dispatch(getCurrentUserAction())
+    }
+  }, [dispatch, isLoggedIn, user])
+
+  useEffect(() => {
     setCartCountReady(false)
     let cancelled = false
 
