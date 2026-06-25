@@ -20,6 +20,8 @@ async function ensureCsrfToken() {
   return cachedCsrfToken
 }
 
+export { ensureCsrfToken }
+
 function isMutatingMethod(method) {
   const m = String(method || 'get').toLowerCase()
   return m !== 'get' && m !== 'head' && m !== 'options'

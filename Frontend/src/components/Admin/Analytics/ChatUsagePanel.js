@@ -13,7 +13,7 @@ function formatMs(value) {
 
 function DeltaBadge({ pct }) {
   if (pct == null || pct === 0) {
-    return <span className="text-xs text-gray-500">vs prior period: flat</span>
+    return <span className="text-xs text-stone-500">vs prior period: flat</span>
   }
   const up = pct > 0
   return (
@@ -27,10 +27,10 @@ function DeltaBadge({ pct }) {
 
 function StatCard({ label, value, hint, delta }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
+    <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-medium text-stone-500">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-stone-900">{value}</p>
+      {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
       {delta != null && (
         <div className="mt-2">
           <DeltaBadge pct={delta} />
@@ -48,13 +48,13 @@ function TokenBarChart({ daily }) {
 
   if (!daily.length) {
     return (
-      <p className="text-sm text-gray-500">No usage data for this period yet.</p>
+      <p className="text-sm text-stone-500">No usage data for this period yet.</p>
     )
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex h-48 items-end gap-2 border-b border-gray-100 pb-2">
+      <div className="flex h-48 items-end gap-2 border-b border-stone-100 pb-2">
         {daily.map((day) => {
           const heightPct = Math.max(4, (day.totalTokens / maxTokens) * 100)
           return (
@@ -64,7 +64,7 @@ function TokenBarChart({ daily }) {
               title={`${day.date}: ${formatNumber(day.totalTokens)} tokens`}
             >
               <div
-                className="flex w-full max-w-[2.5rem] flex-col overflow-hidden rounded-t-md bg-gray-100"
+                className="flex w-full max-w-[2.5rem] flex-col overflow-hidden rounded-t-md bg-stone-100"
                 style={{ height: `${heightPct}%` }}
               >
                 <div
@@ -76,14 +76,14 @@ function TokenBarChart({ daily }) {
                   style={{ flex: day.completionTokens || 1 }}
                 />
               </div>
-              <span className="mt-2 hidden text-[10px] text-gray-400 sm:block">
+              <span className="mt-2 hidden text-[10px] text-stone-400 sm:block">
                 {day.date.slice(5)}
               </span>
             </div>
           )
         })}
       </div>
-      <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-4 text-xs text-stone-600">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-indigo-500" />
           Input tokens
@@ -114,7 +114,7 @@ function LatencyChart({ daily }) {
               style={{ height: `${heightPct}%` }}
               title={`${day.date}: avg ${formatMs(day.avgLatencyMs)}`}
             />
-            <span className="mt-2 hidden text-[10px] text-gray-400 sm:block">
+            <span className="mt-2 hidden text-[10px] text-stone-400 sm:block">
               {day.date.slice(5)}
             </span>
           </div>
@@ -127,20 +127,20 @@ function LatencyChart({ daily }) {
 function BreakdownTable({ title, rows, valueKey }) {
   if (!rows?.length) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <p className="mt-3 text-sm text-gray-500">No data yet.</p>
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
+        <p className="mt-3 text-sm text-stone-500">No data yet.</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+    <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+      <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="border-b text-left text-xs uppercase tracking-wide text-gray-500">
+            <tr className="border-b text-left text-xs uppercase tracking-wide text-stone-500">
               <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Calls</th>
               <th className="py-2 pr-4">Tokens</th>
@@ -149,15 +149,15 @@ function BreakdownTable({ title, rows, valueKey }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row[valueKey]} className="border-b border-gray-50">
-                <td className="py-2 pr-4 font-medium capitalize text-gray-800">
+              <tr key={row[valueKey]} className="border-b border-stone-50">
+                <td className="py-2 pr-4 font-medium capitalize text-stone-800">
                   {row[valueKey]}
                 </td>
-                <td className="py-2 pr-4 text-gray-600">{formatNumber(row.calls)}</td>
-                <td className="py-2 pr-4 text-gray-600">
+                <td className="py-2 pr-4 text-stone-600">{formatNumber(row.calls)}</td>
+                <td className="py-2 pr-4 text-stone-600">
                   {formatNumber(row.totalTokens)}
                 </td>
-                <td className="py-2 text-gray-600">{formatMs(row.avgLatencyMs)}</td>
+                <td className="py-2 text-stone-600">{formatMs(row.avgLatencyMs)}</td>
               </tr>
             ))}
           </tbody>
@@ -200,8 +200,8 @@ export default function ChatUsagePanel() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Chat usage</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-xl font-bold text-stone-900">Chat usage</h2>
+          <p className="mt-1 text-sm text-stone-500">
             Input/output tokens, completion latency, and daily trends for chatbot LLM calls.
           </p>
         </div>
@@ -209,7 +209,7 @@ export default function ChatUsagePanel() {
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm"
           >
             <option value="chat">Production chat</option>
             <option value="eval">Eval runs</option>
@@ -218,7 +218,7 @@ export default function ChatUsagePanel() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm"
+            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm"
           >
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
@@ -241,7 +241,7 @@ export default function ChatUsagePanel() {
       )}
 
       {loading && (
-        <p className="mt-8 text-sm text-gray-500">Loading usage metrics…</p>
+        <p className="mt-8 text-sm text-stone-500">Loading usage metrics…</p>
       )}
 
       {!loading && summary && (
@@ -269,9 +269,9 @@ export default function ChatUsagePanel() {
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900">Daily token usage</h3>
-              <p className="mt-1 text-xs text-gray-500">
+            <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-stone-900">Daily token usage</h3>
+              <p className="mt-1 text-xs text-stone-500">
                 Stacked bars show input vs output tokens per day.
               </p>
               <div className="mt-6">
@@ -279,9 +279,9 @@ export default function ChatUsagePanel() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900">Avg completion time</h3>
-              <p className="mt-1 text-xs text-gray-500">
+            <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-stone-900">Avg completion time</h3>
+              <p className="mt-1 text-xs text-stone-500">
                 Mean LLM round-trip latency per day.
               </p>
               <div className="mt-6">

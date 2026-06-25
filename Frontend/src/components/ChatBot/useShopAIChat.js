@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
 import { getCartFromServerAction } from '../../redux/slices/cart/cartSlices'
+import { postChatMessageStream } from './chatStreamClient'
 
 export function useShopAIChatActions() {
   const dispatch = useDispatch()
@@ -22,14 +23,8 @@ export function useShopAIChatActions() {
     [dispatch]
   )
 
-  const sendMessage = useCallback(async ({ text, sessionId }) => {
-    const payload = { message: text }
-    if (sessionId) {
-      payload.sessionId = sessionId
-    }
-
-    const { data } = await axiosInstance.post('/chat/message', payload)
-    return data
+  const sendMessage = useCallback(async ({ text, sessionId }, handlers = {}) => {
+    return postChatMessageStream({ message: text, sessionId }, handlers)
   }, [])
 
   return { sendMessage, handleClientActions }
@@ -44,4 +39,14 @@ export function formatSessionDate(value) {
     return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
   }
   return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+}
+
+// Legacy JSON endpoint kept for callers that still import axiosInstance directly.
+export async function sendChatMessageJson({ text, sessionId }) {
+  const payload = { message: text }
+  if (sessionId) {
+    payload.sessionId = sessionId
+  }
+  const { data } = await axiosInstance.post('/chat/message', payload)
+  return data
 }

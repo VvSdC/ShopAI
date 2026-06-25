@@ -24,7 +24,23 @@ export default function HomeCategories() {
 
   if (categoriesToShow.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-stone-500">Categories loading…</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
+          >
+            <div className="skeleton-shimmer aspect-[4/3] w-full bg-stone-100" />
+            <div className="flex items-center justify-between gap-2 border-t border-stone-100 px-3 py-2.5">
+              <div className="flex-1 space-y-1.5">
+                <div className="skeleton-shimmer h-3.5 w-2/3 rounded bg-stone-100" />
+                <div className="skeleton-shimmer h-2.5 w-1/2 rounded bg-stone-100" />
+              </div>
+              <div className="skeleton-shimmer h-9 w-9 shrink-0 rounded-full bg-stone-100" />
+            </div>
+          </div>
+        ))}
+      </div>
     )
   }
 

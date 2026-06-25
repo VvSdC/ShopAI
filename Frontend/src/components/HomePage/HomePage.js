@@ -16,6 +16,7 @@ import {
 } from '../../utils/promoMessaging'
 import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
+import Reveal from './Reveal'
 
 const trustItems = [
   { name: 'Easy returns', icon: ArrowPathIcon },
@@ -53,33 +54,57 @@ export default function HomePage() {
           <img
             src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80"
             alt=""
-            className="h-full w-full object-cover opacity-40"
+            fetchpriority="high"
+            decoding="async"
+            className="h-full w-full scale-105 object-cover opacity-40 animate-fade-in"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-stone-900 via-stone-900/90 to-stone-900/40" />
         </div>
 
+        {/* Decorative floating gradient orbs (motion-safe, hidden from AT) */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl animate-float"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-32 right-1/4 h-80 w-80 rounded-full bg-fuchsia-500/10 blur-3xl animate-float-slow"
+        />
+
         <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-32">
           <div className="max-w-xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-indigo-300">
+            <p className="animate-fade-down text-sm font-semibold uppercase tracking-widest text-indigo-300">
               Welcome to ShopAI
             </p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1
+              className="mt-3 animate-fade-up text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+              style={{ animationDelay: '80ms' }}
+            >
               Smart shopping,
-              <span className="block text-indigo-300">made simple</span>
+              <span className="block bg-gradient-to-r from-indigo-300 to-fuchsia-300 bg-clip-text text-transparent">
+                made simple
+              </span>
             </h1>
-            <p className="mt-5 text-lg leading-relaxed text-stone-300">
+            <p
+              className="mt-5 animate-fade-up text-lg leading-relaxed text-stone-300"
+              style={{ animationDelay: '160ms' }}
+            >
               Browse curated categories, discover trending products, and checkout with confidence.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div
+              className="mt-8 flex flex-wrap gap-3 animate-fade-up"
+              style={{ animationDelay: '240ms' }}
+            >
               <Link
                 to="/products-filters"
-                className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-500"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
               >
                 Shop all products
+                <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
               <Link
                 to="/all-categories"
-                className="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+                className="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60"
               >
                 Browse categories
               </Link>
@@ -91,18 +116,24 @@ export default function HomePage() {
       {/* Trust strip */}
       <section className="border-b border-stone-200 bg-white">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-5 sm:grid-cols-4 sm:px-6 lg:px-8">
-          {trustItems.map((item) => (
-            <div key={item.name} className="flex items-center gap-3">
-              <item.icon className="h-6 w-6 shrink-0 text-indigo-600" aria-hidden="true" />
+          {trustItems.map((item, i) => (
+            <Reveal
+              key={item.name}
+              delay={i * 80}
+              className="group flex items-center gap-3"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-colors duration-300 group-hover:bg-indigo-600 group-hover:text-white">
+                <item.icon className="h-5 w-5" aria-hidden="true" />
+              </span>
               <span className="text-sm font-medium text-stone-700">{item.name}</span>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {showCoupon && (
-        <section className="bg-indigo-600">
-          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-4 py-7 sm:flex-row sm:px-6 sm:text-left lg:px-8">
+        <section className="overflow-hidden bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600">
+          <div className="mx-auto flex max-w-7xl animate-fade-up flex-col items-center justify-between gap-5 px-4 py-7 sm:flex-row sm:px-6 sm:text-left lg:px-8">
             <div className="text-center sm:text-left">
               <p className="text-sm font-semibold uppercase tracking-wide text-indigo-200">
                 Limited-time offer
@@ -127,7 +158,7 @@ export default function HomePage() {
             </div>
             <Link
               to="/products-filters"
-              className="shrink-0 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+              className="shrink-0 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-50 hover:shadow-md"
             >
               Shop now
             </Link>
@@ -138,7 +169,7 @@ export default function HomePage() {
       {/* Categories — soft bg only, no divider lines (flows into trending below) */}
       <section className="bg-stone-50 py-10 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-xl">
               <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-indigo-700">
                 Collections
@@ -152,12 +183,12 @@ export default function HomePage() {
             </div>
             <Link
               to="/all-categories"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700"
+              className="group inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-700 hover:shadow-md"
             >
               View all categories
-              <ArrowRightIcon className="h-4 w-4" />
+              <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
-          </div>
+          </Reveal>
 
           <div className="mt-6">
             <HomeCategories />
@@ -169,8 +200,12 @@ export default function HomePage() {
       <HomeProductTrending />
 
       {/* Bottom CTA */}
-      <section className="mt-auto shrink-0 bg-stone-900">
-        <div className="mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:px-8">
+      <section className="relative mt-auto shrink-0 overflow-hidden bg-stone-900">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-indigo-500/20 blur-3xl animate-float-slow"
+        />
+        <Reveal className="relative mx-auto max-w-7xl px-4 py-14 text-center sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-white sm:text-3xl">Ready to find your next favorite?</h2>
           <p className="mx-auto mt-3 max-w-lg text-stone-400">
             Explore the full catalog — new arrivals and customer favorites are waiting.
@@ -178,18 +213,19 @@ export default function HomePage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/products-filters"
-              className="inline-flex rounded-xl bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white hover:bg-indigo-500"
+              className="group inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-xl"
             >
               Start shopping
+              <ArrowRightIcon className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <Link
               to="/about"
-              className="inline-flex rounded-xl border border-white/25 px-8 py-3.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="inline-flex rounded-xl border border-white/25 px-8 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/10"
             >
               About ShopAI
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   )

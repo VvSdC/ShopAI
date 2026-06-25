@@ -74,13 +74,13 @@ export default function ManageReturns() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Return requests</h2>
-          <p className="text-sm text-gray-500">Review customer returns and process refunds</p>
+          <h2 className="text-xl font-bold text-stone-900">Return requests</h2>
+          <p className="text-sm text-stone-500">Review customer returns and process refunds</p>
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-stone-300 px-3 py-2 text-sm"
         >
           <option value="requested">Pending</option>
           <option value="refunded">Refunded</option>
@@ -90,13 +90,13 @@ export default function ManageReturns() {
       </div>
 
       {stats?.length > 0 && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Return reasons (items)</h3>
+        <div className="mb-6 rounded-lg border border-stone-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-stone-700 mb-2">Return reasons (items)</h3>
           <div className="flex flex-wrap gap-2">
             {stats.map((s) => (
               <span
                 key={s._id}
-                className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
+                className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700"
               >
                 {REASON_LABELS[s._id] || s._id}: {s.count}
               </span>
@@ -110,43 +110,43 @@ export default function ManageReturns() {
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="text-sm text-stone-500">Loading…</p>
       ) : !adminReturns?.length ? (
-        <p className="rounded-lg border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
+        <p className="rounded-lg border border-dashed border-stone-300 py-12 text-center text-sm text-stone-500">
           No return requests in this filter.
         </p>
       ) : (
         <div className="space-y-4">
           {adminReturns.map((req) => (
-            <div key={req._id} className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <div key={req._id} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-stone-900">
                     Order #{req.orderNumber}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-stone-500">
                     {req.user?.fullname || 'Customer'} · {req.user?.email} ·{' '}
                     {new Date(req.createdAt).toLocaleString('en-IN')}
                   </p>
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                    STATUS_COLORS[req.status] || 'bg-gray-100 text-gray-800'
+                    STATUS_COLORS[req.status] || 'bg-stone-100 text-stone-800'
                   }`}
                 >
                   {req.status}
                 </span>
               </div>
 
-              <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              <ul className="mt-4 space-y-2 text-sm text-stone-700">
                 {req.items?.map((item, i) => (
-                  <li key={i} className="rounded bg-gray-50 px-3 py-2">
+                  <li key={i} className="rounded bg-stone-50 px-3 py-2">
                     {item.qty}× {item.name} —{' '}
-                    <span className="text-gray-500">
+                    <span className="text-stone-500">
                       {REASON_LABELS[item.reasonCode] || item.reasonCode}
                     </span>
                     {item.reasonComment && (
-                      <span className="block text-xs text-gray-500 mt-0.5">
+                      <span className="block text-xs text-stone-500 mt-0.5">
                         {item.reasonComment}
                       </span>
                     )}
@@ -155,12 +155,12 @@ export default function ManageReturns() {
               </ul>
 
               {req.refundAmount > 0 && (
-                <p className="mt-2 text-sm font-medium text-gray-900">
+                <p className="mt-2 text-sm font-medium text-stone-900">
                   Refund: ₹{req.refundAmount}
                 </p>
               )}
               {req.adminNote && (
-                <p className="mt-2 text-sm text-gray-600">Note: {req.adminNote}</p>
+                <p className="mt-2 text-sm text-stone-600">Note: {req.adminNote}</p>
               )}
 
               {req.status === 'requested' && (
@@ -192,20 +192,20 @@ export default function ManageReturns() {
       {rejectId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Reject return</h3>
-            <p className="mt-1 text-sm text-gray-500">Tell the customer why this return was rejected.</p>
+            <h3 className="text-lg font-semibold text-stone-900">Reject return</h3>
+            <p className="mt-1 text-sm text-stone-500">Tell the customer why this return was rejected.</p>
             <textarea
               rows={3}
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="mt-4 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
               placeholder="Reason for rejection"
             />
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setRejectId(null)}
-                className="flex-1 rounded-md border border-gray-300 py-2 text-sm"
+                className="flex-1 rounded-md border border-stone-300 py-2 text-sm"
               >
                 Cancel
               </button>

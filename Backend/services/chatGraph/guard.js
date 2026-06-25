@@ -1,6 +1,11 @@
-import { classifyMessageSafety } from './guardClassifier.js'
+import { patchLlmUsageContext } from '../llmUsageContext.js'
+import { isObviousInjection } from './guardPatterns.js'
+import { classifyIntentHeuristic } from './routerHeuristic.js'
+import { classifyMessageFused } from './fusedClassifier.js'
 
 export { evaluateGuard, classifyMessageSafety, parseGuardJson } from './guardClassifier.js'
+export { parseFusedJson, classifyMessageFused } from './fusedClassifier.js'
+export { isObviousInjection, isObviousShoppingAllow } from './guardPatterns.js'
 
 export const REFUSE_MESSAGES = {
   off_topic:
@@ -10,12 +15,45 @@ export const REFUSE_MESSAGES = {
 }
 
 export async function guardNode(state) {
-  const result = await classifyMessageSafety(state.userText, state.history)
-  if (result.allowed) {
-    return { guardAllowed: true }
+  const text = String(state.userText || '').trim()
+
+  if (!text) {
+    return { guardAllowed: true, route: 'general', routeReason: 'empty' }
   }
+
+  if (isObviousInjection(text)) {
+    return {
+      guardAllowed: false,
+      guardReason: 'injection',
+      route: 'general',
+      routeReason: 'injection_block',
+    }
+  }
+
+  const heuristic = classifyIntentHeuristic(state.userText, state.history)
+  if (heuristic.confidence === 'high') {
+    patchLlmUsageContext({ route: heuristic.route, routeReason: heuristic.reason })
+    return {
+      guardAllowed: true,
+      route: heuristic.route,
+      routeReason: heuristic.reason,
+    }
+  }
+
+  const result = await classifyMessageFused(state.userText, state.history, heuristic)
+  if (!result.allowed) {
+    return {
+      guardAllowed: false,
+      guardReason: result.reason,
+      route: 'general',
+      routeReason: result.reason,
+    }
+  }
+
+  patchLlmUsageContext({ route: result.route, routeReason: result.reason })
   return {
-    guardAllowed: false,
-    guardReason: result.reason,
+    guardAllowed: true,
+    route: result.route,
+    routeReason: result.reason,
   }
 }

@@ -22,13 +22,13 @@ export default function Customers() {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="sm:flex sm:items-center"></div>
 
-      <h3 className="text-lg font-medium leading-6 text-gray-900 mt-3">
+      <h3 className="text-lg font-medium leading-6 text-stone-900 mt-3">
         All Customers [{users?.length}]
       </h3>
-      <div className="-mx-4 mt-3  overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
         {loading ? (
           <LoadingComponent />
         ) : error ? (
@@ -36,32 +36,32 @@ export default function Customers() {
         ) : users?.length <= 0 ? (
           <NoDataFound />
         ) : (
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-stone-300">
+            <thead className="bg-stone-50">
               <tr>
                 <th
                   scope="col"
-                  className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                  className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
                   Full Name
                 </th>
                 <th
                   scope="col"
-                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 lg:table-cell">
+                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 lg:table-cell">
                   Email
                 </th>
                 <th
                   scope="col"
-                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-gray-900 sm:table-cell">
+                  className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 sm:table-cell">
                   Country
                 </th>
                 <th
                   scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                   Phone
                 </th>
                 <th
                   scope="col"
-                  className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                  className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                   Status
                 </th>
                 <th
@@ -71,19 +71,19 @@ export default function Customers() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-stone-200 bg-white">
               {users?.map((user) => (
                 <tr key={user._id}>
-                  <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:w-auto sm:max-w-none sm:pl-6">
+                  <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-stone-900 sm:w-auto sm:max-w-none sm:pl-6">
                     {user.fullname}
                   </td>
-                  <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
+                  <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">
                     {user.email}
                   </td>
-                  <td className="hidden px-3 py-4 text-sm text-gray-500 sm:table-cell">
+                  <td className="hidden px-3 py-4 text-sm text-stone-500 sm:table-cell">
                     {user.country}
                   </td>
-                  <td className="px-3 py-4 text-sm text-gray-500">
+                  <td className="px-3 py-4 text-sm text-stone-500">
                     {user.phone}
                   </td>
                   <td className="px-3 py-4 text-sm">
@@ -102,7 +102,7 @@ export default function Customers() {
                       disabled={user.isAdmin}
                       className={`inline-flex rounded-md px-3 py-1.5 text-xs font-medium ${
                         user.isAdmin
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          ? "bg-stone-100 text-stone-400 cursor-not-allowed"
                           : user.isBlocked
                           ? "bg-green-50 text-green-700 hover:bg-green-100"
                           : "bg-red-50 text-red-700 hover:bg-red-100"

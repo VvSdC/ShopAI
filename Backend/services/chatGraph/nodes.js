@@ -5,10 +5,14 @@ import { getAgentSystemPrompt } from './agentPrompts.js'
 import { resolveProductIdFromContext } from './productContext.js'
 import { buildProductDetailReply, formatAgentReply } from '../chatPostProcess.js'
 import { serializeToolResultForLlm } from './toolResultCompact.js'
+import { emitChatStreamEvent } from '../chatStreamContext.js'
+import { toolStatusLabel } from '../chatStream.js'
 
 export async function refuseNode(state) {
   const reply =
     REFUSE_MESSAGES[state.guardReason] || REFUSE_MESSAGES.off_topic
+  emitChatStreamEvent({ type: 'route', route: 'refuse' })
+  emitChatStreamEvent({ type: 'text_delta', delta: reply })
   return { reply }
 }
 
@@ -25,14 +29,31 @@ export function makeAgentNode(route) {
 }
 
 export async function productDetailNode(state) {
-  const productId = resolveProductIdFromContext(state.history, state.userText)
+  const productId = await resolveProductIdFromContext(state.history, state.userText)
 
   if (productId) {
+    emitChatStreamEvent({ type: 'route', route: 'product_detail' })
+    emitChatStreamEvent({
+      type: 'tool_start',
+      toolName: 'get_product_details',
+      label: toolStatusLabel('get_product_details'),
+      round: 1,
+    })
+
     const result = await executeTool('get_product_details', state.userId, {
       product_id: productId,
     })
 
+    emitChatStreamEvent({
+      type: 'tool_end',
+      toolName: 'get_product_details',
+      round: 1,
+      ok: !result.error,
+    })
+
     if (!result.error) {
+      const reply = buildProductDetailReply(result)
+      emitChatStreamEvent({ type: 'text_delta', delta: reply })
       const messages = [
         { role: 'system', content: getAgentSystemPrompt('product_detail', state.userName) },
         ...state.history,

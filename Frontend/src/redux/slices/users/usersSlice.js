@@ -132,14 +132,14 @@ export const getUserProfileAction = createAsyncThunk(
 //login action
 export const loginUserAction = createAsyncThunk(
   'users/login',
-  async ({ email, password }, { rejectWithValue, getState, dispatch }) => {
+  async ({ email, password }, { rejectWithValue }) => {
     try {
-      //make the http request (cookies set automatically by backend)
-      const { data } = await axiosInstance.post(`/users/login`, {
+      await axiosInstance.post(`/users/login`, {
         email,
         password,
       })
-      return data
+      const { data } = await axiosInstance.get(`/users/me`)
+      return data?.user || data?.data || data
     } catch (error) {
       console.log(error)
       return rejectWithValue(error?.response?.data)
@@ -237,6 +237,7 @@ const usersSlice = createSlice({
     })
     builder.addCase(loginUserAction.fulfilled, (state, action) => {
       resetCsrfTokenCache()
+      state.userAuth.userInfo = action.payload?.user || action.payload
       state.userAuth.isLoggedIn = true
       state.userAuth.loading = false
     })

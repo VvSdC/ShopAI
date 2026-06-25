@@ -58,8 +58,8 @@ export default function AddColor() {
       {isUpdated && <SuccessMsg message="Color Updated Successfully" />}
       {isDelete && <SuccessMsg message="Color Deleted Successfully" />}
       {error && <ErrorMsg message={error?.message} />}
-      <div className="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-2xl">
           <svg
             className="mx-auto h-10 text-blue-600 w-auto"
             xmlns="http://www.w3.org/2000/svg"
@@ -73,16 +73,15 @@ export default function AddColor() {
               d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
             />
           </svg>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-stone-900">
             Add Product Color
           </h2>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="mx-auto mt-8 w-full max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
             <form className="space-y-6" onSubmit={handleOnSubmit}>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Name
                 </label>
                 <div className="mt-1">
@@ -90,12 +89,12 @@ export default function AddColor() {
                     onChange={handleOnChange}
                     value={formData.name}
                     name="name"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-stone-700">
                   Hex Color
                 </label>
                 <div className="mt-1 flex items-center space-x-3">
@@ -104,17 +103,17 @@ export default function AddColor() {
                     onChange={handleOnChange}
                     value={formData.hex}
                     name="hex"
-                    className="h-10 w-14 cursor-pointer rounded border border-gray-300 p-0"
+                    className="h-10 w-14 cursor-pointer rounded border border-stone-300 p-0"
                   />
                   <input
                     onChange={handleOnChange}
                     value={formData.hex}
                     name="hex"
                     placeholder="#000000"
-                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full appearance-none rounded-md border border-stone-300 px-3 py-2 placeholder-stone-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
                   />
                   <span
-                    className="inline-block h-8 w-8 rounded-full border border-gray-300"
+                    className="inline-block h-8 w-8 rounded-full border border-stone-300"
                     style={{ backgroundColor: formData.hex }}
                   />
                 </div>
@@ -131,22 +130,21 @@ export default function AddColor() {
                 )}
               </div>
             </form>
-          </div>
         </div>
 
         {/* Existing Colors List */}
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-lg">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="mx-auto mt-10 w-full max-w-2xl">
+          <h3 className="text-lg font-semibold text-stone-900 mb-4">
             Existing Colors ({allColors.length})
           </h3>
           {allColors.length === 0 ? (
-            <p className="text-sm text-gray-500">No colors added yet.</p>
+                  <p className="text-sm text-stone-500">No colors added yet.</p>
           ) : (
             <div className="space-y-2">
               {allColors.map((color) => (
                 <div
                   key={color._id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                  className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm"
                 >
                   {editingId === color._id ? (
                     /* Inline edit row */
@@ -155,17 +153,17 @@ export default function AddColor() {
                         type="color"
                         value={editData.hex}
                         onChange={(e) => setEditData({ ...editData, hex: e.target.value })}
-                        className="h-8 w-10 cursor-pointer rounded border border-gray-300 p-0"
+                        className="h-8 w-10 cursor-pointer rounded border border-stone-300 p-0"
                       />
                       <input
                         value={editData.name}
                         onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="rounded-md border border-stone-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                       />
                       <input
                         value={editData.hex}
                         onChange={(e) => setEditData({ ...editData, hex: e.target.value })}
-                        className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="w-24 rounded-md border border-stone-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                       />
                       <button
                         onClick={() => handleEditSave(color._id)}
@@ -175,7 +173,7 @@ export default function AddColor() {
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                        className="rounded-md bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700 hover:bg-stone-200"
                       >
                         Cancel
                       </button>
@@ -185,13 +183,13 @@ export default function AddColor() {
                     <>
                       <div className="flex items-center gap-3">
                         <span
-                          className="inline-block h-7 w-7 rounded-full border border-gray-300"
+                          className="inline-block h-7 w-7 rounded-full border border-stone-300"
                           style={{ backgroundColor: color.hex || color.name }}
                         />
-                        <span className="text-sm font-medium text-gray-900 capitalize">
+                        <span className="text-sm font-medium text-stone-900 capitalize">
                           {color.name}
                         </span>
-                        <span className="text-xs text-gray-400">{color.hex}</span>
+                        <span className="text-xs text-stone-400">{color.hex}</span>
                       </div>
                       <div className="flex gap-2">
                         <button

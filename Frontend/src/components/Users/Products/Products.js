@@ -53,8 +53,8 @@ function ProductDescriptionSnippet({ description, productPath }) {
 
 export default function Products({ products }) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {products?.map((product) => {
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+      {products?.map((product, index) => {
         const id = product?._id || product?.id
         const productPath = `/products/${id}`
         const image = product?.images?.[0] || product?.image
@@ -65,11 +65,12 @@ export default function Products({ products }) {
         return (
           <article
             key={id}
-            className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+            style={{ animationDelay: `${Math.min(index, 11) * 45}ms` }}
+            className="group flex animate-fade-up flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100"
           >
             <Link
               to={productPath}
-              className="relative flex aspect-[4/5] items-center justify-center bg-gradient-to-b from-stone-50 to-white p-5"
+              className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-b from-stone-50 to-white p-4 sm:aspect-[4/5] sm:p-5"
             >
               {image ? (
                 <img
@@ -77,65 +78,71 @@ export default function Products({ products }) {
                   alt={product?.name}
                   loading="lazy"
                   decoding="async"
-                  className="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105"
+                  className="max-h-full max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-110"
                 />
               ) : (
                 <span className="text-sm text-stone-400">No image</span>
               )}
               {outOfStock && (
-                <span className="absolute left-3 top-3 rounded-md bg-stone-900/80 px-2 py-1 text-xs font-medium text-white">
+                <span className="absolute left-3 top-3 rounded-md bg-stone-900/80 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur">
                   Sold out
                 </span>
               )}
               {lowStock && (
-                <span className="absolute left-3 top-3 rounded-md bg-amber-500 px-2 py-1 text-xs font-medium text-white">
+                <span className="absolute left-3 top-3 rounded-md bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow-sm">
                   {product.qtyLeft} left
                 </span>
               )}
             </Link>
 
-            <div className="flex flex-1 flex-col p-4 pt-3">
-              {product?.brand && (
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
-                  {product.brand}
-                </p>
-              )}
+            <div className="flex flex-1 flex-col p-3 pt-2.5 sm:p-4 sm:pt-3">
+              <p className="min-h-[1rem] text-[11px] font-semibold uppercase tracking-wider text-indigo-600">
+                {product?.brand || '\u00A0'}
+              </p>
               <Link
                 to={productPath}
-                className="mt-1 line-clamp-2 text-base font-semibold capitalize leading-snug text-stone-900 hover:text-indigo-700"
+                className="mt-0.5 line-clamp-2 min-h-[2.5rem] text-sm font-semibold capitalize leading-snug text-stone-900 hover:text-indigo-700 sm:text-base"
               >
                 {product?.name}
               </Link>
 
-              {rating > 0 && (
-                <div className="mt-2 flex items-center gap-1">
-                  <div className="flex">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <StarIcon
-                        key={i}
-                        className={classNames(
-                          rating > i ? 'text-amber-400' : 'text-stone-200',
-                          'h-3.5 w-3.5'
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-stone-500">{rating}</span>
-                </div>
-              )}
+              <div className="mt-1.5 flex h-4 items-center gap-1">
+                {rating > 0 ? (
+                  <>
+                    <div className="flex">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <StarIcon
+                          key={i}
+                          className={classNames(
+                            rating > i ? 'text-amber-400' : 'text-stone-200',
+                            'h-3.5 w-3.5'
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-stone-500">{rating}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-stone-400">No reviews yet</span>
+                )}
+              </div>
 
-              <ProductDescriptionSnippet
-                description={product?.description}
-                productPath={productPath}
-              />
+              <div className="hidden sm:block">
+                <ProductDescriptionSnippet
+                  description={product?.description}
+                  productPath={productPath}
+                />
+              </div>
 
-              <div className="mt-auto flex items-center justify-between pt-3">
-                <p className="text-lg font-bold text-stone-900">{formatPrice(product?.price)}</p>
+              <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+                <p className="text-base font-bold text-stone-900 sm:text-lg">
+                  {formatPrice(product?.price)}
+                </p>
                 <Link
                   to={productPath}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                  className="inline-flex shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
                 >
-                  View →
+                  View
                 </Link>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { StarIcon } from '@heroicons/react/20/solid'
 import { FireIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 import { fetchProductsAction } from '../../redux/slices/products/productSlices'
 import baseURL from '../../utils/baseURL'
-import LoadingComponent from '../LoadingComp/LoadingComponent'
+import Reveal from './Reveal'
 
 const DESCRIPTION_PREVIEW_LENGTH = 75
 
@@ -96,7 +96,7 @@ function TrendingProductCard({ product, rank, featured = false }) {
   const rating = product?.averageRating
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition hover:border-indigo-200 hover:shadow-md">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100">
       <Link
         to={productPath}
         className="group/image relative flex h-32 shrink-0 items-center justify-center bg-stone-50 p-3"
@@ -116,7 +116,8 @@ function TrendingProductCard({ product, rank, featured = false }) {
             src={productThumbUrl(image, featured)}
             alt={product?.name}
             loading="lazy"
-            className="max-h-full max-w-full object-contain transition group-hover/image:scale-[1.02]"
+            decoding="async"
+            className="max-h-full max-w-full object-contain transition-transform duration-500 ease-out group-hover/image:scale-105"
           />
         ) : (
           <span className="text-xs text-stone-400">No image</span>
@@ -147,6 +148,26 @@ function TrendingProductCard({ product, rank, featured = false }) {
         </div>
       </div>
     </article>
+  )
+}
+
+function TrendingCardSkeleton() {
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+      <div className="skeleton-shimmer h-32 bg-stone-100" />
+      <div className="flex min-h-[12.5rem] flex-1 flex-col gap-2.5 border-t border-stone-100 p-3">
+        <div className="skeleton-shimmer h-3 w-1/3 rounded bg-stone-100" />
+        <div className="skeleton-shimmer h-4 w-4/5 rounded bg-stone-100" />
+        <div className="skeleton-shimmer h-4 w-3/5 rounded bg-stone-100" />
+        <div className="skeleton-shimmer mt-1 h-3 w-1/4 rounded bg-stone-100" />
+        <div className="skeleton-shimmer h-3 w-full rounded bg-stone-100" />
+        <div className="skeleton-shimmer h-3 w-2/3 rounded bg-stone-100" />
+        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+          <div className="skeleton-shimmer h-5 w-16 rounded bg-stone-100" />
+          <div className="skeleton-shimmer h-8 w-24 rounded-lg bg-stone-100" />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -194,21 +215,28 @@ export default function HomeProductTrending() {
         </div>
 
         {loading && sorted.length === 0 ? (
-          <div className="py-20">
-            <LoadingComponent />
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <TrendingCardSkeleton key={i} />
+            ))}
           </div>
         ) : sorted.length === 0 ? (
           <p className="mt-10 text-center text-stone-500">No products yet — check back soon.</p>
         ) : (
           <>
-            <div className="mt-8 hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+            <div className="mt-8 hidden gap-4 sm:grid sm:grid-cols-2 lg:grid-cols-3 lg:gap-5 xl:grid-cols-3">
               {sorted.slice(0, 6).map((product, index) => (
-                <TrendingProductCard
+                <Reveal
                   key={product._id || product.id}
-                  product={product}
-                  rank={index + 1}
-                  featured={index === 0}
-                />
+                  delay={Math.min(index, 5) * 70}
+                  className="h-full"
+                >
+                  <TrendingProductCard
+                    product={product}
+                    rank={index + 1}
+                    featured={index === 0}
+                  />
+                </Reveal>
               ))}
             </div>
 

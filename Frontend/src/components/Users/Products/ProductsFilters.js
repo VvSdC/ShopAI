@@ -5,12 +5,12 @@ import { XMarkIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { FunnelIcon } from '@heroicons/react/20/solid'
 import { Link, useSearchParams } from 'react-router-dom'
 import Products from './Products'
+import ProductsSkeleton from './ProductsSkeleton'
 import ShopPagination from './ShopPagination'
 import baseURL from '../../../utils/baseURL'
 import { fetchProductsAction } from '../../../redux/slices/products/productSlices'
 import { fetchBrandsAction } from '../../../redux/slices/categories/brandsSlice'
 import { fetchColorsAction } from '../../../redux/slices/categories/colorsSlice'
-import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import NoDataFound from '../../NoDataFound/NoDataFound'
 import ProductSearchBar from './ProductSearchBar'
@@ -451,9 +451,7 @@ export default function ProductsFilters() {
               </div>
 
               {loading ? (
-                <div className="py-20">
-                  <LoadingComponent />
-                </div>
+                <ProductsSkeleton count={limit >= 30 ? 12 : 8} />
               ) : error ? (
                 <ErrorMsg message={error?.message} />
               ) : productList.length <= 0 ? (

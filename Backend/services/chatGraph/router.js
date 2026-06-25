@@ -1,16 +1,11 @@
-import { patchLlmUsageContext } from '../llmUsageContext.js'
-import { classifyIntent } from './intentClassifier.js'
 import { ROUTE_NAMES } from './routerHeuristic.js'
 
 export { ROUTE_NAMES, routeIntentHeuristic, classifyIntentHeuristic, hasKnownProductInHistory, isCheckoutIntent, isDiscoveryIntent } from './routerHeuristic.js'
 export { routeIntentHeuristic as routeIntent } from './routerHeuristic.js'
 
-export async function routerNode(state) {
-  const classified = await classifyIntent(state.userText, state.history)
-  const route = classified.route
-  const routeReason = classified.reason || ''
-  patchLlmUsageContext({ route, routeReason })
-  return { route, routeReason }
+export async function routerNode(_state) {
+  // Route is decided in guardNode — kept for graph backward compatibility.
+  return {}
 }
 
 export function guardRoute(state) {

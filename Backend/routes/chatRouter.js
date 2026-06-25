@@ -1,5 +1,5 @@
 import express from 'express'
-import { chatMessageCtrl } from '../controllers/chatCtrl.js'
+import { chatMessageCtrl, chatMessageStreamCtrl } from '../controllers/chatCtrl.js'
 import {
   listChatSessionsCtrl,
   getChatSessionCtrl,
@@ -19,5 +19,6 @@ chatRouter.get('/sessions/:id/messages', isLoggedIn, getChatSessionMessagesCtrl)
 chatRouter.get('/sessions/:id', isLoggedIn, getChatSessionCtrl)
 chatRouter.delete('/sessions/:id', isLoggedIn, deleteChatSessionCtrl)
 chatRouter.post('/message', isLoggedIn, validate(chatMessageSchema), chatMessageCtrl)
+chatRouter.post('/message/stream', isLoggedIn, validate(chatMessageSchema), chatMessageStreamCtrl)
 
 export default chatRouter

@@ -6,12 +6,12 @@ import {
   GlobeAmericasIcon,
   CheckCircleIcon,
   ChevronRightIcon,
+  ShoppingCartIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/20/solid'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
-import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import {
   addOrderToCartaction,
@@ -63,6 +63,37 @@ function productImageUrl(url, variant = 'main') {
     return `${parts[0]}/upload/${transforms}/${parts[1]}`
   }
   return url
+}
+
+function ProductDetailSkeleton() {
+  return (
+    <div className="animate-fade-in">
+      <div className="mb-5 h-4 w-1/3 rounded bg-stone-200" />
+      <div className="overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm">
+        <div className="lg:grid lg:grid-cols-2">
+          <div className="border-b border-stone-100 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
+            <div className="skeleton-shimmer mx-auto h-72 w-full max-w-lg rounded-2xl bg-stone-100 sm:h-80 md:h-96 lg:h-[28rem] lg:max-w-none" />
+            <div className="mt-4 flex gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="skeleton-shimmer h-[4.5rem] w-[4.5rem] rounded-xl bg-stone-100" />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4 p-6 sm:p-8 lg:p-10">
+            <div className="flex gap-2">
+              <div className="skeleton-shimmer h-6 w-20 rounded-md bg-stone-100" />
+              <div className="skeleton-shimmer h-6 w-24 rounded-md bg-stone-100" />
+            </div>
+            <div className="skeleton-shimmer h-9 w-4/5 rounded bg-stone-100" />
+            <div className="skeleton-shimmer h-10 w-1/3 rounded bg-stone-100" />
+            <div className="skeleton-shimmer h-12 w-full rounded-xl bg-stone-100" />
+            <div className="skeleton-shimmer h-12 w-full rounded-xl bg-stone-100" />
+            <div className="skeleton-shimmer h-14 w-full rounded-xl bg-stone-100" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function Product() {
@@ -255,7 +286,7 @@ export default function Product() {
   const getTagColor = (tag) => {
     if (positiveTags.has(tag)) return 'bg-green-100 text-green-700'
     if (negativeTags.has(tag)) return 'bg-red-100 text-red-700'
-    return 'bg-gray-100 text-gray-600'
+    return 'bg-stone-100 text-stone-600'
   }
 
   const isPublicReview = (r) =>
@@ -297,9 +328,7 @@ export default function Product() {
     <div className="min-h-screen bg-stone-100">
       <main className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
         {loading && !product?._id ? (
-          <div className="py-24">
-            <LoadingComponent />
-          </div>
+          <ProductDetailSkeleton />
         ) : error ? (
           <ErrorMsg message={error?.message || 'Failed to load product'} />
         ) : (
@@ -327,7 +356,7 @@ export default function Product() {
             </nav>
 
             {/* Product hero — gallery + purchase */}
-            <div className="overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm">
+            <div className="animate-fade-up overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm">
               <div className="lg:grid lg:grid-cols-2 lg:items-stretch">
                 {/* Gallery */}
                 <div className="flex min-h-0 flex-col border-b border-stone-100 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
@@ -371,7 +400,7 @@ export default function Product() {
                           decoding="async"
                           fetchPriority="high"
                           sizes="(max-width: 1024px) 100vw, 50vw"
-                          className="h-full w-full object-contain p-4 sm:p-6"
+                          className="h-full w-full animate-fade-in object-contain p-4 sm:p-6"
                         />
                       ) : (
                         <p className="text-sm text-stone-400">No image available</p>
@@ -538,12 +567,13 @@ export default function Product() {
                       onClick={addToCartHandler}
                       disabled={!inStock}
                       className={classNames(
-                        'flex flex-1 items-center justify-center rounded-xl py-3.5 text-base font-semibold text-white shadow-md transition',
+                        'flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-base font-semibold text-white shadow-md transition-all duration-300',
                         inStock
-                          ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+                          ? 'bg-indigo-600 hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-lg focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
                           : 'cursor-not-allowed bg-stone-400'
                       )}
                     >
+                      {inStock && <ShoppingCartIcon className="h-5 w-5" />}
                       {inStock ? 'Add to cart' : 'Out of stock'}
                     </button>
                     {cartUnitCount > 0 && (
@@ -586,7 +616,7 @@ export default function Product() {
 
             {/* Description — only shown here (not duplicated in hero) */}
             {product?.description && (
-              <section className="mt-8 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
+              <section className="mt-8 animate-fade-up rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
                 <h2 className="text-lg font-semibold text-stone-900">Product description</h2>
                 <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-stone-600">
                   {product.description}
@@ -597,14 +627,14 @@ export default function Product() {
             {/* Reviews */}
         <section
           aria-labelledby="reviews-heading"
-          className="mt-8 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8"
+          className="mt-8 animate-fade-up rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8"
         >
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 id="reviews-heading" className="text-2xl font-bold text-gray-900">
+              <h2 id="reviews-heading" className="text-2xl font-bold text-stone-900">
                 Customer reviews
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-stone-500">
                 {reviewCount} total · average {rating || '—'} / 5
               </p>
             </div>
@@ -621,7 +651,7 @@ export default function Product() {
               {/* Sort controls */}
               {visibleReviews.length > 1 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Sort:</span>
+                  <span className="text-sm text-stone-500">Sort:</span>
                   <button
                     type="button"
                     onClick={() => setReviewSort(reviewSort === 'desc' ? '' : 'desc')}
@@ -629,7 +659,7 @@ export default function Product() {
                       'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                       reviewSort === 'desc'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                     )}
                   >
                     High → Low
@@ -641,7 +671,7 @@ export default function Product() {
                       'rounded-full px-3 py-1 text-xs font-medium transition-colors',
                       reviewSort === 'asc'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                     )}
                   >
                     Low → High
@@ -680,8 +710,8 @@ export default function Product() {
           )}
 
           {sortedReviews.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-              <p className="text-gray-500">
+            <div className="rounded-xl border-2 border-dashed border-stone-200 py-12 text-center">
+              <p className="text-stone-500">
                 {filterTag
                   ? `No reviews match the "${filterTag}" tag.`
                   : 'No reviews yet. Be the first to review this product!'}
@@ -692,7 +722,7 @@ export default function Product() {
               {sortedReviews.map((review) => (
                 <div
                   key={review._id}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                  className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
                 >
                   {/* Top row: user info + date */}
                   <div className="flex items-center justify-between mb-3">
@@ -701,10 +731,10 @@ export default function Product() {
                         {review.user?.fullname?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-stone-900">
                           {review.user?.fullname}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-stone-400">
                           {new Date(review.createdAt).toLocaleDateString('en-IN', {
                             year: 'numeric',
                             month: 'short',
@@ -718,7 +748,7 @@ export default function Product() {
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleEditReview(review)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                          className="rounded-lg p-1.5 text-stone-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                           title="Edit review"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -727,7 +757,7 @@ export default function Product() {
                         </button>
                         <button
                           onClick={() => handleDeleteReview(review._id)}
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          className="rounded-lg p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                           title="Delete review"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -745,19 +775,19 @@ export default function Product() {
                         key={i}
                         className={classNames(
                           review.rating > i
-                            ? 'text-yellow-400'
-                            : 'text-gray-200',
+                            ? 'text-amber-400'
+                            : 'text-stone-200',
                           'h-4 w-4'
                         )}
                       />
                     ))}
-                    <span className="ml-1 text-xs font-medium text-gray-500">
+                    <span className="ml-1 text-xs font-medium text-stone-500">
                       {review.rating}/5
                     </span>
                   </div>
 
                   {/* Message */}
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <p className="text-sm text-stone-600 leading-relaxed">
                     {review?.message}
                   </p>
 
@@ -790,7 +820,7 @@ export default function Product() {
       {showReviewModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div
-            className="fixed inset-0 bg-black bg-opacity-40 transition-opacity"
+            className="fixed inset-0 animate-fade-in bg-black/40 transition-opacity"
             onClick={() => {
               setShowReviewModal(false)
               setEditingReview(null)
@@ -798,10 +828,10 @@ export default function Product() {
             }}
           />
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl">
+            <div className="relative w-full max-w-md animate-scale-in rounded-2xl bg-white shadow-2xl">
               {/* Header */}
-              <div className="flex items-center justify-between border-b px-6 py-4">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+                <h3 className="text-lg font-semibold text-stone-900">
                   {editingReview ? 'Edit Your Review' : 'Write a Review'}
                 </h3>
                 <button
@@ -810,7 +840,7 @@ export default function Product() {
                     setEditingReview(null)
                     setEditForm({ rating: '', message: '' })
                   }}
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -825,7 +855,7 @@ export default function Product() {
               >
                 {/* Star Rating */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-stone-700 mb-2">
                     Rating
                   </label>
                   <div className="flex items-center gap-1">
@@ -842,15 +872,15 @@ export default function Product() {
                         <StarIcon
                           className={classNames(
                             star <= (editingReview ? editForm.rating : reviewForm.rating)
-                              ? 'text-yellow-400'
-                              : 'text-gray-200',
-                            'h-8 w-8 cursor-pointer hover:text-yellow-300 transition-colors'
+                              ? 'text-amber-400'
+                              : 'text-stone-200',
+                            'h-8 w-8 cursor-pointer hover:text-amber-300 transition-colors'
                           )}
                         />
                       </button>
                     ))}
                     {(editingReview ? editForm.rating : reviewForm.rating) > 0 && (
-                      <span className="ml-2 text-sm text-gray-500">
+                      <span className="ml-2 text-sm text-stone-500">
                         {editingReview ? editForm.rating : reviewForm.rating} / 5
                       </span>
                     )}
@@ -859,7 +889,7 @@ export default function Product() {
 
                 {/* Message */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-stone-700 mb-2">
                     Your Review
                   </label>
                   <textarea
@@ -871,7 +901,7 @@ export default function Product() {
                         : setReviewForm({ ...reviewForm, message: e.target.value })
                     }
                     placeholder="Share your experience with this product..."
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    className="block w-full rounded-lg border border-stone-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
 
@@ -895,7 +925,7 @@ export default function Product() {
                       setEditingReview(null)
                       setEditForm({ rating: '', message: '' })
                     }}
-                    className="rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                    className="rounded-lg bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-200 transition-colors"
                   >
                     Cancel
                   </button>

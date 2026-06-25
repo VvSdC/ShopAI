@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import axiosInstance from '../../../utils/axiosInstance'
 
 function scoreClass(score) {
-  if (score == null) return 'text-gray-500'
+  if (score == null) return 'text-stone-500'
   if (score >= 8) return 'text-green-700'
   if (score >= 6) return 'text-amber-700'
   return 'text-red-700'
@@ -104,7 +104,7 @@ export default function ChatbotEvalPanel() {
   if (loadingCases) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-sm text-gray-500">Loading evaluation cases…</p>
+        <p className="text-sm text-stone-500">Loading evaluation cases…</p>
       </div>
     )
   }
@@ -113,8 +113,8 @@ export default function ChatbotEvalPanel() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Evaluate Chatbot</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-2xl font-bold text-stone-900">Evaluate Chatbot</h2>
+          <p className="mt-2 text-sm text-stone-600">
             Runs golden prompts through the live chatbot, scores replies with a judge
             model, and surfaces recommendations.
           </p>
@@ -180,31 +180,31 @@ export default function ChatbotEvalPanel() {
 
       {summary ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
               Overall score
             </p>
             <p className={`mt-2 text-3xl font-bold ${scoreClass(summary.overallScore)}`}>
               {summary.overallScore}/10
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
               Passed
             </p>
             <p className="mt-2 text-3xl font-bold text-green-700">{summary.passed}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
               Failed
             </p>
             <p className="mt-2 text-3xl font-bold text-red-700">{summary.failed}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
               Test cases
             </p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">{summary.total}</p>
+            <p className="mt-2 text-3xl font-bold text-stone-900">{summary.total}</p>
           </div>
         </div>
       ) : null}
@@ -220,33 +220,33 @@ export default function ChatbotEvalPanel() {
         </div>
       ) : null}
 
-      <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">Test cases ({cases.length})</h3>
+      <div className="mb-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+        <div className="border-b border-stone-200 bg-stone-50 px-4 py-3">
+          <h3 className="text-sm font-semibold text-stone-900">Test cases ({cases.length})</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-stone-200">
+            <thead className="bg-stone-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                   Category
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                   Prompt
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                   Expected
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-stone-200 bg-white">
               {cases.map((item) => (
                 <tr key={item.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-stone-900">
                     {item.category}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{item.prompt}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{item.criteria}</td>
+                  <td className="px-4 py-3 text-sm text-stone-700">{item.prompt}</td>
+                  <td className="px-4 py-3 text-sm text-stone-600">{item.criteria}</td>
                 </tr>
               ))}
             </tbody>
@@ -255,38 +255,38 @@ export default function ChatbotEvalPanel() {
       </div>
 
       {results.length ? (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-            <h3 className="text-sm font-semibold text-gray-900">Results</h3>
+        <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+          <div className="border-b border-stone-200 bg-stone-50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-stone-900">Results</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-stone-200">
+              <thead className="bg-stone-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                     Case
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                     Score
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                     Notes
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">
                     Details
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
+              <tbody className="divide-y divide-stone-200 bg-white">
                 {results.map((result) => (
                   <Fragment key={result.id}>
                     <tr className="align-top">
                       <td className="px-4 py-4 text-sm">
-                        <div className="font-medium text-gray-900">{result.category}</div>
-                        <div className="mt-1 text-gray-600">{result.prompt}</div>
+                        <div className="font-medium text-stone-900">{result.category}</div>
+                        <div className="mt-1 text-stone-600">{result.prompt}</div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-sm">
                         <span className={`font-semibold ${scoreClass(result.scores?.overall)}`}>
@@ -304,7 +304,7 @@ export default function ChatbotEvalPanel() {
                           {result.passed ? 'Passed' : 'Failed'}
                         </span>
                       </td>
-                      <td className="max-w-md px-4 py-4 text-sm text-gray-600">
+                      <td className="max-w-md px-4 py-4 text-sm text-stone-600">
                         {result.notes || result.recommendation || '—'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm">
@@ -321,18 +321,18 @@ export default function ChatbotEvalPanel() {
                     </tr>
                     {expandedId === result.id ? (
                       <tr key={`${result.id}-details`}>
-                        <td colSpan={5} className="bg-gray-50 px-4 py-4 text-sm text-gray-700">
+                        <td colSpan={5} className="bg-stone-50 px-4 py-4 text-sm text-stone-700">
                           <div className="space-y-3">
                             <div>
-                              <p className="font-medium text-gray-900">Assistant reply</p>
-                              <p className="mt-1 whitespace-pre-wrap rounded-md border border-gray-200 bg-white p-3">
+                              <p className="font-medium text-stone-900">Assistant reply</p>
+                              <p className="mt-1 whitespace-pre-wrap rounded-md border border-stone-200 bg-white p-3">
                                 {result.reply || result.error || 'No reply generated.'}
                               </p>
                             </div>
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                               {['relevance', 'scope', 'safety', 'helpfulness'].map((key) => (
-                                <div key={key} className="rounded-md border border-gray-200 bg-white p-3">
-                                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                                <div key={key} className="rounded-md border border-stone-200 bg-white p-3">
+                                  <p className="text-xs uppercase tracking-wide text-stone-500">
                                     {key}
                                   </p>
                                   <p className={`mt-1 font-semibold ${scoreClass(result.scores?.[key])}`}>
@@ -343,13 +343,13 @@ export default function ChatbotEvalPanel() {
                             </div>
                             {result.toolsUsed?.length ? (
                               <p>
-                                <span className="font-medium text-gray-900">Tools used:</span>{' '}
+                                <span className="font-medium text-stone-900">Tools used:</span>{' '}
                                 {result.toolsUsed.join(', ')}
                               </p>
                             ) : null}
                             {result.deterministic?.checks?.length ? (
                               <div>
-                                <p className="font-medium text-gray-900">Deterministic checks</p>
+                                <p className="font-medium text-stone-900">Deterministic checks</p>
                                 <ul className="mt-1 list-disc pl-5">
                                   {result.deterministic.checks.map((check) => (
                                     <li key={check.id}>

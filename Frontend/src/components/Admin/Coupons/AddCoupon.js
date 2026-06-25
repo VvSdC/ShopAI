@@ -55,57 +55,57 @@ export default function AddCoupon() {
       "
         />
       )}
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Add New Coupon
-        </h2>
-      </div>
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={onHandleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                {/* name */}
-                Name
-              </label>
-              <div className="mt-1">
-                <input
-                  type="text"
-                  name="code"
-                  value={formData.code}
-                  onChange={onHandleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-2xl rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
+          <h2 className="text-center text-2xl font-extrabold text-stone-900 sm:text-3xl">
+            Add New Coupon
+          </h2>
+          <form className="mt-8 space-y-6" onSubmit={onHandleSubmit}>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-stone-700">
+                  {/* name */}
+                  Name
+                </label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={onHandleChange}
+                    className="appearance-none block w-full px-3 py-2 border border-stone-300 rounded-md shadow-sm placeholder-stone-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                {/* discount */}
-                Discount (in %)
-              </label>
-              <div className="mt-1">
-                <input
-                  name="discount"
-                  value={formData.discount}
-                  onChange={onHandleChange}
-                  type="number"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+              <div>
+                <label className="block text-sm font-medium text-stone-700">
+                  {/* discount */}
+                  Discount (in %)
+                </label>
+                <div className="mt-1">
+                  <input
+                    name="discount"
+                    value={formData.discount}
+                    onChange={onHandleChange}
+                    type="number"
+                    className="appearance-none block w-full px-3 py-2 border border-stone-300 rounded-md shadow-sm placeholder-stone-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  />
+                </div>
               </div>
             </div>
             {/* start date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-stone-700">
                 Start Date
               </label>
-              <div className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <div className="appearance-none block w-full px-3 py-2 border border-stone-300 rounded-md shadow-sm placeholder-stone-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                 <DatePicker
                   selected={startDate}
                   onChange={(date) => setStartDate(startOfDay(date))}
                   minDate={today}
                   dateFormat="dd/MM/yyyy"
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-stone-500">
                   Starts at the beginning of the selected day (today is allowed).
                 </p>
               </div>
@@ -113,17 +113,17 @@ export default function AddCoupon() {
 
             {/* end date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-stone-700">
                 End Date
               </label>
-              <div className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <div className="appearance-none block w-full px-3 py-2 border border-stone-300 rounded-md shadow-sm placeholder-stone-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                 <DatePicker
                   selected={endDate}
                   onChange={(date) => setEndDate(date)}
                   minDate={startDate}
                   dateFormat="dd/MM/yyyy"
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-stone-500">
                   Valid through the end of the selected day.
                 </p>
               </div>
@@ -134,7 +134,7 @@ export default function AddCoupon() {
               ) : (
                 <button
                   type="submit"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  className="w-full sm:w-auto flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                   Add Coupon
                 </button>
               )}

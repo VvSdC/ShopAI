@@ -29,20 +29,20 @@ export default function ManageCoupons() {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:flex-auto">
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-stone-900">
             Manage Coupons - [{coupons?.coupons?.length}]
           </h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <p className="mt-2 text-sm text-stone-700">
             List of all coupons in the system
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div className="sm:flex-none">
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">
+            className="inline-flex w-full sm:w-auto items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             Add New Coupon
           </button>
         </div>
@@ -58,64 +58,64 @@ export default function ManageCoupons() {
       ) : (
         <>
           <div className="mt-8 flex flex-col">
-            <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-              <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-300">
-                    <thead className="bg-gray-50">
+            <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-stone-300">
+                    <thead className="bg-stone-50">
                       <tr>
                         <th
                           scope="col"
-                          className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                          className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
                           Code
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Percentage (%)
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Status
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Start Date
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           End Date
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Days Left
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Edit
                         </th>
                         <th
                           scope="col"
-                          className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                          className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
                           Delete
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
+                    <tbody className="divide-y divide-stone-200 bg-white">
                       {coupons?.coupons?.map((coupon) => (
                         <tr key={coupon._id}>
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-stone-900 sm:pl-6">
                             {coupon?.code}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             {coupon?.discount}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             {(() => {
                               const status = getCouponDisplayStatus(coupon);
                               const styles = {
@@ -132,18 +132,18 @@ export default function ManageCoupons() {
                               );
                             })()}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             {new Date(coupon.startDate)?.toLocaleDateString()}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             {new Date(coupon.endDate)?.toLocaleDateString()}
                           </td>
 
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             {coupon?.daysLeft}
                           </td>
                           {/* edit icon */}
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             <Link
                               to={`/admin/manage-coupon/edit/${coupon.code}`}>
                               <svg
@@ -162,7 +162,7 @@ export default function ManageCoupons() {
                             </Link>
                           </td>
                           {/* delete */}
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                             <button
                               onClick={() => deleteCouponHandler(coupon?._id)}>
                               <svg

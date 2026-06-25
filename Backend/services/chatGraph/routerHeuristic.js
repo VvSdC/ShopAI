@@ -99,6 +99,15 @@ function isAffirmative(text) {
   return AFFIRMATIVE_PATTERN.test(String(text || '').trim())
 }
 
+function lastAssistantMentionsCheckout(history) {
+  const last = [...(history || [])].reverse().find((m) => m.role === 'assistant')
+  if (!last) return false
+  const content = String(last.content || '').toLowerCase()
+  return /checkout|proceed (?:with|to) payment|place (?:the )?order|shipping address|deliver|pay now|ready to pay|apply coupon|confirm(?: your)? order|shall i proceed/i.test(
+    content
+  )
+}
+
 function isHighConfidenceCheckout(text, history) {
   const t = String(text || '').trim().toLowerCase()
   if (isAddToCartVariantIntent(text, history)) return true
@@ -125,6 +134,9 @@ export function classifyIntentHeuristic(text, history = []) {
   const t = String(text || '').trim()
 
   if (isAffirmative(t)) {
+    if (lastAssistantMentionsCheckout(history)) {
+      return { route: 'checkout', confidence: 'high', reason: 'heuristic_affirmative_checkout' }
+    }
     return { route, confidence: 'low', reason: 'ambiguous_affirmative' }
   }
 

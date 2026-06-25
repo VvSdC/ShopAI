@@ -1,187 +1,127 @@
-import { Fragment, useState } from 'react'
-import { useSelector } from 'react-redux'
+import { Fragment, useEffect, useState } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
 import { Dialog, Transition } from '@headlessui/react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bars3CenterLeftIcon,
   ScaleIcon,
-  CogIcon,
   XMarkIcon,
   Squares2X2Icon,
   SwatchIcon,
   BuildingStorefrontIcon,
+  HomeIcon,
+  UsersIcon,
+  ClipboardDocumentListIcon,
+  ArrowUturnLeftIcon,
+  PlusCircleIcon,
+  TicketIcon,
+  ReceiptPercentIcon,
+  FolderPlusIcon,
+  ChartBarIcon,
+  ArrowRightOnRectangleIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline'
-// logo removed; replace with new asset when available
+import { logoutAction } from '../../redux/slices/users/usersSlice'
 import user from './user.png'
-const ordersLinks = [
+
+const navSections = [
   {
-    name: 'Dashboard',
-    href: '',
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6 m-1"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-        />
-      </svg>
-    ),
-    current: true,
+    title: 'Orders',
+    links: [
+      { name: 'Dashboard', href: '', icon: HomeIcon, end: true },
+      { name: 'Customers', href: 'customers', icon: UsersIcon },
+      { name: 'All Orders', href: 'all-orders', icon: ClipboardDocumentListIcon },
+      { name: 'Return Requests', href: 'return-requests', icon: ArrowUturnLeftIcon },
+    ],
   },
   {
-    name: 'Customers',
-    href: 'customers',
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6 m-1"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-        />
-      </svg>
-    ),
+    title: 'Products',
+    links: [
+      { name: 'Add Product', href: 'add-product', icon: PlusCircleIcon },
+      { name: 'Manage Stock', href: 'manage-products', icon: ScaleIcon },
+    ],
   },
   {
-    name: 'All Orders',
-    href: 'all-orders',
-    icon: () => (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 m-1">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5h18M3 12h18M3 16.5h18" />
-      </svg>
-    ),
+    title: 'Coupons',
+    links: [
+      { name: 'Add Coupon', href: 'add-coupon', icon: TicketIcon },
+      { name: 'Manage Coupons', href: 'manage-coupon', icon: ReceiptPercentIcon },
+    ],
   },
   {
-    name: 'Return Requests',
-    href: 'return-requests',
-    icon: () => (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 m-1">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-      </svg>
-    ),
+    title: 'Catalog',
+    links: [
+      { name: 'Add Category', href: 'add-category', icon: FolderPlusIcon },
+      { name: 'All Categories', href: 'manage-category', icon: Squares2X2Icon },
+      { name: 'All Colors', href: 'all-colors', icon: SwatchIcon },
+      { name: 'All Brands', href: 'all-brands', icon: BuildingStorefrontIcon },
+    ],
   },
 ]
 
-const productsLinks = [
-  {
-    name: 'Add Product',
-    href: 'add-product',
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6 m-1"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
-        />
-      </svg>
-    ),
-    current: false,
-  },
-
-  {
-    name: 'Manage Stock',
-    href: 'manage-products',
-    icon: ScaleIcon,
-    current: false,
-  },
-]
-
-const couponsLinks = [
-  {
-    name: 'Add Coupon',
-    href: 'add-coupon',
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6 m-1"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-        />
-      </svg>
-    ),
-  },
-  {
-    name: 'Manage Coupons',
-    href: 'manage-coupon',
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={1.5}
-        stroke="currentColor"
-        className="w-6 h-6 m-1"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9 7.5l3 4.5m0 0l3-4.5M12 12v5.25M15 12H9m6 3H9m12-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-  },
-]
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ')
 }
 
-const CategoryLinks = [
-  { name: 'Add Category', href: 'add-category', icon: CogIcon },
-  {
-    name: 'All Categories',
-    href: 'manage-category',
-    icon: Squares2X2Icon,
-  },
-]
-
-const colorsLinks = [
-  {
-    name: 'All Colors',
-    href: 'all-colors',
-    icon: SwatchIcon,
-  },
-]
-
-const brandsLinks = [
-  {
-    name: 'All Brands',
-    href: 'all-brands',
-    icon: BuildingStorefrontIcon,
-  },
-]
-
 const adminSidebarScrollClass =
   'admin-sidebar-scroll overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:rgb(71_85_105)_transparent]'
 
-export default function AddminDashboard() {
+function SidebarNav({ onNavigate }) {
+  return (
+    <nav className={`flex-1 space-y-5 px-3 py-4 ${adminSidebarScrollClass}`} aria-label="Admin">
+      {navSections.map((section) => (
+        <div key={section.title}>
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            {section.title}
+          </p>
+          <div className="space-y-1">
+            {section.links.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                end={item.end}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  classNames(
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-300 hover:bg-white/5 hover:text-white',
+                    'group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors'
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.name}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+function SidebarBrand() {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 px-4 py-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white">
+        <Squares2X2Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-sm font-bold text-white">ShopAI</p>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-indigo-300">
+          Admin Console
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { userAuth } = useSelector((state) => state?.users)
   const currentUser = userAuth?.userInfo
   const fullname = currentUser?.fullname || 'Admin'
@@ -191,428 +131,190 @@ export default function AddminDashboard() {
     : 'N/A'
   const role = currentUser?.isAdmin ? 'Admin' : 'User'
 
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  const handleLogout = () => {
+    dispatch(logoutAction()).then(() => navigate('/', { replace: true }))
+  }
+
+  const sidebarFooter = (
+    <div className="shrink-0 space-y-1 border-t border-white/10 p-3">
+      <Link
+        to="/"
+        className="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+      >
+        <ArrowTopRightOnSquareIcon className="h-5 w-5 shrink-0" />
+        Back to store
+      </Link>
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-red-500/10 hover:text-red-300"
+      >
+        <ArrowRightOnRectangleIcon className="h-5 w-5 shrink-0" />
+        Sign out
+      </button>
+    </div>
+  )
+
   return (
-    <>
-      <div className="min-h-full">
-        <Transition.Root show={sidebarOpen} as={Fragment}>
-          <Dialog
-            as="div"
-            className="relative z-40 lg:hidden"
-            onClose={setSidebarOpen}
+    <div className="min-h-screen bg-stone-100">
+      {/* Mobile sidebar */}
+      <Transition.Root show={sidebarOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="transition-opacity ease-linear duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="transition-opacity ease-linear duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
           >
+            <div className="fixed inset-0 bg-black/50" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 flex">
             <Transition.Child
               as={Fragment}
-              enter="transition-opacity ease-linear duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="transition-opacity ease-linear duration-300"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
+              enter="transition ease-in-out duration-300 transform"
+              enterFrom="-translate-x-full"
+              enterTo="translate-x-0"
+              leave="transition ease-in-out duration-300 transform"
+              leaveFrom="translate-x-0"
+              leaveTo="-translate-x-full"
             >
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
+              <Dialog.Panel className="relative flex w-full max-w-xs flex-1 flex-col bg-slate-900">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-in-out duration-300"
+                  enterFrom="opacity-0"
+                  enterTo="opacity-100"
+                  leave="ease-in-out duration-300"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                >
+                  <div className="absolute top-0 right-0 -mr-12 pt-2">
+                    <button
+                      type="button"
+                      className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <span className="sr-only">Close sidebar</span>
+                      <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
+                    </button>
+                  </div>
+                </Transition.Child>
+                <SidebarBrand />
+                <SidebarNav onNavigate={() => setSidebarOpen(false)} />
+                {sidebarFooter}
+              </Dialog.Panel>
             </Transition.Child>
-
-            <div className="fixed inset-0 z-40 flex">
-              <Transition.Child
-                as={Fragment}
-                enter="transition ease-in-out duration-300 transform"
-                enterFrom="-translate-x-full"
-                enterTo="translate-x-0"
-                leave="transition ease-in-out duration-300 transform"
-                leaveFrom="translate-x-0"
-                leaveTo="-translate-x-full"
-              >
-                <Dialog.Panel className="relative flex w-full max-w-xs flex-1 flex-col bg-slate-800 pt-5 pb-4">
-                  <Transition.Child
-                    as={Fragment}
-                    enter="ease-in-out duration-300"
-                    enterFrom="opacity-0"
-                    enterTo="opacity-100"
-                    leave="ease-in-out duration-300"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                    <div className="absolute top-0 right-0 -mr-12 pt-2">
-                      <button
-                        type="button"
-                        className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                        onClick={() => setSidebarOpen(false)}
-                      >
-                        <span className="sr-only">Close sidebar</span>
-                        <XMarkIcon
-                          className="h-6 w-6 text-white"
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </div>
-                  </Transition.Child>
-                  <div className="flex flex-shrink-0 items-center px-4"></div>
-                  <nav
-                    className={`mt-5 flex flex-1 flex-col divide-y divide-slate-800 ${adminSidebarScrollClass}`}
-                    aria-label="Sidebar"
-                  >
-                    {/* orders links mobile */}
-                    <div className="mt-1 pt-1">
-                      <div className="space-y-1 px-2">
-                        {ordersLinks.map((item) => (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                          >
-                            <item.icon
-                              className="mr-4 h-6 w-6 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            {item.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-1 px-2 mt-8">
-                      {/*Products  links mobile */}
-                      {productsLinks.map((item) => (
-                        <Link
-                          key={item.name}
-                          to={item.href}
-                          className={classNames(
-                            item.current
-                              ? 'bg-indigo-700 text-white'
-                              : 'text-slate-200 hover:text-white hover:bg-indigo-600',
-                            'group flex items-center px-2 py-2 text-sm leading-6 font-medium rounded-md'
-                          )}
-                          aria-current={item.current ? 'page' : undefined}
-                        >
-                          <item.icon
-                            className="mr-4 h-6 w-6 flex-shrink-0 text-slate-400"
-                            aria-hidden="true"
-                          />
-                          {item.name}
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="mt-6 pt-6">
-                      <div className="space-y-1 px-2">
-                        {couponsLinks.map((item) => (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                          >
-                            <item.icon
-                              className="mr-4 h-6 w-6 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            {item.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Categories mobile */}
-                    <div className="mt-3 pt-3">
-                      <div className="space-y-1 px-2">
-                        {CategoryLinks.map((item) => (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                          >
-                            <item.icon
-                              className="mr-4 h-6 w-6 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            {item.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                    {/* colors links mobile */}
-                    <div className="mt-3 pt-3">
-                      <div className="space-y-1 px-2">
-                        {colorsLinks.map((item) => (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                          >
-                            <item.icon
-                              className="mr-4 h-6 w-6 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            {item.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                    {/* brands links mobile */}
-                    <div className="mt-3 pt-3">
-                      <div className="space-y-1 px-2">
-                        {brandsLinks.map((item) => (
-                          <Link
-                            key={item.name}
-                            to={item.href}
-                            className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                          >
-                            <item.icon
-                              className="mr-4 h-6 w-6 text-slate-400"
-                              aria-hidden="true"
-                            />
-                            {item.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </nav>
-                  {/* end of mobile nav */}
-                </Dialog.Panel>
-              </Transition.Child>
-              <div className="w-14 flex-shrink-0" aria-hidden="true">
-                {/* Dummy element to force sidebar to shrink to fit close icon */}
-              </div>
-            </div>
-          </Dialog>
-        </Transition.Root>
-
-        {/* Static sidebar for desktop — full height; content clears sticky navbar */}
-        <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-64 lg:flex-col lg:bg-slate-900">
-          <div
-            className={`flex flex-grow flex-col pb-4 ${adminSidebarScrollClass}`}
-            style={{ paddingTop: 'var(--shopai-navbar-height, calc(4rem + 1px))' }}
-          >
-            <div className="border-b border-slate-800 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Admin
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-white">ShopAI Console</p>
-            </div>
-            <nav
-              className={`mt-5 flex flex-1 flex-col divide-y divide-slate-800 ${adminSidebarScrollClass}`}
-              aria-label="Sidebar"
-            >
-              {/* orders links desktop */}
-              <div className="mt-1 pt-1">
-                <div className="space-y-1 px-2">
-                  {ordersLinks.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                    >
-                      <item.icon
-                        className="mr-4 h-6 w-6 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-1 px-2 mt-8">
-                {/*Products  links desktop */}
-                {productsLinks.map((item) => (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={classNames(
-                      item.current
-                        ? 'bg-indigo-700 text-white'
-                        : 'text-slate-200 hover:text-white hover:bg-indigo-600',
-                      'group flex items-center px-2 py-2 text-sm leading-6 font-medium rounded-md'
-                    )}
-                    aria-current={item.current ? 'page' : undefined}
-                  >
-                    <item.icon
-                      className="mr-4 h-6 w-6 flex-shrink-0 text-slate-400"
-                      aria-hidden="true"
-                    />
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-              <div className="mt-6 pt-6">
-                <div className="space-y-1 px-2">
-                  {couponsLinks.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                    >
-                      <item.icon
-                        className="mr-4 h-6 w-6 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              {/* Categories desktop */}
-              <div className="mt-3 pt-3">
-                <div className="space-y-1 px-2">
-                  {CategoryLinks.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                    >
-                      <item.icon
-                        className="mr-4 h-6 w-6 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              {/* colors links desktop */}
-              <div className="mt-3 pt-3">
-                <div className="space-y-1 px-2">
-                  {colorsLinks.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                    >
-                      <item.icon
-                        className="mr-4 h-6 w-6 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              {/* brands links desktop */}
-              <div className="mt-3 pt-3">
-                <div className="space-y-1 px-2">
-                  {brandsLinks.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className="group flex items-center rounded-md px-2 py-2 text-sm font-medium leading-6 text-slate-200 hover:bg-indigo-600 hover:text-white"
-                    >
-                      <item.icon
-                        className="mr-4 h-6 w-6 text-slate-400"
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </nav>
+            <div className="w-14 shrink-0" aria-hidden="true" />
           </div>
-        </div>
+        </Dialog>
+      </Transition.Root>
 
-        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
-          <div className="flex h-16 flex-shrink-0 border-b border-gray-200 bg-white lg:border-none">
-            <button
-              type="button"
-              className="border-r border-gray-200 px-4 text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 lg:hidden"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <span className="sr-only">Open sidebar</span>
-              <Bars3CenterLeftIcon className="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
-          <main className="flex-1 bg-gray-50 pb-8">
-            {/* Page header */}
-            <div className="bg-white shadow">
-              <div className="px-4 sm:px-6 lg:mx-auto lg:max-w-6xl lg:px-8">
-                <div className="py-6 md:flex md:items-center md:justify-between lg:border-t lg:border-gray-200">
-                  <div className="min-w-0 flex-1">
-                    {/* Profile */}
-                    <div className="flex items-center">
-                      <img
-                        className="hidden h-16 w-16 rounded-full sm:block"
-                        src={user}
-                        alt="admin"
-                      />
-                      <div>
-                        <div className="flex items-center">
-                          <img
-                            className="h-16 w-16 rounded-full sm:hidden"
-                            src={user}
-                            alt=""
-                          />
-                          <h1 className="ml-3 text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:leading-9">
-                            Hello {fullname}!
-                          </h1>
-                        </div>
-                        <dl className="mt-6 flex flex-col sm:ml-3 sm:mt-1 sm:flex-row sm:flex-wrap">
-                          <dd className="flex items-center text-sm font-medium capitalize text-gray-500 sm:mr-6">
-                            {/* Role */}
-                            <svg
-                              className="w-6 h-6"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
-                              ></path>
-                            </svg>
-                            Role: {role}
-                          </dd>
-                          {/* Date Joined */}
-                          <dd className="mt-3 flex items-center text-sm font-medium capitalize text-gray-500 sm:mr-6 sm:mt-0">
-                            <svg
-                              className="mr-1.5 h-5 w-5 flex-shrink-0 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              ></path>
-                            </svg>
-                            Date Joined: {dateJoined}
-                          </dd>
-                          {/* email */}
-                          <dd className="mt-3 flex items-center text-sm font-medium  text-gray-500 sm:mr-6 sm:mt-0">
-                            <svg
-                              className="mr-1.5 h-5 w-5 flex-shrink-0 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
-                              ></path>
-                            </svg>
-                            {email}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6 flex space-x-3 md:mt-0 md:ml-4">
-                    <Link
-                      to="/admin/developer-analytics/inference"
-                      className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                      Developer Analytics
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <Outlet />
-            {/* content */}
-          </main>
+      {/* Desktop sidebar — full height */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-64 lg:flex-col">
+        <div className="flex h-full flex-col bg-slate-900">
+          <SidebarBrand />
+          <SidebarNav />
+          {sidebarFooter}
         </div>
       </div>
-    </>
+
+      {/* Main column */}
+      <div className="flex min-h-screen flex-col lg:pl-64">
+        {/* Top bar */}
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-stone-200 bg-white/90 px-3 backdrop-blur sm:px-6">
+          <button
+            type="button"
+            className="-ml-1 rounded-lg p-2 text-stone-600 hover:bg-stone-100 lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <span className="sr-only">Open sidebar</span>
+            <Bars3CenterLeftIcon className="h-6 w-6" aria-hidden="true" />
+          </button>
+          <p className="truncate text-sm font-semibold text-stone-800 lg:hidden">ShopAI Admin</p>
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              to="/admin/developer-analytics/inference"
+              className="hidden items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 sm:inline-flex"
+            >
+              <ChartBarIcon className="h-4 w-4" />
+              Analytics
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-lg p-2 text-stone-600 transition-colors hover:bg-stone-100 sm:px-3"
+              title="Back to store"
+            >
+              <HomeIcon className="h-5 w-5" />
+              <span className="hidden sm:inline">Store</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-lg p-2 text-stone-600 transition-colors hover:bg-red-50 hover:text-red-600 sm:px-3"
+              title="Sign out"
+            >
+              <ArrowRightOnRectangleIcon className="h-5 w-5" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 pb-10">
+          {/* Profile header */}
+          <div className="border-b border-stone-200 bg-white">
+            <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    className="h-14 w-14 shrink-0 rounded-full ring-2 ring-stone-100 sm:h-16 sm:w-16"
+                    src={user}
+                    alt="admin"
+                  />
+                  <div className="min-w-0">
+                    <h1 className="truncate text-xl font-bold text-stone-900 sm:text-2xl">
+                      Hello {fullname}!
+                    </h1>
+                    <dl className="mt-1 flex flex-col gap-x-5 gap-y-1 text-sm text-stone-500 sm:flex-row sm:flex-wrap">
+                      <dd className="flex items-center gap-1.5">
+                        <UsersIcon className="h-4 w-4 shrink-0 text-stone-400" />
+                        Role: {role}
+                      </dd>
+                      {email && (
+                        <dd className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate">{email}</span>
+                        </dd>
+                      )}
+                      <dd className="flex items-center gap-1.5">
+                        Joined: {dateJoined}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+                <Link
+                  to="/admin/developer-analytics/inference"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:hidden"
+                >
+                  <ChartBarIcon className="h-4 w-4" />
+                  Developer Analytics
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-auto w-full max-w-6xl">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
   )
 }

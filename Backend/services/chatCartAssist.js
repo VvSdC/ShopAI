@@ -4,15 +4,18 @@ import { executeTool } from './chatTools.js'
 import {
   extractProductsFromHistory,
   getPendingCartProductName,
-  inferPurchaseFromContext,
   isBulkAddIntent,
   isExplicitAddIntent,
-  isVariantOnlyReply,
   parseQuantityIntent,
-  resolveMultipleProductsFromContext,
   resolveProductIdFromContext,
-  shouldAssistCart,
 } from './chatGraph/productContext.js'
+import {
+  getPurchaseIntent,
+  intentToPurchaseShape,
+  isCartAssistIntent,
+  isVariantReplyIntent,
+  resolveProductIdsFromIntent,
+} from './purchaseIntentExtractor.js'
 import {
   isBallLikeProduct,
   productUsesApparelSizes,
@@ -136,7 +139,7 @@ function buildQueueFromProducts(products, qtyDefault) {
   }
 }
 
-async function processCartQueue(userId, userText, history, toolResults, queue, purchase, cartQueue) {
+async function processCartQueue(userId, userText, history, toolResults, queue, purchase, cartQueue, intent) {
   let results = [...toolResults]
   const remaining = [...(queue.remaining || [])]
 
@@ -149,7 +152,7 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
     }
 
     const isPending =
-      isVariantOnlyReply(userText, history, cartQueue) ||
+      isVariantReplyIntent(intent) ||
       getPendingCartProductName(history) === product.name
 
     const variantSource = isPending ? purchase : { qty: current.qty, size: null, color: null }
@@ -195,13 +198,17 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     }
   }
 
-  if (!shouldAssistCart(userText, history)) {
-    return { toolResults, reply: null }
+  const sessionQueue = options.cartQueue ?? null
+  const intent = await getPurchaseIntent(userText, history, sessionQueue)
+
+  if (!isCartAssistIntent(intent) && !isExplicitAddIntent(userText) && !isBulkAddIntent(userText)) {
+    if (!getPendingCartProductName(history) && !resolveActiveCartQueue(history, sessionQueue)) {
+      return { toolResults, reply: null }
+    }
   }
 
-  const sessionQueue = options.cartQueue ?? null
   const existingQueue = resolveActiveCartQueue(history, sessionQueue)
-  const purchase = inferPurchaseFromContext(userText, history) || { qty: 1, size: null, color: null }
+  const purchase = intentToPurchaseShape(intent)
 
   if (existingQueue?.remaining?.length) {
     return processCartQueue(
@@ -211,7 +218,8 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
       toolResults,
       existingQueue,
       purchase,
-      sessionQueue ?? existingQueue
+      sessionQueue ?? existingQueue,
+      intent
     )
   }
 
@@ -221,23 +229,27 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
 
   if (isBulkAddIntent(userText) && isExplicitAddIntent(userText)) {
     const vague = /\b(add|put)\s+(them|those|these)\b/i.test(userText)
-    const multi = resolveMultipleProductsFromContext(history, userText)
+    const multi = resolveProductIdsFromIntent(intent, history)
     if (vague && multi.length < 2) {
       return { toolResults, reply: buildPickProductsPrompt(history) }
     }
   }
 
-  const multi = resolveMultipleProductsFromContext(history, userText)
-  const qty = parseQuantityIntent(userText)
+  const multi = resolveProductIdsFromIntent(intent, history)
+  const qty = intent.qty || parseQuantityIntent(userText)
 
-  if (multi.length > 1 && isExplicitAddIntent(userText)) {
+  if (multi.length > 1 && (intent.intent === 'bulk_add' || isExplicitAddIntent(userText))) {
     const queue = buildQueueFromProducts(multi, qty)
-    return processCartQueue(userId, userText, history, toolResults, queue, purchase, queue)
+    return processCartQueue(userId, userText, history, toolResults, queue, purchase, queue, intent)
   }
 
-  const productId = resolveProductIdFromContext(history, userText)
-  if (!productId) {
-    if (options.route === 'checkout' && purchase) {
+  const resolvedId =
+    intent.product_id ||
+    (multi.length === 1 ? multi[0].id : null) ||
+    (await resolveProductIdFromContext(history, userText, sessionQueue))
+
+  if (!resolvedId) {
+    if (options.route === 'checkout' && isCartAssistIntent(intent)) {
       return {
         toolResults,
         reply: buildPickProductsPrompt(history),
@@ -246,7 +258,7 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     return { toolResults, reply: null }
   }
 
-  const product = await Product.findById(productId).select('name colors sizes price')
+  const product = await Product.findById(resolvedId).select('name colors sizes price')
   if (!product) {
     return { toolResults, reply: null }
   }

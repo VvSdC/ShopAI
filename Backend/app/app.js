@@ -37,6 +37,10 @@ import {
   enqueueCheckoutFulfillment,
   isCheckoutFulfillmentQueueEnabled,
 } from '../services/checkoutFulfillmentQueue.js'
+import {
+  claimStripeWebhookEvent,
+  releaseStripeWebhookEvent,
+} from '../services/stripeWebhookIdempotency.js'
 import logger from '../utils/logger.js'
 
 const app = express()
@@ -47,7 +51,14 @@ app.use(requestIdMiddleware)
 
 app.use(helmet(buildHelmetOptions()))
 
-app.use(compression())
+app.use(
+  compression({
+    filter: (req, res) => {
+      if (req.path?.includes('/message/stream')) return false
+      return compression.filter(req, res)
+    },
+  })
+)
 
 app.use(cors({
   origin: config.cors.origin,
@@ -105,7 +116,18 @@ app.post(
       const receiptEmail =
         session.customer_details?.email || session.customer_email || null
 
+      let eventClaim = null
       try {
+        eventClaim = await claimStripeWebhookEvent({
+          stripeEventId: event.id,
+          eventType: event.type,
+          orderId: parsedOrderId,
+        })
+        if (!eventClaim.claimed) {
+          logger.log('⏭️ Duplicate Stripe webhook event, skipping:', event.id)
+          return response.status(200).json({ received: true, duplicate: true })
+        }
+
         let processedInline = false
 
         if (isCheckoutFulfillmentQueueEnabled()) {
@@ -144,6 +166,9 @@ app.post(
           }
         }
       } catch (err) {
+        if (eventClaim?.claimed) {
+          await releaseStripeWebhookEvent(event.id, eventClaim.backend)
+        }
         logger.error('❌ Checkout webhook handling failed:', err.message)
         return response.status(500).json({ error: 'Webhook processing failed' })
       }
