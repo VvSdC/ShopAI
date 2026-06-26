@@ -12,12 +12,23 @@ import { embedSearchQuery } from './embeddingService.js'
 import { vectorSearch } from './vectorSearch.js'
 import { reciprocalRankFusion, applyRerankOrder } from './hybridRanker.js'
 import { rerankDocuments } from './rerankService.js'
+import { brandMongoCondition, mongoInCondition } from '../../utils/parseBrandFilter.js'
 
 function buildMongoFilter(args) {
   const filter = {}
   if (args.categoryId) filter.category = args.categoryId
-  if (args.brand) filter.brand = args.brand
-  if (args.color) filter.colors = args.color
+  if (args.brands?.length) {
+    const brandMatch = brandMongoCondition(args.brands)
+    if (brandMatch) filter.brand = brandMatch
+  } else if (args.brand) {
+    filter.brand = args.brand
+  }
+  if (args.colors?.length) {
+    const colorMatch = mongoInCondition(args.colors)
+    if (colorMatch) filter.colors = colorMatch
+  } else if (args.color) {
+    filter.colors = args.color
+  }
   if (args.size) filter.sizes = args.size
   if (args.min_price || args.max_price) {
     filter.price = {}
