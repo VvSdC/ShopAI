@@ -247,6 +247,7 @@ const productSlice = createSlice({
       state.loading = true
       state.detailFetching = true
       state.detailFetchKey = String(action.meta.arg ?? '')
+      state.isUpdated = false
     })
     builder.addCase(fetchProductAction.fulfilled, (state, action) => {
       state.loading = false

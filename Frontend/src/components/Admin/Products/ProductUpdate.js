@@ -24,11 +24,11 @@ export default function ProductUpdate() {
   const navigate = useNavigate();
   //get id from params
   const { id } = useParams();
-  //reset success state on mount
+  // Reset stale success flag when opening a product for edit
   useEffect(() => {
     dispatch(resetSuccessAction());
-  }, [dispatch]);
-  //fetch single product
+  }, [dispatch, id]);
+
   useEffect(() => {
     dispatch(fetchProductAction(id));
   }, [id, dispatch]);
@@ -139,21 +139,9 @@ export default function ProductUpdate() {
         colors: colorsOption?.map((color) => color.label),
       })
     ).unwrap().then(() => {
+      dispatch(resetSuccessAction());
       navigate('/admin/manage-products');
     }).catch(() => {});
-
-    //reset form data
-    setFormData({
-      name: "",
-      description: "",
-      category: "",
-      sizes: "",
-      brand: "",
-      colors: "",
-      images: "",
-      price: "",
-      totalQty: "",
-    });
   };
 
   return (
