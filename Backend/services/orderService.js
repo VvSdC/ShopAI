@@ -391,7 +391,7 @@ export class OrderService {
     }
 
     return {
-      order: updatedOrder,
+      order: await Order.findById(orderId),
       confirmationEmailSent: refreshedOrder?.confirmationEmailSent === true,
       emailTo: fulfillment?.emailTo || receiptEmail,
       emailError: fulfillment?.emailError,

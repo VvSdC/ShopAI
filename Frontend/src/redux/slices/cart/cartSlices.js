@@ -3,6 +3,10 @@ import axiosInstance from '../../../utils/axiosInstance'
 import { fetchCouponAction } from '../coupons/couponsSlice'
 import { parseLocalCart } from '../../../utils/localCart'
 import { skipIfListFetching } from '../../utils/skipIfFetching'
+import {
+  isRecentPostCheckout,
+  clearPostCheckoutFlag,
+} from '../../../utils/postCheckout'
 
 const initialState = {
   cartItems: [],
@@ -114,8 +118,8 @@ export const getCartFromServerAction = createAsyncThunk(
 export const clearCartAction = createAsyncThunk(
   'cart/clear',
   async (_, { rejectWithValue, getState }) => {
+    persistCartItems([])
     if (!isLoggedIn(getState)) {
-      persistCartItems([])
       return {
         cartItems: [],
         serverCouponCode: null,
@@ -142,6 +146,19 @@ export const syncAndLoadCartAction = createAsyncThunk(
       return { cartItems: readLocalCart(), fromServer: false }
     }
     try {
+      if (isRecentPostCheckout()) {
+        persistCartItems([])
+        const { data } = await axiosInstance.get('/cart')
+        const payload = mapServerCartResponse(data)
+        persistCartItems(payload.cartItems)
+        clearPostCheckoutFlag()
+        return {
+          ...payload,
+          fromServer: true,
+          mergeConflicts: [],
+        }
+      }
+
       const { data: initial } = await axiosInstance.get('/cart')
       const serverItems = mapServerCartItems(initial.cart?.items)
       const localItems = readLocalCart()

@@ -154,6 +154,25 @@ export const cancelOrderAction = createAsyncThunk(
 const ordersSlice = createSlice({
   name: 'orders',
   initialState,
+  reducers: {
+    applyVerifiedOrderPayment: (state, action) => {
+      const verified = action.payload
+      const verifiedId = verified?._id != null ? String(verified._id) : ''
+      if (!verifiedId) return
+
+      const paymentStatus = verified.paymentStatus || 'paid'
+      const idx = state.userOrders.findIndex((o) => String(o._id) === verifiedId)
+      if (idx >= 0) {
+        state.userOrders[idx] = {
+          ...state.userOrders[idx],
+          paymentStatus,
+          ...(verified.paymentMethod && verified.paymentMethod !== 'Not specified'
+            ? { paymentMethod: verified.paymentMethod }
+            : {}),
+        }
+      }
+    },
+  },
   extraReducers: (builder) => {
     //create
     builder.addCase(placeOrderAction.pending, (state) => {
@@ -278,5 +297,7 @@ const ordersSlice = createSlice({
 
 //generate the reducer
 const ordersReducer = ordersSlice.reducer
+
+export const { applyVerifiedOrderPayment } = ordersSlice.actions
 
 export default ordersReducer

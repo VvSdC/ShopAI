@@ -11,6 +11,7 @@ import {
   isCouponNotStarted,
   daysLeftLabel,
 } from '../utils/couponDates.js'
+import { resolveSizeForProduct } from './cartVariantMatch.js'
 
 export function productIdKey(id) {
   if (id == null) return ''
@@ -126,7 +127,7 @@ async function loadProductMapForCartItems(items) {
   if (!productIds.length) return {}
 
   const products = await Product.find({ _id: { $in: productIds } }).select(
-    'name price description images totalQty totalSold colors sizes'
+    'name price description images totalQty totalSold colors sizes sizeMeasurementType'
   )
   const productMap = {}
   products.forEach((p) => {
@@ -241,7 +242,7 @@ export async function addItem(userId, { productId, color, size, qty = 1 }) {
   }
 
   const matchedColor = resolveOptionMatch(color, product.colors)
-  const matchedSize = resolveOptionMatch(size, product.sizes)
+  const matchedSize = resolveSizeForProduct(size, product)
 
   if (!matchedColor) {
     throw new AppError(
@@ -251,7 +252,7 @@ export async function addItem(userId, { productId, color, size, qty = 1 }) {
   }
   if (!matchedSize) {
     throw new AppError(
-      `Invalid size. Available sizes: ${product.sizes.join(', ')}`,
+      `Invalid size. Available sizes: ${(product.sizes || []).join(', ')}`,
       400
     )
   }
@@ -381,7 +382,7 @@ export async function syncLocalItems(userId, items) {
       if (!product) continue
 
       const matchedColor = resolveOptionMatch(item.color, product.colors)
-      const matchedSize = resolveOptionMatch(item.size, product.sizes)
+      const matchedSize = resolveSizeForProduct(item.size, product)
       if (!matchedColor || !matchedSize) continue
 
       const qtyLeft = product.totalQty - product.totalSold

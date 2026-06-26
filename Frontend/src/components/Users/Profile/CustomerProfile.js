@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { getUserProfileAction, deleteAccountAction } from '../../../redux/slices/users/usersSlice'
-import { fetchUserOrdersAction, cancelOrderAction } from '../../../redux/slices/orders/ordersSlices'
+import {
+  fetchUserOrdersAction,
+  cancelOrderAction,
+  applyVerifiedOrderPayment,
+} from '../../../redux/slices/orders/ordersSlices'
 import { fetchMyReturnsAction } from '../../../redux/slices/returns/returnsSlice'
 import CustomerDetails from './CustomerDetails'
 import ReturnRequestModal from './ReturnRequestModal'
@@ -189,8 +193,14 @@ export default function CustomerProfile() {
 
   useStripeReturnHandler({
     defaultRedirect: '/customer-profile',
-    onVerified: (data) => {
-      dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
+    onVerified: async (data) => {
+      if (data?.order) {
+        dispatch(applyVerifiedOrderPayment(data.order))
+      }
+      await dispatch(
+        fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE })
+      ).unwrap()
+      dispatch(fetchMyReturnsAction())
       const orderNo = data?.order?.orderNumber
       setToast(
         orderNo

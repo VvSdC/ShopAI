@@ -22,6 +22,7 @@ import {
   previewCheckout,
   checkoutFromCart,
 } from './checkoutFromCart.js'
+import { resolveSizeForProduct } from './cartVariantMatch.js'
 import { searchProductsForChat } from './search/searchService.js'
 import {
   listShippingAddresses,
@@ -556,16 +557,18 @@ const toolExecutors = {
     const qty = Math.max(1, Number(args.qty) || 1)
     const productId = args.product_id
 
-    const product = await Product.findById(productId).select('colors sizes')
+    const product = await Product.findById(productId).select(
+      'colors sizes sizeMeasurementType name'
+    )
     if (!product) {
       return { error: 'Product not found.' }
     }
 
     const matchedColor = resolveOptionMatch(args.color, product.colors)
-    const matchedSize = resolveOptionMatch(args.size, product.sizes)
+    const matchedSize = resolveSizeForProduct(args.size, product)
     if (!matchedColor || !matchedSize) {
       return {
-        error: `Invalid variant. Colors: ${product.colors.join(', ')}. Sizes: ${product.sizes.join(', ')}.`,
+        error: `Invalid variant. Colors: ${product.colors.join(', ')}. Sizes: ${(product.sizes || []).join(', ') || 'One Size'}.`,
       }
     }
 
