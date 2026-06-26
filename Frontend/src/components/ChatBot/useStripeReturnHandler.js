@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
-import { getCartFromServerAction } from '../../redux/slices/cart/cartSlices'
+import { clearCartAction } from '../../redux/slices/cart/cartSlices'
 
 export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assistant' }) {
   const dispatch = useDispatch()
@@ -26,16 +26,17 @@ export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assista
       .get(`/orders/verify-payment/${sessionId}`)
       .then((res) => {
         if (!mounted) return
-        localStorage.setItem('cartItems', JSON.stringify([]))
-        dispatch(getCartFromServerAction())
-        onVerifiedRef.current?.(res.data)
-        const redirectTo = res.data?.order?.checkoutSource === 'cart'
-          ? '/customer-profile'
-          : defaultRedirect
-        setSearchParams({}, { replace: true })
-        if (redirectTo !== window.location.pathname) {
-          navigate(redirectTo, { replace: true })
-        }
+        return dispatch(clearCartAction()).then(() => {
+          if (!mounted) return
+          onVerifiedRef.current?.(res.data)
+          const redirectTo = res.data?.order?.checkoutSource === 'cart'
+            ? '/customer-profile'
+            : defaultRedirect
+          setSearchParams({}, { replace: true })
+          if (redirectTo !== window.location.pathname) {
+            navigate(redirectTo, { replace: true })
+          }
+        })
       })
       .catch((err) => {
         if (!mounted) return

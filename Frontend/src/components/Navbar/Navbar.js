@@ -62,6 +62,14 @@ export default function Navbar() {
   }, [dispatch, isLoggedIn, user])
 
   useEffect(() => {
+    const isPaymentReturn =
+      location.search.includes('payment=success') &&
+      location.search.includes('session_id=')
+    if (isPaymentReturn) {
+      setCartCountReady(true)
+      return undefined
+    }
+
     setCartCountReady(false)
     let cancelled = false
 
@@ -72,7 +80,7 @@ export default function Navbar() {
     return () => {
       cancelled = true
     }
-  }, [dispatch, isLoggedIn])
+  }, [dispatch, isLoggedIn, location.search])
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction()).then(() => {

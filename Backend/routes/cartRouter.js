@@ -10,6 +10,7 @@ import {
   removeCartCouponCtrl,
   syncCartCtrl,
   validateServerCartCtrl,
+  clearCartCtrl,
 } from '../controllers/cartCtrl.js'
 import {
   addCartItemSchema,
@@ -22,6 +23,7 @@ import {
 const cartRouter = express.Router()
 
 cartRouter.get('/', isLoggedIn, getCartCtrl)
+cartRouter.delete('/', isLoggedIn, clearCartCtrl)
 cartRouter.post('/items', isLoggedIn, validate(addCartItemSchema), addCartItemCtrl)
 cartRouter.patch('/items', isLoggedIn, validate(updateCartItemSchema), updateCartItemCtrl)
 cartRouter.delete('/items', isLoggedIn, validate(removeCartItemSchema), removeCartItemCtrl)

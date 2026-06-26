@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../../utils/axiosInstance'
-import { getCartFromServerAction } from '../../../redux/slices/cart/cartSlices'
+import { clearCartAction } from '../../../redux/slices/cart/cartSlices'
 
 export default function ThanksForOrdering() {
   const dispatch = useDispatch()
@@ -31,8 +31,7 @@ export default function ThanksForOrdering() {
   // Clear cart only after payment is verified (not on accidental /success visits)
   useEffect(() => {
     if (!verified) return
-    localStorage.setItem('cartItems', JSON.stringify([]))
-    dispatch(getCartFromServerAction())
+    dispatch(clearCartAction())
   }, [verified, dispatch])
 
   const handleResendEmail = async () => {

@@ -1,5 +1,8 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import axiosInstance, { resetCsrfTokenCache } from '../../../utils/axiosInstance'
+import axiosInstance, {
+  resetCsrfTokenCache,
+  stopProactiveTokenRefresh,
+} from '../../../utils/axiosInstance'
 
 import {
   resetErrAction,
@@ -178,6 +181,7 @@ export const logoutAction = createAsyncThunk(
       // Continue with local cleanup even if backend call fails
     }
     resetCsrfTokenCache()
+    stopProactiveTokenRefresh()
     localStorage.removeItem('cartItems')
     return true
   }
@@ -216,6 +220,7 @@ export const deleteAccountAction = createAsyncThunk(
     try {
       const { data } = await axiosInstance.delete(`/users/delete-account`)
       resetCsrfTokenCache()
+      stopProactiveTokenRefresh()
       localStorage.removeItem('cartItems')
       return data
     } catch (error) {

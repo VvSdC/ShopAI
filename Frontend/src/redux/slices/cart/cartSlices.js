@@ -111,6 +111,30 @@ export const getCartFromServerAction = createAsyncThunk(
   { condition: skipIfListFetching('carts') }
 )
 
+export const clearCartAction = createAsyncThunk(
+  'cart/clear',
+  async (_, { rejectWithValue, getState }) => {
+    if (!isLoggedIn(getState)) {
+      persistCartItems([])
+      return {
+        cartItems: [],
+        serverCouponCode: null,
+        serverTotal: null,
+        fromServer: false,
+      }
+    }
+    try {
+      const { data } = await axiosInstance.delete('/cart')
+      const payload = mapServerCartResponse(data)
+      persistCartItems(payload.cartItems)
+      return { ...payload, fromServer: true }
+    } catch (error) {
+      persistCartItems([])
+      return rejectWithValue(error?.response?.data)
+    }
+  }
+)
+
 export const syncAndLoadCartAction = createAsyncThunk(
   'cart/sync-and-load',
   async (_, { rejectWithValue, getState, dispatch }) => {
@@ -397,6 +421,23 @@ const cartSlice = createSlice({
     builder.addCase(getCartFromServerAction.rejected, (state, action) => {
       state.listFetching = false
       state.error = action.payload
+    })
+
+    builder.addCase(clearCartAction.fulfilled, (state, action) => {
+      state.listFetching = false
+      state.cartItems = action.payload?.cartItems || []
+      state.serverCouponCode = action.payload?.serverCouponCode ?? null
+      state.serverTotal = action.payload?.serverTotal ?? null
+      state.priceWarnings = []
+      state.mergeConflicts = []
+    })
+    builder.addCase(clearCartAction.rejected, (state) => {
+      state.listFetching = false
+      state.cartItems = []
+      state.serverCouponCode = null
+      state.serverTotal = null
+      state.priceWarnings = []
+      state.mergeConflicts = []
     })
 
     builder.addCase(syncAndLoadCartAction.pending, (state) => {

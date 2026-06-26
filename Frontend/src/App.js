@@ -29,6 +29,7 @@ import OrdersList from "./components/Admin/Orders/OdersList";
 import AllOrders from "./components/Admin/Orders/AllOrders";
 import Customers from "./components/Admin/Orders/Customers";
 import BrandsList from "./components/Admin/Categories/BrandsList";
+import AuthTokenRefresh from "./components/AuthRoute/AuthTokenRefresh";
 import AuthRoute from "./components/AuthRoute/AuthRoute";
 import AdminRoutes from "./components/AuthRoute/AdminRoutes";
 import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
@@ -60,6 +61,7 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <AuthTokenRefresh />
       {!hideGlobalChrome && <Navbar />}
       <main className="flex-1">
         <Routes>
