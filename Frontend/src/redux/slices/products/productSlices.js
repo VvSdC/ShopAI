@@ -37,6 +37,8 @@ export const createProductAction = createAsyncThunk(
         price,
         totalQty,
         files,
+        sizeMeasurementType,
+        sizeLabel,
       } = payload
       const config = {
         headers: {
@@ -52,8 +54,12 @@ export const createProductAction = createAsyncThunk(
       formData.append('brand', brand)
       formData.append('price', price)
       formData.append('totalQty', totalQty)
+      formData.append('sizeMeasurementType', sizeMeasurementType || 'apparel')
+      if (sizeLabel) {
+        formData.append('sizeLabel', sizeLabel)
+      }
 
-      sizes.forEach((size) => {
+      ;(sizes || []).forEach((size) => {
         formData.append('sizes', size)
       })
       colors.forEach((color) => {
@@ -88,6 +94,8 @@ export const updateProductAction = createAsyncThunk(
         price,
         totalQty,
         id,
+        sizeMeasurementType,
+        sizeLabel,
       } = payload
 
       const { data } = await axiosInstance.put(
@@ -101,6 +109,8 @@ export const updateProductAction = createAsyncThunk(
           colors,
           price,
           totalQty,
+          sizeMeasurementType,
+          sizeLabel,
         }
       )
       return data

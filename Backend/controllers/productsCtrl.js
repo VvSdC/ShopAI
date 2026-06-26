@@ -15,6 +15,7 @@ import {
 } from '../services/catalogCache.js'
 import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
 import { AppError } from '../utils/appError.js'
+import { normalizeProductSizes } from '../utils/normalizeProductSizes.js'
 
 async function invalidateProductCatalogCaches() {
   await invalidateProductListCache()
@@ -41,11 +42,16 @@ function isDuplicateKeyError(err) {
 // @route   POST /api/v1/products
 // @access  Private/Admin
 export const createProductCtrl = asyncHandler(async (req, res) => {
-  const { name, description, category, sizes, colors, price, totalQty, brand } =
+  const { name, description, category, sizes, colors, price, totalQty, brand, sizeMeasurementType, sizeLabel } =
     req.body
   if (!req.files?.length) {
     throw new AppError('At least one product image is required', 400)
   }
+  const normalizedSizes = normalizeProductSizes({
+    sizeMeasurementType,
+    sizeLabel,
+    sizes,
+  })
   const convertedImgs = req.files.map((file) => file?.path)
   //Product exists
   const productExists = await Product.findOne({ name })
@@ -76,7 +82,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
       name,
       description,
       category: categoryFound._id,
-      sizes,
+      ...normalizedSizes,
       colors,
       user: req.userAuthId,
       price,
@@ -280,8 +286,16 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     price,
     totalQty,
     brand,
+    sizeMeasurementType,
+    sizeLabel,
   } = req.body
   //validation
+
+  const normalizedSizes = normalizeProductSizes({
+    sizeMeasurementType,
+    sizeLabel,
+    sizes,
+  })
 
   let categoryId
   if (category) {
@@ -299,7 +313,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       name,
       description,
       ...(categoryId ? { category: categoryId } : {}),
-      sizes,
+      ...normalizedSizes,
       colors,
       price,
       totalQty,

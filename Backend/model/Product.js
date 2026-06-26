@@ -23,10 +23,21 @@ const ProductSchema = new Schema(
       ref: 'Category',
       required: true,
     },
+    /** How sizes are defined for this product (none, apparel preset, numeric, custom). */
+    sizeMeasurementType: {
+      type: String,
+      enum: ['none', 'apparel', 'numeric', 'custom'],
+      default: 'apparel',
+    },
+    /** Customer-facing label for the size selector (e.g. "UK shoe size"). */
+    sizeLabel: {
+      type: String,
+      trim: true,
+      default: 'Size',
+    },
     sizes: {
       type: [String],
-      enum: ['S', 'M', 'L', 'XL', 'XXL'],
-      required: true,
+      default: [],
     },
     colors: {
       type: [String],

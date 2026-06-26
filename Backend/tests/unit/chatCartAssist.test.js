@@ -14,8 +14,23 @@ describe('cartVariantMatch', () => {
 
   it('skips apparel size requirement for balls', () => {
     expect(isBallLikeProduct('Kookaburra leather ball')).toBe(true)
-    const size = resolveSizeForProduct(null, ['XXL', 'XL'], 'Kookaburra leather ball', '')
+    const size = resolveSizeForProduct(
+      null,
+      { sizes: ['XXL', 'XL'], sizeMeasurementType: 'apparel', name: 'Kookaburra leather ball' },
+      'Kookaburra leather ball',
+      ''
+    )
     expect(size).toBe('XXL')
+  })
+
+  it('uses One Size for no-size products', () => {
+    const size = resolveSizeForProduct(
+      null,
+      { sizes: [], sizeMeasurementType: 'none', name: 'Gift card' },
+      'Gift card',
+      ''
+    )
+    expect(size).toBe('One Size')
   })
 })
 

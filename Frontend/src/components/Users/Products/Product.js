@@ -24,6 +24,11 @@ import {
   deleteReviewAction,
 } from '../../../redux/slices/reviews/reviewsSlice'
 import { getCartUnitCount } from '../../../utils/cartCount'
+import {
+  displaySizeLabel,
+  productRequiresSizeSelection,
+  resolveCartSize,
+} from '../../../utils/sizeMeasurement'
 
 const policies = [
   {
@@ -118,7 +123,28 @@ export default function Product() {
     if (id) dispatch(fetchProductAction(id))
     dispatch(fetchColorsAction())
     setActiveImage(0)
+    setSelectedSize('')
+    setSelectedColor('')
   }, [id, dispatch])
+
+  const { product, loading, error } = useSelector((state) => state?.products)
+  const showSizeSelector = productRequiresSizeSelection(product)
+  const sizeLabel = displaySizeLabel(product)
+  const { cartItems = [] } = useSelector((state) => state?.cart || {})
+  const cartUnitCount = getCartUnitCount(cartItems)
+  const { userAuth } = useSelector((state) => state?.users)
+  const isLoggedIn = userAuth?.isLoggedIn
+  const currentUserId = userAuth?.userInfo?._id
+
+  useEffect(() => {
+    if (!product?._id) return
+    const sizes = product.sizes || []
+    if (product.sizeMeasurementType === 'none') {
+      setSelectedSize('One Size')
+    } else if (sizes.length === 1) {
+      setSelectedSize(sizes[0])
+    }
+  }, [product?._id, product?.sizeMeasurementType, product?.sizes])
 
   //get all colors from store for hex lookup
   const allColors = useSelector((state) => state?.colors?.colors?.colors) || []
@@ -127,14 +153,6 @@ export default function Product() {
     colorHexMap[c.name] = c.hex
   })
 
-  const { product, loading, error } = useSelector((state) => state?.products)
-  const { cartItems = [] } = useSelector((state) => state?.cart || {})
-  const cartUnitCount = getCartUnitCount(cartItems)
-  const { userAuth } = useSelector((state) => state?.users)
-  const isLoggedIn = userAuth?.isLoggedIn
-  const currentUserId = userAuth?.userInfo?._id
-
-  //Get cart items from localStorage
   useEffect(() => {
     dispatch(getCartItemsFromLocalStorageAction())
   }, [dispatch])
@@ -150,14 +168,16 @@ export default function Product() {
       return
     }
 
-    if (selectedSize === '') {
+    if (showSizeSelector && !resolveCartSize(product, selectedSize)) {
       Swal.fire({
         icon: 'error',
         title: 'Oops...!',
-        text: 'Please select product size',
+        text: `Please select ${sizeLabel.toLowerCase()}`,
       })
       return
     }
+
+    const cartSize = resolveCartSize(product, selectedSize)
 
     dispatch(
       addOrderToCartaction({
@@ -167,7 +187,7 @@ export default function Product() {
         price: product?.price,
         description: product?.description,
         color: selectedColor,
-        size: selectedSize,
+        size: cartSize,
         image: product?.images?.[0],
         totalPrice: product?.price * qty,
         qtyLeft: product?.qtyLeft,
@@ -504,31 +524,37 @@ export default function Product() {
                       </RadioGroup>
                     </div>
 
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-                        Size
-                      </p>
-                      <RadioGroup value={selectedSize} onChange={setSelectedSize} className="mt-2.5">
-                        <div className="flex flex-wrap gap-2">
-                          {product?.sizes?.map((size) => (
-                            <RadioGroup.Option
-                              key={size}
-                              value={size}
-                              className={({ checked }) =>
-                                classNames(
-                                  checked
-                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
-                                    : 'border-stone-200 bg-white text-stone-800 hover:border-stone-300',
-                                  'min-w-[3rem] cursor-pointer rounded-lg border px-4 py-2.5 text-center text-sm font-semibold uppercase'
-                                )
-                              }
-                            >
-                              <RadioGroup.Label as="span">{size}</RadioGroup.Label>
-                            </RadioGroup.Option>
-                          ))}
-                        </div>
-                      </RadioGroup>
-                    </div>
+                    {showSizeSelector && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                          {sizeLabel}
+                          {selectedSize ? ` · ${selectedSize}` : ''}
+                        </p>
+                        <RadioGroup value={selectedSize} onChange={setSelectedSize} className="mt-2.5">
+                          <div className="flex flex-wrap gap-2">
+                            {product?.sizes?.map((size) => (
+                              <RadioGroup.Option
+                                key={size}
+                                value={size}
+                                className={({ checked }) =>
+                                  classNames(
+                                    checked
+                                      ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                      : 'border-stone-200 bg-white text-stone-800 hover:border-stone-300',
+                                    product?.sizeMeasurementType === 'apparel'
+                                      ? 'min-w-[3rem] uppercase'
+                                      : 'min-w-[2.5rem]',
+                                    'cursor-pointer rounded-lg border px-4 py-2.5 text-center text-sm font-semibold'
+                                  )
+                                }
+                              >
+                                <RadioGroup.Label as="span">{size}</RadioGroup.Label>
+                              </RadioGroup.Option>
+                            ))}
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-4">
                       <div>
