@@ -91,9 +91,13 @@ export function PolicyList({ items }) {
   )
 }
 
-export function PolicyLink({ to, children }) {
+export function PolicyLink({ to, state, children }) {
   return (
-    <Link to={to} className="font-medium text-indigo-600 hover:text-indigo-500 underline-offset-2 hover:underline">
+    <Link
+      to={to}
+      state={state}
+      className="font-medium text-indigo-600 hover:text-indigo-500 underline-offset-2 hover:underline"
+    >
       {children}
     </Link>
   )
@@ -107,8 +111,9 @@ export function PolicyCta({ title, description, links }) {
       <div className="mt-4 flex flex-wrap gap-3">
         {links.map((link) => (
           <Link
-            key={link.to}
+            key={link.to + (link.label || '')}
             to={link.to}
+            state={link.state}
             className="inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
           >
             {link.label}

@@ -14,6 +14,7 @@ import PolicyPageLayout, {
   PolicyLink,
   PolicyCta,
 } from './PolicyPageLayout'
+import { assistantStartNewState } from '../ChatBot/assistantNavigation'
 
 export default function CancellationPolicyPage() {
   const [windowNote, setWindowNote] = useState('pending or processing')
@@ -55,7 +56,7 @@ export default function CancellationPolicyPage() {
             </>,
             <>Tap <strong className="text-stone-800">Cancel Order</strong> and confirm.</>,
             <>
-              Or ask <PolicyLink to="/assistant">Shop with AI</PolicyLink> — the assistant can cancel
+              Or ask <PolicyLink to="/assistant" state={assistantStartNewState}>Shop with AI</PolicyLink> — the assistant can cancel
               eligible orders in chat.
             </>,
           ]}
@@ -85,7 +86,7 @@ export default function CancellationPolicyPage() {
         description="Check your orders, cancel before ship, or ask the assistant for order status."
         links={[
           { to: '/customer-profile', label: 'My Profile' },
-          { to: '/assistant', label: 'Shop with AI' },
+          { to: '/assistant', label: 'Shop with AI', state: assistantStartNewState },
         ]}
       />
 

@@ -16,6 +16,7 @@ import PolicyPageLayout, {
   PolicyLink,
   PolicyCta,
 } from './PolicyPageLayout'
+import { assistantStartNewState } from '../ChatBot/assistantNavigation'
 
 export default function ReturnRefundPolicyPage() {
   const [returnDays, setReturnDays] = useState(3)
@@ -65,7 +66,7 @@ export default function ReturnRefundPolicyPage() {
             <>Select items, quantities, and a reason from the list (required).</>,
             <>Submit — our team will review your request.</>,
             <>
-              Or use <PolicyLink to="/assistant">Shop with AI</PolicyLink> to start a return in chat for
+              Or use <PolicyLink to="/assistant" state={assistantStartNewState}>Shop with AI</PolicyLink> to start a return in chat for
               eligible orders.
             </>,
           ]}
@@ -120,7 +121,7 @@ export default function ReturnRefundPolicyPage() {
         description="View your orders in profile or ask the assistant if your order is eligible."
         links={[
           { to: '/customer-profile', label: 'My Profile' },
-          { to: '/assistant', label: 'Shop with AI' },
+          { to: '/assistant', label: 'Shop with AI', state: assistantStartNewState },
         ]}
       />
 

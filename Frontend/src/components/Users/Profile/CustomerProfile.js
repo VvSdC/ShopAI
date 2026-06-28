@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { getUserProfileAction, deleteAccountAction } from '../../../redux/slices/users/usersSlice'
 import {
@@ -16,7 +16,7 @@ import {
   getRefundSummary,
   REFUND_TIMELINE,
 } from '../../../utils/orderDisplay'
-import { useStripeReturnHandler } from '../../ChatBot/useStripeReturnHandler'
+import { useStripeReturnHandler, isStripePaymentReturnSearch } from '../../ChatBot/useStripeReturnHandler'
 import ConfirmDialog from '../../common/ConfirmDialog'
 import ShopPagination from '../Products/ShopPagination'
 
@@ -184,12 +184,20 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
 
 export default function CustomerProfile() {
   const dispatch = useDispatch()
+  const [searchParams] = useSearchParams()
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [confirmCancel, setConfirmCancel] = useState(null)
   const [returnOrder, setReturnOrder] = useState(null)
   const [toast, setToast] = useState('')
   const ORDERS_PER_PAGE = 5
+  const [awaitingPaymentVerify, setAwaitingPaymentVerify] = useState(() =>
+    isStripePaymentReturnSearch(searchParams.toString())
+  )
+  const skipOrdersFetchAfterPaymentRef = useRef(false)
+  const currentPageRef = useRef(currentPage)
+
+  currentPageRef.current = currentPage
 
   useStripeReturnHandler({
     defaultRedirect: '/customer-profile',
@@ -198,9 +206,15 @@ export default function CustomerProfile() {
         dispatch(applyVerifiedOrderPayment(data.order))
       }
       await dispatch(
-        fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE })
+        fetchUserOrdersAction({
+          page: currentPageRef.current,
+          limit: ORDERS_PER_PAGE,
+          force: true,
+        })
       ).unwrap()
       dispatch(fetchMyReturnsAction())
+      skipOrdersFetchAfterPaymentRef.current = true
+      setAwaitingPaymentVerify(false)
       const orderNo = data?.order?.orderNumber
       setToast(
         orderNo
@@ -209,6 +223,9 @@ export default function CustomerProfile() {
       )
       setTimeout(() => setToast(''), 8000)
     },
+    onVerifyFailed: () => {
+      setAwaitingPaymentVerify(false)
+    },
   })
 
   useEffect(() => {
@@ -216,9 +233,14 @@ export default function CustomerProfile() {
   }, [dispatch])
 
   useEffect(() => {
+    if (awaitingPaymentVerify) return
+    if (skipOrdersFetchAfterPaymentRef.current) {
+      skipOrdersFetchAfterPaymentRef.current = false
+      return
+    }
     dispatch(fetchUserOrdersAction({ page: currentPage, limit: ORDERS_PER_PAGE }))
     dispatch(fetchMyReturnsAction())
-  }, [dispatch, currentPage])
+  }, [dispatch, currentPage, awaitingPaymentVerify])
 
   const { error: profileError, loading: profileLoading, profile } = useSelector(
     (state) => state?.users
@@ -228,7 +250,7 @@ export default function CustomerProfile() {
   )
   const { myReturns } = useSelector((state) => state?.returns)
 
-  const loading = profileLoading || ordersLoading
+  const loading = profileLoading || ordersLoading || awaitingPaymentVerify
   const error = profileError || ordersError
 
   const handleCancelOrder = (orderId) => {

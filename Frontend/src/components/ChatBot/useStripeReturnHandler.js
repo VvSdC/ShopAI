@@ -24,6 +24,11 @@ function getVerifiedPayment(sessionId) {
   return verifyPromises.get(sessionId)
 }
 
+export function isStripePaymentReturnSearch(search) {
+  const params = new URLSearchParams(search)
+  return params.get('payment') === 'success' && Boolean(params.get('session_id'))
+}
+
 export function useStripeReturnHandler({
   onVerified,
   onVerifyFailed,

@@ -14,9 +14,17 @@ import {
   writeWidgetSessionId,
   clearWidgetSessionId,
 } from './widgetSessionStorage'
+import { ASSISTANT_PATH, assistantSessionState } from './assistantNavigation'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
 
 const WIDGET_TEXTAREA_MAX_HEIGHT = 80
+
+const WIDGET_WELCOME_SUFFIX =
+  '\n\nThis quick chat resumes after a page refresh in this tab. Open **Shop with AI** in the navbar for full history and past conversations.'
+
+function buildWidgetWelcome(name) {
+  return buildClientWelcomeMessage(name) + WIDGET_WELCOME_SUFFIX
+}
 
 function mapApiMessages(items) {
   return (items || []).map((m) => ({
@@ -78,6 +86,7 @@ export default function ChatWidget() {
 
   const [cartHint, setCartHint] = useState('')
   const [sessionId, setSessionId] = useState(null)
+  const [sessionHydrated, setSessionHydrated] = useState(false)
 
   const { userAuth } = useSelector((state) => state?.users)
   const isLoggedIn = userAuth?.isLoggedIn
@@ -97,28 +106,39 @@ export default function ChatWidget() {
       }
       setSessionId(null)
       setMessages([])
+      setSessionHydrated(true)
       return
     }
 
     if (!userId) return
 
+    let cancelled = false
+    setSessionHydrated(false)
+
     const storedId = readWidgetSessionId(userId)
-    if (!storedId) return
+    if (!storedId) {
+      setSessionId(null)
+      setMessages([])
+      setSessionHydrated(true)
+      return undefined
+    }
 
     setSessionId(storedId)
-    let cancelled = false
 
     axiosInstance
       .get(`/chat/sessions/${storedId}`)
       .then(({ data }) => {
         if (cancelled) return
-        const restored = mapApiMessages(data.session?.messages)
-        if (restored.length) setMessages(restored)
+        setMessages(mapApiMessages(data.session?.messages))
       })
       .catch(() => {
         if (cancelled) return
         clearWidgetSessionId(userId)
         setSessionId(null)
+        setMessages([])
+      })
+      .finally(() => {
+        if (!cancelled) setSessionHydrated(true)
       })
 
     return () => {
@@ -163,6 +183,13 @@ export default function ChatWidget() {
   useEffect(() => {
     if (!input) resetTextareaHeight(inputRef.current)
   }, [input])
+
+  const ensureWelcomeMessage = useCallback(() => {
+    setMessages((current) => {
+      if (current.length > 0) return current
+      return [{ role: 'assistant', content: buildWidgetWelcome(userName) }]
+    })
+  }, [userName])
 
   if (!isLoggedIn) return null
 
@@ -271,27 +298,13 @@ export default function ChatWidget() {
 
 
   const toggleChat = () => {
-
-    setIsOpen((prev) => !prev)
-
-    if (!isOpen && messages.length === 0) {
-
-      setMessages([
-
-        {
-
-          role: 'assistant',
-
-          content:
-            buildClientWelcomeMessage(userName) +
-            '\n\nThis quick chat resumes after a page refresh in this tab. Open **Shop with AI** in the navbar for full history and past conversations.',
-
-        },
-
-      ])
-
-    }
-
+    setIsOpen((prev) => {
+      const opening = !prev
+      if (opening && sessionHydrated) {
+        ensureWelcomeMessage()
+      }
+      return opening
+    })
   }
 
 
@@ -382,7 +395,9 @@ export default function ChatWidget() {
 
               <Link
 
-                to="/assistant"
+                to={ASSISTANT_PATH}
+
+                state={assistantSessionState(sessionId)}
 
                 className="p-1.5 rounded-full hover:bg-blue-700 transition-colors"
 
@@ -419,7 +434,12 @@ export default function ChatWidget() {
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-gray-50">
             <AiDisclosureBanner compact />
 
-            {messages.map((msg, i) => (
+            {!sessionHydrated && (
+              <p className="text-center text-sm text-gray-500 py-6">Loading conversation…</p>
+            )}
+
+            {sessionHydrated &&
+              messages.map((msg, i) => (
               <div
                 key={msg.id || i}
                 className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}

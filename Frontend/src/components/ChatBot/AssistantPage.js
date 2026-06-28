@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   PlusIcon,
   TrashIcon,
@@ -27,6 +27,7 @@ import {
   formatSessionDate,
 } from './useShopAIChat'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
+import { keepStripeReturnSearch } from './assistantNavigation'
 
 const ASSISTANT_TEXTAREA_MAX_HEIGHT = 120
 
@@ -50,6 +51,8 @@ function SendIcon() {
 }
 
 export default function AssistantPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -149,34 +152,93 @@ export default function AssistantPage() {
     inputRef.current?.focus()
   }, [mapApiMessages])
 
-  const loadSessions = useCallback(async () => {
+  const fetchSessionList = useCallback(async () => {
+    const { data } = await axiosInstance.get('/chat/sessions')
+    const list = data.sessions || []
+    setSessions(list)
+    return list
+  }, [])
+
+  const reloadSessions = useCallback(async () => {
     setLoadingSessions(true)
     setSessionsLoadError(null)
     try {
-      const { data } = await axiosInstance.get('/chat/sessions')
-      const list = data.sessions || []
-      setSessions(list)
-      if (list.length > 0) {
-        try {
-          await loadSession(list[0].id)
-        } catch (err) {
-          console.error('Failed to load chat session:', err)
-          setSessionsLoadError('Could not load your conversations. Please refresh.')
-        }
+      const list = await fetchSessionList()
+      const activeId = activeSessionId
+      if (activeId && list.some((s) => s.id === activeId)) {
+        await loadSession(activeId)
+      } else if (list.length > 0) {
+        await loadSession(list[0].id)
       } else {
         await startNewConversation()
       }
     } catch (err) {
-      console.error('Failed to load chat sessions:', err)
+      console.error('Failed to reload chat sessions:', err)
       setSessionsLoadError('Could not load your conversations. Please refresh.')
     } finally {
       setLoadingSessions(false)
     }
-  }, [loadSession, startNewConversation])
+  }, [activeSessionId, fetchSessionList, loadSession, startNewConversation])
 
   useEffect(() => {
-    loadSessions()
-  }, [loadSessions])
+    let cancelled = false
+    const params = new URLSearchParams(location.search)
+    const startNew =
+      location.state?.startNew === true || params.get('new') === '1'
+    const sessionIdFromNav = location.state?.sessionId || params.get('session') || null
+    const cleanPath = `${location.pathname}${keepStripeReturnSearch(location.search)}`
+    const shouldCleanNav =
+      location.state?.startNew ||
+      location.state?.sessionId ||
+      params.get('new') ||
+      params.get('session')
+
+    async function initSessions() {
+      setLoadingSessions(true)
+      setSessionsLoadError(null)
+      try {
+        const list = await fetchSessionList()
+        if (cancelled) return
+
+        if (startNew) {
+          await startNewConversation()
+        } else if (sessionIdFromNav) {
+          try {
+            await loadSession(sessionIdFromNav)
+          } catch (err) {
+            console.error('Failed to load chat session:', err)
+            if (list.length > 0) {
+              await loadSession(list[0].id)
+            } else {
+              await startNewConversation()
+            }
+          }
+        } else if (list.length > 0) {
+          await loadSession(list[0].id)
+        } else {
+          await startNewConversation()
+        }
+
+        if (shouldCleanNav && !cancelled) {
+          navigate(cleanPath, { replace: true, state: null })
+        }
+      } catch (err) {
+        console.error('Failed to load chat sessions:', err)
+        if (!cancelled) {
+          setSessionsLoadError('Could not load your conversations. Please refresh.')
+        }
+      } finally {
+        if (!cancelled) setLoadingSessions(false)
+      }
+    }
+
+    initSessions()
+    return () => {
+      cancelled = true
+    }
+    // Re-init when navigating to /assistant (e.g. navbar "new chat" or widget expand).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 
   const confirmDeleteSession = async () => {
     if (!deleteTarget) return
@@ -337,7 +399,7 @@ export default function AssistantPage() {
             <p className="text-sm text-red-300">{sessionsLoadError}</p>
             <button
               type="button"
-              onClick={loadSessions}
+              onClick={reloadSessions}
               className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
             >
               Try again
@@ -505,7 +567,7 @@ export default function AssistantPage() {
                   <p>{sessionsLoadError}</p>
                   <button
                     type="button"
-                    onClick={loadSessions}
+                    onClick={reloadSessions}
                     className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-50"
                   >
                     Try again

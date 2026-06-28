@@ -22,6 +22,7 @@ import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
 import ProductSearchBar from '../Users/Products/ProductSearchBar'
 import { getCartUnitCount } from '../../utils/cartCount'
+import { ASSISTANT_PATH, assistantStartNewState } from '../ChatBot/assistantNavigation'
 
 function categoryProductCount(category) {
   return category?.productCount ?? 0
@@ -271,7 +272,8 @@ export default function Navbar() {
                   </Link>
                   {isLoggedIn && (
                     <Link
-                      to="/assistant"
+                      to={ASSISTANT_PATH}
+                      state={assistantStartNewState}
                       className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
                     >
                       <SparklesIcon className="h-4 w-4" />
@@ -434,7 +436,8 @@ export default function Navbar() {
                   </Link>
                   {isLoggedIn ? (
                     <Link
-                      to="/assistant"
+                      to={ASSISTANT_PATH}
+                      state={assistantStartNewState}
                       className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
                     >
                       <SparklesIcon className="h-4 w-4" />

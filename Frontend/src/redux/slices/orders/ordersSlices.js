@@ -23,6 +23,7 @@ const initialState = {
   stats: null,
   userOrders: [],
   pagination: null,
+  userOrdersLatestRequestId: null,
 }
 
 //create product action
@@ -63,14 +64,17 @@ export const fetchUserOrdersAction = createAsyncThunk(
     }
   },
   {
-    condition: skipIfSameFetchInFlight(
-      'orders',
-      {
-        fetchingKey: 'userOrdersFetching',
-        requestKey: 'userOrdersFetchKey',
-      },
-      ({ page = 1, limit = 5 } = {}) => `${page}:${limit}`
-    ),
+    condition: (arg = {}, { getState }) => {
+      if (arg.force) return true
+      return skipIfSameFetchInFlight(
+        'orders',
+        {
+          fetchingKey: 'userOrdersFetching',
+          requestKey: 'userOrdersFetchKey',
+        },
+        ({ page = 1, limit = 5 } = {}) => `${page}:${limit}`
+      )(arg, { getState })
+    },
   }
 )
 
@@ -161,15 +165,33 @@ const ordersSlice = createSlice({
       if (!verifiedId) return
 
       const paymentStatus = verified.paymentStatus || 'paid'
+      const patch = {
+        paymentStatus,
+        ...(verified.paymentMethod && verified.paymentMethod !== 'Not specified'
+          ? { paymentMethod: verified.paymentMethod }
+          : {}),
+        ...(verified.status ? { status: verified.status } : {}),
+        ...(verified.totalPrice != null ? { totalPrice: verified.totalPrice } : {}),
+      }
+
       const idx = state.userOrders.findIndex((o) => String(o._id) === verifiedId)
       if (idx >= 0) {
-        state.userOrders[idx] = {
-          ...state.userOrders[idx],
-          paymentStatus,
-          ...(verified.paymentMethod && verified.paymentMethod !== 'Not specified'
-            ? { paymentMethod: verified.paymentMethod }
-            : {}),
-        }
+        state.userOrders[idx] = { ...state.userOrders[idx], ...patch }
+        return
+      }
+
+      if (paymentStatus === 'paid') {
+        state.userOrders.unshift({
+          _id: verified._id,
+          orderNumber: verified.orderNumber,
+          orderItems: verified.orderItems || [],
+          shippingAddress: verified.shippingAddress,
+          createdAt: verified.createdAt,
+          status: verified.status || 'pending',
+          paymentMethod: verified.paymentMethod || 'card',
+          totalPrice: verified.totalPrice,
+          ...patch,
+        })
       }
     },
   },
@@ -209,10 +231,12 @@ const ordersSlice = createSlice({
     builder.addCase(fetchUserOrdersAction.pending, (state, action) => {
       state.loading = true
       state.userOrdersFetching = true
+      state.userOrdersLatestRequestId = action.meta.requestId
       const { page = 1, limit = 5 } = action.meta.arg || {}
       state.userOrdersFetchKey = `${page}:${limit}`
     })
     builder.addCase(fetchUserOrdersAction.fulfilled, (state, action) => {
+      if (action.meta.requestId !== state.userOrdersLatestRequestId) return
       state.loading = false
       state.userOrdersFetching = false
       state.userOrdersFetchKey = null
@@ -220,6 +244,7 @@ const ordersSlice = createSlice({
       state.pagination = action.payload.pagination
     })
     builder.addCase(fetchUserOrdersAction.rejected, (state, action) => {
+      if (action.meta.requestId !== state.userOrdersLatestRequestId) return
       state.loading = false
       state.userOrdersFetching = false
       state.userOrdersFetchKey = null
