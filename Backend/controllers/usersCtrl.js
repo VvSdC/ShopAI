@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Order from "../model/Order.js";
 import Cart from "../model/Cart.js";
-import User from "../model/User.js";
+import User, { SAFE_USER_SELECT } from "../model/User.js";
 import {
   generateAccessToken,
 } from "../utils/generateToken.js";
@@ -117,6 +117,12 @@ export const refreshTokenCtrl = asyncHandler(async (req, res) => {
   }
 
   const rotation = await rotateRefreshToken(refreshToken, decoded.id, res);
+  if (rotation?.blocked) {
+    throw new AppError(
+      "Your account has been blocked due to malicious activity. Please contact support.",
+      403
+    );
+  }
   if (!rotation) {
     throw new AppError("Invalid refresh token, please login again", 401);
   }
@@ -178,7 +184,7 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 export const getUserProfileCtrl = asyncHandler(async (req, res) => {
   const user = await User.findById(req.userAuthId)
-    .select('-password -sessions')
+    .select(SAFE_USER_SELECT)
     .populate("orders");
   res.json({
     status: "success",
@@ -282,10 +288,11 @@ export const updateShippingAddressCtrl = asyncHandler(async (req, res) => {
   });
   user.hasShippingAddress = true;
   await user.save();
+  const safeUser = await User.findById(req.userAuthId).select(SAFE_USER_SELECT);
   res.json({
     status: "success",
     message: "Shipping address added successfully",
-    user,
+    user: safeUser,
   });
 });
 
@@ -319,10 +326,11 @@ export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
   addr.phone = phone;
   addr.country = country;
   await user.save();
+  const safeUser = await User.findById(req.userAuthId).select(SAFE_USER_SELECT);
   res.json({
     status: "success",
     message: "Shipping address updated successfully",
-    user,
+    user: safeUser,
   });
 });
 
@@ -333,15 +341,19 @@ export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
 export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
   const { addressId } = req.params;
   const user = await User.findById(req.userAuthId);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
   user.shippingAddresses.pull(addressId);
   if (user.shippingAddresses.length === 0) {
     user.hasShippingAddress = false;
   }
   await user.save();
+  const safeUser = await User.findById(req.userAuthId).select(SAFE_USER_SELECT);
   res.json({
     status: "success",
     message: "Shipping address deleted successfully",
-    user,
+    user: safeUser,
   });
 });
 
@@ -350,7 +362,7 @@ export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 
 export const getAllUsersCtrl = asyncHandler(async (req, res) => {
-  const users = await User.find().select('-password -sessions');
+  const users = await User.find().select(SAFE_USER_SELECT);
   res.json({
     status: "success",
     message: "All users fetched",
@@ -372,10 +384,14 @@ export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
   }
   user.isBlocked = !user.isBlocked;
   await user.save();
+  if (user.isBlocked) {
+    await invalidateUserRefreshToken(user);
+  }
+  const safeUser = await User.findById(user._id).select(SAFE_USER_SELECT);
   res.json({
     status: "success",
     message: user.isBlocked ? "User blocked successfully" : "User unblocked successfully",
-    user,
+    user: safeUser,
   });
 });
 

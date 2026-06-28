@@ -40,13 +40,13 @@ export function buildProductSearchFilter(args) {
     const brandMatch = brandMongoCondition(args.brands)
     if (brandMatch) conditions.push({ brand: brandMatch })
   } else if (args.brand) {
-    conditions.push({ brand: { $regex: args.brand, $options: 'i' } })
+    conditions.push({ brand: { $regex: escapeRegex(args.brand), $options: 'i' } })
   }
   if (args.colors?.length) {
     const colorMatch = mongoInCondition(args.colors)
     if (colorMatch) conditions.push({ colors: colorMatch })
   } else if (args.color) {
-    conditions.push({ colors: { $regex: args.color, $options: 'i' } })
+    conditions.push({ colors: { $regex: escapeRegex(args.color), $options: 'i' } })
   }
   if (args.size) {
     conditions.push({ sizes: args.size })

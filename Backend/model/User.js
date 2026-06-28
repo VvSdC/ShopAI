@@ -73,6 +73,16 @@ const UserShema = new Schema(
   },
   {
     timestamps: true,
+    toJSON: {
+      transform(_doc, ret) {
+        delete ret.password
+        delete ret.sessions
+        delete ret.passwordResetOTP
+        delete ret.passwordResetExpires
+        delete ret.passwordResetVerifiedUntil
+        return ret
+      },
+    },
   }
 );
 
@@ -117,5 +127,9 @@ UserShema.index({ "sessions.token": 1 });
 
 //compile the schema to model
 const User = mongoose.model("User", UserShema);
+
+/** Mongoose select string — omit secrets from API responses. */
+export const SAFE_USER_SELECT =
+  "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil";
 
 export default User;

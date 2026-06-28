@@ -31,18 +31,20 @@ describe('rateLimiters', () => {
           api: { windowMs: 900_000, max: 200 },
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
+          chatDaily: { windowMs: 86_400_000, max: 150 },
         },
       },
     }))
 
-    const { apiLimiter, authLimiter, chatLimiter } = await import(
-      '../../config/rateLimiters.js'
-    )
+    const { apiLimiter, authLimiter, chatLimiter, chatUserLimiter, chatUserDailyLimiter } =
+      await import('../../config/rateLimiters.js')
 
     expect(getRateLimitRedisClient).toHaveBeenCalled()
     expect(apiLimiter).toBeDefined()
     expect(authLimiter).toBeDefined()
     expect(chatLimiter).toBeDefined()
+    expect(chatUserLimiter).toBeDefined()
+    expect(chatUserDailyLimiter).toBeDefined()
   })
 
   it('falls back to in-memory stores when Redis is not configured', async () => {
@@ -58,6 +60,7 @@ describe('rateLimiters', () => {
           api: { windowMs: 900_000, max: 200 },
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
+          chatDaily: { windowMs: 86_400_000, max: 150 },
         },
       },
     }))
@@ -66,5 +69,27 @@ describe('rateLimiters', () => {
 
     expect(getRateLimitRedisClient).not.toHaveBeenCalled()
     expect(apiLimiter).toBeDefined()
+  })
+
+  it('keys per-user chat limits on userAuthId', async () => {
+    const { isRedisOperational } = await import('../../config/redisClient.js')
+    isRedisOperational.mockReturnValue(false)
+
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        isTest: false,
+        rateLimit: {
+          api: { windowMs: 900_000, max: 200 },
+          auth: { windowMs: 900_000, max: 15 },
+          chat: { windowMs: 60_000, max: 15 },
+          chatDaily: { windowMs: 86_400_000, max: 150 },
+        },
+      },
+    }))
+
+    const { chatUserRateLimitKey } = await import('../../config/rateLimiters.js')
+
+    expect(chatUserRateLimitKey({ userAuthId: 'abc123', ip: '1.2.3.4' })).toBe('user:abc123')
+    expect(() => chatUserRateLimitKey({ ip: '1.2.3.4' })).toThrow(/userAuthId/)
   })
 })

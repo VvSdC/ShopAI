@@ -12,6 +12,7 @@ import {
   hashRefreshToken,
   invalidateUserRefreshToken,
   resolveDeviceId,
+  rotateRefreshToken,
   verifyRefreshToken,
 } from '../../utils/authSessions.js'
 import { fetchCsrf, withCsrf, cookiePartsFromResponse } from '../helpers/csrf.js'
@@ -165,6 +166,31 @@ describe('refresh token rotation', () => {
     expect(sessionAfterSecond.token).not.toBe(sessionAfterFirst.token)
   })
 
+  it('rejects refresh for blocked users and clears their sessions', async () => {
+    const user = await User.create({
+      fullname: 'Blocked Refresh User',
+      email: `blocked-refresh-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+      isBlocked: true,
+    })
+
+    const refreshToken = generateRefreshToken(user._id)
+    await addSession(user, { token: refreshToken, deviceId: 'blocked-device' })
+
+    const csrf = await fetchCsrf(app)
+
+    const res = await withCsrf(
+      request(app).post('/shopai/users/refresh'),
+      csrf,
+      [`shopai_refresh_token=${refreshToken}`]
+    )
+
+    expect(res.status).toBe(403)
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.sessions).toEqual([])
+  })
+
   it('revokes all sessions when a superseded refresh token is reused', async () => {
     const user = await User.create({
       fullname: 'Theft Detect User',
@@ -223,6 +249,24 @@ describe('refresh token rotation', () => {
 })
 
 describe('PUT /shopai/users/change-password', () => {
+  it('rejects protected routes for blocked users with a valid access token', async () => {
+    const user = await User.create({
+      fullname: 'Blocked Access User',
+      email: `blocked-access-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret123', 10),
+      isBlocked: true,
+    })
+
+    const accessToken = generateAccessToken(user)
+
+    const res = await request(app)
+      .get('/shopai/users/profile')
+      .set('Authorization', `Bearer ${accessToken}`)
+
+    expect(res.status).toBe(403)
+    expect(res.body.message).toMatch(/blocked/i)
+  })
+
   it('revokes all sessions after password change', async () => {
     const password = 'oldpass123'
     const user = await User.create({
