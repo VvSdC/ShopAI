@@ -4,7 +4,7 @@ import { getStripeClient } from '../config/stripeClient.js'
 import User from '../model/User.js'
 import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
 import { normalizeOrderItems, getActiveQty } from './orderLineItems.js'
-import { productIdKey } from './cartService.js'
+import { productIdKey, clearCart } from './cartService.js'
 import {
   processPaidOrder,
   resendOrderConfirmation,
@@ -13,6 +13,7 @@ import {
 import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
 import { AppError } from '../utils/appError.js'
+import logger from '../utils/logger.js'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
 
@@ -283,6 +284,19 @@ export class OrderService {
     return getStripeClient().checkout.sessions.retrieve(sessionId)
   }
 
+  async ensureCartClearedForPaidOrder(order) {
+    const userId = order?.user?._id || order?.user
+    if (!userId) return
+    try {
+      await clearCart(userId)
+    } catch (err) {
+      logger.warn(
+        `[orders] clear cart after payment failed for order ${order?.orderNumber || order?._id}:`,
+        err.message
+      )
+    }
+  }
+
   /**
    * Apply Stripe checkout session fields to an order and run paid fulfillment when needed.
    * Used by webhook, verify-payment, and payment polling.
@@ -305,6 +319,7 @@ export class OrderService {
     }
 
     if (existingOrder.paymentStatus === 'paid') {
+      await this.ensureCartClearedForPaidOrder(existingOrder)
       return {
         order: existingOrder,
         updatedOrder: existingOrder,
@@ -368,11 +383,15 @@ export class OrderService {
     )
 
     const refreshedOrder = await Order.findById(orderId).select(
-      'confirmationEmailSent postPaymentProcessed paymentStatus orderNumber'
+      'confirmationEmailSent postPaymentProcessed paymentStatus orderNumber user'
     )
 
+    if (refreshedOrder?.paymentStatus === 'paid') {
+      await this.ensureCartClearedForPaidOrder(refreshedOrder)
+    }
+
     return {
-      order: updatedOrder,
+      order: await Order.findById(orderId),
       confirmationEmailSent: refreshedOrder?.confirmationEmailSent === true,
       emailTo: fulfillment?.emailTo || receiptEmail,
       emailError: fulfillment?.emailError,

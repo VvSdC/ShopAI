@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
-import { Dialog, Transition, RadioGroup } from '@headlessui/react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Dialog, Transition } from '@headlessui/react'
 import { useDispatch, useSelector } from 'react-redux'
 import { XMarkIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { FunnelIcon } from '@heroicons/react/20/solid'
@@ -14,6 +14,8 @@ import { fetchColorsAction } from '../../../redux/slices/categories/colorsSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import NoDataFound from '../../NoDataFound/NoDataFound'
 import ProductSearchBar from './ProductSearchBar'
+import BrandFilterModal from './BrandFilterModal'
+import ColorFilterModal from './ColorFilterModal'
 import PriceRangeSlider, {
   PRICE_SLIDER_MIN,
   PRICE_SLIDER_MAX,
@@ -21,28 +23,17 @@ import PriceRangeSlider, {
   formatPriceRangeLabel,
 } from './PriceRangeSlider'
 
-const sizeCategories = ['S', 'M', 'L', 'XL', 'XXL']
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(' ')
-}
-
 function ShopFiltersPanel({
   colors,
   brands,
-  color,
-  setColor,
+  selectedColors,
+  setSelectedColors,
   priceMin,
   priceMax,
   setPriceRange,
-  brand,
-  setBrand,
-  size,
-  setSize,
+  selectedBrands,
+  setSelectedBrands,
 }) {
-  const selectClass =
-    'mt-1.5 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-
   return (
     <div className="space-y-5">
       <div>
@@ -57,78 +48,25 @@ function ShopFiltersPanel({
       </div>
 
       <div>
-        <label htmlFor="filter-brand" className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
           Brand
-        </label>
-        <select
-          id="filter-brand"
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-          className={classNames(selectClass, 'capitalize')}
-        >
-          <option value="">All brands</option>
-          {brands?.map((b) => (
-            <option key={b?._id} value={b?.name}>
-              {b?.name}
-            </option>
-          ))}
-        </select>
+        </p>
+        <BrandFilterModal
+          brands={brands}
+          value={selectedBrands}
+          onChange={setSelectedBrands}
+        />
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Size</p>
-        <div className="mt-2 grid grid-cols-3 gap-1.5">
-          {sizeCategories.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSize(size === s ? '' : s)}
-              className={classNames(
-                size === s
-                  ? 'border-indigo-600 bg-indigo-600 text-white'
-                  : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300',
-                'rounded-md border py-2 text-center text-xs font-semibold'
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Color</p>
-        <RadioGroup value={color} onChange={setColor} className="mt-2">
-          <div className="grid grid-cols-5 gap-2">
-            {colors?.map((c) => (
-              <RadioGroup.Option
-                key={c?._id}
-                value={c}
-                className={({ checked }) =>
-                  classNames(
-                    checked ? 'ring-2 ring-indigo-600 ring-offset-1' : 'ring-1 ring-stone-200',
-                    'cursor-pointer rounded-full p-0.5'
-                  )
-                }
-              >
-                <span
-                  style={{ backgroundColor: c?.hex || c?.name }}
-                  title={c?.name}
-                  className="block h-7 w-7 rounded-full border border-stone-300"
-                />
-              </RadioGroup.Option>
-            ))}
-          </div>
-        </RadioGroup>
-        {color?.name && (
-          <button
-            type="button"
-            onClick={() => setColor('')}
-            className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            Clear color
-          </button>
-        )}
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+          Color
+        </p>
+        <ColorFilterModal
+          colors={colors}
+          value={selectedColors}
+          onChange={setSelectedColors}
+        />
       </div>
     </div>
   )
@@ -141,13 +79,12 @@ export default function ProductsFilters() {
   const category = params.get('category')
   const searchQuery = (params.get('q') || '').trim()
 
-  const [color, setColor] = useState('')
+  const [selectedColors, setSelectedColors] = useState([])
   const [priceMin, setPriceMin] = useState(PRICE_SLIDER_MIN)
   const [priceMax, setPriceMax] = useState(PRICE_SLIDER_MAX)
   const [appliedPriceMin, setAppliedPriceMin] = useState(PRICE_SLIDER_MIN)
   const [appliedPriceMax, setAppliedPriceMax] = useState(PRICE_SLIDER_MAX)
-  const [brand, setBrand] = useState('')
-  const [size, setSize] = useState('')
+  const [selectedBrands, setSelectedBrands] = useState([])
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(15)
 
@@ -184,10 +121,9 @@ export default function ProductsFilters() {
     }
 
     if (searchQuery) appendParam('q', searchQuery)
-    if (brand) appendParam('brand', brand)
-    if (size) appendParam('size', size)
+    selectedBrands.forEach((b) => appendParam('brand', b))
+    selectedColors.forEach((c) => appendParam('color', c))
     if (appliedPriceFilterActive) appendParam('price', `${appliedPriceMin}-${appliedPriceMax}`)
-    if (color?.name) appendParam('color', color.name)
     appendParam('page', String(page))
     appendParam('limit', String(limit))
     return url
@@ -195,9 +131,12 @@ export default function ProductsFilters() {
 
   const productUrl = buildProductUrl()
 
+  const brandFilterKey = selectedBrands.join('|')
+  const colorFilterKey = selectedColors.join('|')
+
   useEffect(() => {
     setPage(1)
-  }, [category, size, brand, appliedPriceMin, appliedPriceMax, color, limit, searchQuery])
+  }, [category, brandFilterKey, colorFilterKey, appliedPriceMin, appliedPriceMax, limit, searchQuery])
 
   const handleSearch = (q) => {
     const next = new URLSearchParams(params)
@@ -228,15 +167,22 @@ export default function ProductsFilters() {
   const { brands: { brands } = {} } = useSelector((state) => state?.brands || {})
   const { colors: { colors } = {} } = useSelector((state) => state?.colors || {})
 
+  const colorHexMap = useMemo(() => {
+    const map = {}
+    colors?.forEach((c) => {
+      if (c?.name) map[c.name] = c.hex
+    })
+    return map
+  }, [colors])
+
   const clearFilters = () => {
-    setColor('')
+    setSelectedColors([])
     setPriceRange(PRICE_SLIDER_MIN, PRICE_SLIDER_MAX)
-    setBrand('')
-    setSize('')
+    setSelectedBrands([])
   }
 
   const hasFilters =
-    !!(color || priceFilterActive || brand || size || searchQuery)
+    !!(selectedColors.length || priceFilterActive || selectedBrands.length || searchQuery)
   const totalPages = Math.max(1, Math.ceil(total / limit) || 1)
   const pageTitle = searchQuery
     ? `Results for “${searchQuery}”`
@@ -247,15 +193,13 @@ export default function ProductsFilters() {
   const filterProps = {
     colors,
     brands,
-    color,
-    setColor,
+    selectedColors,
+    setSelectedColors,
     priceMin,
     priceMax,
     setPriceRange,
-    brand,
-    setBrand,
-    size,
-    setSize,
+    selectedBrands,
+    setSelectedBrands,
   }
 
   return (
@@ -350,30 +294,45 @@ export default function ProductsFilters() {
                   <XMarkIcon className="h-3.5 w-3.5 text-stone-400" aria-hidden />
                 </Link>
               )}
-              {brand && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm capitalize text-stone-700 ring-1 ring-stone-200">
-                  {brand}
-                  <button type="button" onClick={() => setBrand('')} aria-label="Remove brand">
+              {selectedBrands.map((brandName) => (
+                <span
+                  key={brandName}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm capitalize text-stone-700 ring-1 ring-stone-200"
+                >
+                  {brandName}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedBrands((prev) => prev.filter((b) => b !== brandName))
+                    }
+                    aria-label={`Remove ${brandName}`}
+                  >
                     <XMarkIcon className="h-3.5 w-3.5 text-stone-400" />
                   </button>
                 </span>
-              )}
-              {color?.name && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm capitalize text-stone-700 ring-1 ring-stone-200">
-                  {color.name}
-                  <button type="button" onClick={() => setColor('')} aria-label="Remove color">
+              ))}
+              {selectedColors.map((colorName) => (
+                <span
+                  key={colorName}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm capitalize text-stone-700 ring-1 ring-stone-200"
+                >
+                  <span
+                    style={{ backgroundColor: colorHexMap[colorName] || colorName }}
+                    className="h-3 w-3 shrink-0 rounded-full border border-stone-300"
+                    aria-hidden
+                  />
+                  {colorName}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedColors((prev) => prev.filter((c) => c !== colorName))
+                    }
+                    aria-label={`Remove ${colorName}`}
+                  >
                     <XMarkIcon className="h-3.5 w-3.5 text-stone-400" />
                   </button>
                 </span>
-              )}
-              {size && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-stone-700 ring-1 ring-stone-200">
-                  Size {size}
-                  <button type="button" onClick={() => setSize('')} aria-label="Remove size">
-                    <XMarkIcon className="h-3.5 w-3.5 text-stone-400" />
-                  </button>
-                </span>
-              )}
+              ))}
               {priceFilterActive && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-stone-700 ring-1 ring-stone-200">
                   {formatPriceRangeLabel(priceMin, priceMax)}

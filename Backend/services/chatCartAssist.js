@@ -18,10 +18,10 @@ import {
 } from './purchaseIntentExtractor.js'
 import {
   isBallLikeProduct,
-  productUsesApparelSizes,
   resolveColorForProduct,
   resolveSizeForProduct,
 } from './cartVariantMatch.js'
+import { productRequiresSizeSelection } from '../utils/normalizeProductSizes.js'
 import { buildCartMissingPrompt } from './chatMissingFields.js'
 import { formatInr } from './chatPostProcess.js'
 import { resolveActiveCartQueue } from './cartQueue.js'
@@ -44,11 +44,12 @@ function buildVariantPrompt(product, missing) {
     product.colors?.length > 1
       ? `\n\nAvailable colors: ${product.colors.join(', ')}.`
       : ''
-  const sizeNote = !productUsesApparelSizes(product.name)
-    ? '\n\n*(This item does not use clothing sizes — tell me the color and quantity.)*'
-    : product.sizes?.length > 1
-      ? `\nAvailable sizes: ${product.sizes.join(', ')}.`
-      : ''
+  const sizeNote =
+    product.sizeMeasurementType === 'none'
+      ? '\n\n*(This item has no size — tell me the color and quantity.)*'
+      : productRequiresSizeSelection(product)
+        ? `\nAvailable sizes: ${product.sizes.join(', ')}.`
+        : ''
   return `${buildCartMissingPrompt(product.name, missing)}${extra}${sizeNote}`
 }
 
@@ -91,15 +92,11 @@ async function buildCartConfirmationReply(userId, toolResults) {
 
 async function tryAddProduct(userId, product, { qty, size, color, userText }) {
   const resolvedColor = resolveColorForProduct(color, product.colors, userText)
-  const resolvedSize = resolveSizeForProduct(size, product.sizes, product.name, userText)
+  const resolvedSize = resolveSizeForProduct(size, product, product.name, userText)
 
   const missing = []
   if (!resolvedColor && (product.colors?.length || 0) > 1) missing.push('color')
-  if (
-    productUsesApparelSizes(product.name) &&
-    !resolvedSize &&
-    (product.sizes?.length || 0) > 1
-  ) {
+  if (productRequiresSizeSelection(product) && !resolvedSize) {
     missing.push('size')
   }
 
@@ -109,7 +106,9 @@ async function tryAddProduct(userId, product, { qty, size, color, userText }) {
 
   const finalColor = resolvedColor || product.colors?.[0]
   const finalSize =
-    resolvedSize || product.sizes?.[0] || (isBallLikeProduct(product.name) ? 'Standard' : 'One Size')
+    resolvedSize ||
+    product.sizes?.[0] ||
+    (product.sizeMeasurementType === 'none' ? 'One Size' : isBallLikeProduct(product.name) ? 'Standard' : 'One Size')
 
   if (!finalColor) {
     return { ok: false, missing: ['color'], product }

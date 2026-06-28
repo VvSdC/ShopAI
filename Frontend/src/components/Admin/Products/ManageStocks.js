@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -7,9 +7,13 @@ import baseURL from "../../../utils/baseURL";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
+import ShopPagination from "../../Users/Products/ShopPagination";
+
+const PAGE_SIZE = 15;
 
 export default function ManageStocks() {
-  let productUrl = `${baseURL}/products`;
+  const [page, setPage] = useState(1);
+  const productUrl = `${baseURL}/products?page=${page}&limit=${PAGE_SIZE}`;
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -35,7 +39,12 @@ export default function ManageStocks() {
           .unwrap()
           .then(() => {
             Swal.fire("Deleted!", "Product has been deleted.", "success");
-            dispatch(fetchProductsAction({ url: productUrl }));
+            return dispatch(fetchProductsAction({ url: productUrl })).unwrap();
+          })
+          .then((data) => {
+            if (!data?.products?.length && page > 1) {
+              setPage((p) => p - 1);
+            }
           })
           .catch((err) => {
             Swal.fire("Error", err?.message || "Failed to delete product", "error");
@@ -45,10 +54,12 @@ export default function ManageStocks() {
   };
   //get data from store
   const {
-    products: { products },
+    products: { products, total },
     loading,
     error,
   } = useSelector((state) => state?.products);
+  const productCount = total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(productCount / PAGE_SIZE) || 1);
   return (
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -56,7 +67,7 @@ export default function ManageStocks() {
           <h1 className="text-xl font-semibold text-stone-900">
             Product List{" "}
             <span className="text-stone-500 font-normal">
-              ({products?.length || 0} {products?.length === 1 ? "product" : "products"})
+              ({productCount} {productCount === 1 ? "product" : "products"})
             </span>
           </h1>
           <p className="mt-2 text-sm text-stone-700">
@@ -84,12 +95,12 @@ export default function ManageStocks() {
           <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
             <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
               <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
-                <table className="min-w-full divide-y divide-stone-300">
+                <table className="min-w-full table-fixed divide-y divide-stone-300">
                   <thead className="bg-stone-50">
                     <tr>
                       <th
                         scope="col"
-                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
+                        className="w-[min(280px,32%)] py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
                         Name
                       </th>
                       <th
@@ -134,20 +145,20 @@ export default function ManageStocks() {
                     {/* loop here */}
                     {products?.map((product) => (
                       <tr key={product._id}>
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
-                          <div className="flex items-center">
+                        <td className="py-4 pl-4 pr-3 text-sm align-top sm:pl-6">
+                          <div className="flex items-start gap-3">
                             <div className="h-10 w-10 flex-shrink-0">
                               <img
-                                className="h-10 w-10 rounded-full"
+                                className="h-10 w-10 rounded-full object-cover"
                                 src={product?.images[0]}
                                 alt={product?.name}
                               />
                             </div>
-                            <div className="ml-4">
-                              <div className="font-medium text-stone-900">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-stone-900 break-words">
                                 {product.name}
                               </div>
-                              <div className="text-stone-500">
+                              <div className="mt-0.5 text-stone-500 break-words">
                                 {product?.brand}
                               </div>
                             </div>
@@ -233,6 +244,14 @@ export default function ManageStocks() {
               </div>
             </div>
           </div>
+          <ShopPagination
+            page={page}
+            totalPages={totalPages}
+            total={productCount}
+            limit={PAGE_SIZE}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

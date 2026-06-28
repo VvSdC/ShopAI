@@ -2,49 +2,76 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
-import { getCartFromServerAction } from '../../redux/slices/cart/cartSlices'
+import { clearCartAction } from '../../redux/slices/cart/cartSlices'
+import { markPostCheckout } from '../../utils/postCheckout'
 
-export function useStripeReturnHandler({ onVerified, defaultRedirect = '/assistant' }) {
+/** Survives Strict Mode remounts so verify/clear only run once per session. */
+const verifyPromises = new Map()
+
+function getVerifiedPayment(sessionId) {
+  if (!verifyPromises.has(sessionId)) {
+    verifyPromises.set(
+      sessionId,
+      axiosInstance
+        .get(`/orders/verify-payment/${sessionId}`)
+        .then((res) => res.data)
+        .catch((err) => {
+          verifyPromises.delete(sessionId)
+          throw err
+        })
+    )
+  }
+  return verifyPromises.get(sessionId)
+}
+
+export function useStripeReturnHandler({
+  onVerified,
+  onVerifyFailed,
+  defaultRedirect = '/assistant',
+}) {
   const dispatch = useDispatch()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const onVerifiedRef = useRef(onVerified)
-  const handledSessionRef = useRef(null)
+  const onVerifyFailedRef = useRef(onVerifyFailed)
 
   onVerifiedRef.current = onVerified
+  onVerifyFailedRef.current = onVerifyFailed
 
   useEffect(() => {
     const payment = searchParams.get('payment')
     const sessionId = searchParams.get('session_id')
     if (payment !== 'success' || !sessionId) return
-    if (handledSessionRef.current === sessionId) return
-    handledSessionRef.current = sessionId
 
-    let mounted = true
+    let cancelled = false
 
-    axiosInstance
-      .get(`/orders/verify-payment/${sessionId}`)
-      .then((res) => {
-        if (!mounted) return
-        localStorage.setItem('cartItems', JSON.stringify([]))
-        dispatch(getCartFromServerAction())
-        onVerifiedRef.current?.(res.data)
-        const redirectTo = res.data?.order?.checkoutSource === 'cart'
+    ;(async () => {
+      try {
+        const data = await getVerifiedPayment(sessionId)
+        markPostCheckout()
+        await dispatch(clearCartAction()).unwrap().catch(() => {})
+        if (cancelled) return
+
+        await onVerifiedRef.current?.(data)
+        if (cancelled) return
+
+        const redirectTo = data?.order?.checkoutSource === 'cart'
           ? '/customer-profile'
           : defaultRedirect
         setSearchParams({}, { replace: true })
         if (redirectTo !== window.location.pathname) {
           navigate(redirectTo, { replace: true })
         }
-      })
-      .catch((err) => {
-        if (!mounted) return
+      } catch (err) {
+        if (cancelled) return
         console.error('Payment verification failed:', err)
         setSearchParams({}, { replace: true })
-      })
+        onVerifyFailedRef.current?.(err)
+      }
+    })()
 
     return () => {
-      mounted = false
+      cancelled = true
     }
   }, [searchParams, setSearchParams, navigate, defaultRedirect, dispatch])
 }

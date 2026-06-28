@@ -190,6 +190,10 @@ export const config = {
       windowMs: envInt('RATE_LIMIT_CHAT_WINDOW_MS', 60 * 1000),
       max: envInt('RATE_LIMIT_CHAT_MAX', 15),
     },
+    chatDaily: {
+      windowMs: envInt('RATE_LIMIT_CHAT_DAILY_WINDOW_MS', 24 * 60 * 60 * 1000),
+      max: envInt('RATE_LIMIT_CHAT_DAILY_MAX', 150),
+    },
   },
 
   openapi: {

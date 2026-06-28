@@ -33,6 +33,14 @@ function buildLimiter(prefix, options) {
   })
 }
 
+/** Account id for chat cost controls (call only after isLoggedIn). */
+export function chatUserRateLimitKey(req) {
+  if (!req.userAuthId) {
+    throw new Error('chatUserRateLimitKey requires req.userAuthId')
+  }
+  return `user:${req.userAuthId}`
+}
+
 if (shouldUseRedisStore()) {
   console.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
@@ -55,4 +63,24 @@ export const chatLimiter = buildLimiter('chat', {
   windowMs: config.rateLimit.chat.windowMs,
   max: config.rateLimit.chat.max,
   message: { message: 'Chat rate limit reached. Please wait a moment.' },
+})
+
+/** Per-account chat cap (requires isLoggedIn before this runs). */
+export const chatUserLimiter = buildLimiter('chat-user', {
+  windowMs: config.rateLimit.chat.windowMs,
+  max: config.rateLimit.chat.max,
+  keyGenerator: chatUserRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: { message: 'Chat rate limit reached. Please wait a moment.' },
+})
+
+/** Daily per-account ceiling on LLM-backed chat messages. */
+export const chatUserDailyLimiter = buildLimiter('chat-user-daily', {
+  windowMs: config.rateLimit.chatDaily.windowMs,
+  max: config.rateLimit.chatDaily.max,
+  keyGenerator: chatUserRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    message: 'Daily chat limit reached. Please try again tomorrow or contact support.',
+  },
 })

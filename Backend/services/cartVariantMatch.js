@@ -1,4 +1,5 @@
 import { resolveOptionMatch } from './cartService.js'
+import { productRequiresSizeSelection } from '../utils/normalizeProductSizes.js'
 
 const COLOR_HINTS = [
   { patterns: [/\bred\b/i, /\bcloser to red\b/i, /\bmaroon\b/i, /\bcherry\b/i], prefer: ['cherry', 'red', 'maroon'] },
@@ -18,8 +19,12 @@ export function isBatLikeProduct(name) {
   return /\b(bat)\b/i.test(String(name || '')) && !isBallLikeProduct(name)
 }
 
-export function productUsesApparelSizes(name) {
-  if (isBallLikeProduct(name)) return false
+/** @deprecated Prefer product.sizeMeasurementType on the product document. */
+export function productUsesApparelSizes(productOrName) {
+  if (productOrName && typeof productOrName === 'object') {
+    return productRequiresSizeSelection(productOrName)
+  }
+  if (isBallLikeProduct(productOrName)) return false
   return true
 }
 
@@ -51,11 +56,28 @@ export function resolveColorForProduct(requestedColor, availableColors, userText
   return colors.length === 1 ? colors[0] : null
 }
 
-export function resolveSizeForProduct(requestedSize, availableSizes, productName, userText = '') {
-  const sizes = availableSizes || []
-  if (!sizes.length) return 'One Size'
+export function resolveSizeForProduct(requestedSize, availableSizesOrProduct, productName, userText = '') {
+  const product =
+    availableSizesOrProduct &&
+    typeof availableSizesOrProduct === 'object' &&
+    !Array.isArray(availableSizesOrProduct)
+      ? availableSizesOrProduct
+      : null
+  const sizes = product?.sizes ?? (Array.isArray(availableSizesOrProduct) ? availableSizesOrProduct : [])
+  const name = product?.name ?? productName ?? ''
+  const type = product?.sizeMeasurementType ?? 'apparel'
 
-  if (!productUsesApparelSizes(productName)) {
+  if (type === 'none' || !sizes.length) return 'One Size'
+
+  if (type !== 'apparel') {
+    if (requestedSize) {
+      const match = resolveOptionMatch(requestedSize, sizes)
+      if (match) return match
+    }
+    return sizes.length === 1 ? sizes[0] : null
+  }
+
+  if (isBallLikeProduct(name)) {
     if (requestedSize) {
       const match = resolveOptionMatch(requestedSize, sizes)
       if (match) return match
@@ -87,12 +109,10 @@ export function resolveSizeForProduct(requestedSize, availableSizes, productName
 }
 
 export function listMissingVariantFields(product) {
-  const name = product.name || ''
   const missing = []
   const colors = product.colors || []
-  const sizes = product.sizes || []
 
   if (colors.length > 1) missing.push('color')
-  if (productUsesApparelSizes(name) && sizes.length > 1) missing.push('size')
+  if (productRequiresSizeSelection(product)) missing.push('size')
   return missing
 }

@@ -16,6 +16,15 @@ describe('productSearch', () => {
     expect(filter.$and.length).toBeGreaterThan(0)
   })
 
+  it('escapes regex metacharacters in brand and color filters', () => {
+    const malicious = '(a+)+$'
+    const brandFilter = buildProductSearchFilter({ brand: malicious })
+    const colorFilter = buildProductSearchFilter({ color: malicious })
+
+    expect(brandFilter.$and[0].brand.$regex).toBe('\\(a\\+\\)\\+\\$')
+    expect(colorFilter.$and[0].colors.$regex).toBe('\\(a\\+\\)\\+\\$')
+  })
+
   it('scores name matches higher than unrelated products', () => {
     const ball = { name: 'Cricket Ball Pro', description: '', tags: [], brand: '', category: '' }
     const bat = { name: 'Cricket Bat', description: 'for cricket', tags: ['cricket'], brand: '', category: '' }

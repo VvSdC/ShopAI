@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { parseBrandFilterQuery, parseColorFilterQuery } from '../utils/parseBrandFilter.js'
 
 export const CACHE_KEYS = {
   categoriesAll: 'catalog:categories:all',
@@ -41,9 +42,9 @@ export function productsListCacheKey(query) {
   const normalized = {
     page: query.page || 1,
     limit: query.limit || 12,
-    brand: query.brand || '',
+    brand: parseBrandFilterQuery(query.brand).sort().join('|'),
     category: query.category || '',
-    color: query.color || '',
+    color: parseColorFilterQuery(query.color).sort().join('|'),
     size: query.size || '',
     price: query.price || '',
   }

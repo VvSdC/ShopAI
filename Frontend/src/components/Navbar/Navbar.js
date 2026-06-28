@@ -12,7 +12,11 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
-import { syncAndLoadCartAction } from '../../redux/slices/cart/cartSlices'
+import { syncAndLoadCartAction, clearCartAction } from '../../redux/slices/cart/cartSlices'
+import {
+  isRecentPostCheckout,
+  clearPostCheckoutFlag,
+} from '../../utils/postCheckout'
 import { logoutAction, getCurrentUserAction } from '../../redux/slices/users/usersSlice'
 import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice'
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
@@ -43,6 +47,7 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cartCountReady, setCartCountReady] = useState(false)
+  const prevSearchRef = useRef('')
 
   // Close the mobile drawer on any navigation so the destination page is visible.
   useEffect(() => {
@@ -62,17 +67,43 @@ export default function Navbar() {
   }, [dispatch, isLoggedIn, user])
 
   useEffect(() => {
+    const isPaymentReturn =
+      location.search.includes('payment=success') &&
+      location.search.includes('session_id=')
+
+    if (isPaymentReturn) {
+      prevSearchRef.current = location.search
+      setCartCountReady(true)
+      return undefined
+    }
+
+    const wasPaymentReturn =
+      prevSearchRef.current.includes('payment=success') &&
+      prevSearchRef.current.includes('session_id=')
+    prevSearchRef.current = location.search
+
+    const postCheckout = isRecentPostCheckout()
+
     setCartCountReady(false)
     let cancelled = false
 
-    dispatch(syncAndLoadCartAction()).finally(() => {
-      if (!cancelled) setCartCountReady(true)
-    })
+    const cartAction =
+      wasPaymentReturn || postCheckout ? clearCartAction() : syncAndLoadCartAction()
+
+    dispatch(cartAction)
+      .finally(() => {
+        if (!cancelled) {
+          if (postCheckout) {
+            clearPostCheckoutFlag()
+          }
+          setCartCountReady(true)
+        }
+      })
 
     return () => {
       cancelled = true
     }
-  }, [dispatch, isLoggedIn])
+  }, [dispatch, isLoggedIn, location.search])
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction()).then(() => {

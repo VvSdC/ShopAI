@@ -7,6 +7,8 @@ import { fetchBrandsAction } from "../../../redux/slices/categories/brandsSlice"
 import { fetchCategoriesAction } from "../../../redux/slices/categories/categoriesSlice";
 import { fetchColorsAction } from "../../../redux/slices/categories/colorsSlice";
 import { fetchProductAction, updateProductAction } from "../../../redux/slices/products/productSlices";
+import ProductSizeFields from "./ProductSizeFields";
+import { buildSizePayload } from "../../../utils/sizeMeasurement";
 import { resetSuccessAction } from "../../../redux/slices/globalActions/globalActions";
 
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
@@ -22,27 +24,20 @@ export default function ProductUpdate() {
   const navigate = useNavigate();
   //get id from params
   const { id } = useParams();
-  //reset success state on mount
+  // Reset stale success flag when opening a product for edit
   useEffect(() => {
     dispatch(resetSuccessAction());
-  }, [dispatch]);
-  //fetch single product
+  }, [dispatch, id]);
+
   useEffect(() => {
     dispatch(fetchProductAction(id));
   }, [id, dispatch]);
 
-  //Sizes
-  const sizes = ["S", "M", "L", "XL", "XXL"];
-  const [sizeOption, setSizeOption] = useState([]);
-  const handleSizeChange = (sizes) => {
-    setSizeOption(sizes);
-  };
-  //converted sizes
-  const sizeOptionsCoverted = sizes?.map((size) => {
-    return {
-      value: size,
-      label: size,
-    };
+  //Size fields
+  const [sizeFields, setSizeFields] = useState({
+    sizeMeasurementType: "apparel",
+    sizeLabel: "Size",
+    sizes: [],
   });
 
   //categories
@@ -113,13 +108,11 @@ export default function ProductUpdate() {
         totalQty: product?.totalQty || "",
       })
 
-      // initialize size select values
-      const initialSizes = (product?.sizes || []).map((s) => ({
-        value: s,
-        label: s,
-      }))
-      setSizeOption(initialSizes)
-
+      setSizeFields({
+        sizeMeasurementType: product?.sizeMeasurementType || "apparel",
+        sizeLabel: product?.sizeLabel || "Size",
+        sizes: product?.sizes || [],
+      });
       // initialize color select values
       const initialColors = (product?.colors || []).map((c) => ({
         value: c,
@@ -141,26 +134,14 @@ export default function ProductUpdate() {
     dispatch(
       updateProductAction({
         ...formData,
+        ...buildSizePayload(sizeFields),
         id,
         colors: colorsOption?.map((color) => color.label),
-        sizes: sizeOption?.map((size) => size?.label),
       })
     ).unwrap().then(() => {
+      dispatch(resetSuccessAction());
       navigate('/admin/manage-products');
     }).catch(() => {});
-
-    //reset form data
-    setFormData({
-      name: "",
-      description: "",
-      category: "",
-      sizes: "",
-      brand: "",
-      colors: "",
-      images: "",
-      price: "",
-      totalQty: "",
-    });
   };
 
   return (
@@ -194,26 +175,7 @@ export default function ProductUpdate() {
                   />
                 </div>
               </div>
-              {/* size option */}
-              <div>
-                <label className="block text-sm font-medium text-stone-700">
-                  Select Size
-                </label>
-                <Select
-                  components={animatedComponents}
-                  isMulti
-                  name="sizes"
-                  options={sizeOptionsCoverted}
-                  className="basic-multi-select"
-                  classNamePrefix="select"
-                  isClearable={true}
-                  isLoading={false}
-                  isSearchable={true}
-                  closeMenuOnSelect={false}
-                    onChange={(item) => handleSizeChange(item)}
-                    value={sizeOption}
-                />
-              </div>
+              <ProductSizeFields value={sizeFields} onChange={setSizeFields} />
               {/* Select category */}
               <div>
                 <label className="block text-sm font-medium text-stone-700">

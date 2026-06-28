@@ -27,6 +27,34 @@ function isMutatingMethod(method) {
   return m !== 'get' && m !== 'head' && m !== 'options'
 }
 
+/** Session probe endpoints — refresh on 401 but do not hard-redirect guests on failure. */
+function isSessionProbeUrl(url = '') {
+  return String(url).includes('/users/me')
+}
+
+function shouldRedirectToLoginAfterRefreshFailure(url = '') {
+  if (isSessionProbeUrl(url)) return false
+  const path = window.location.pathname
+  return !path.includes('/login') && !path.includes('/register')
+}
+
+const ACCESS_TOKEN_TTL_MS = 14 * 60 * 1000
+let proactiveRefreshTimer = null
+
+export function startProactiveTokenRefresh() {
+  stopProactiveTokenRefresh()
+  proactiveRefreshTimer = window.setInterval(() => {
+    axiosInstance.post('/users/refresh', {}).catch(() => {})
+  }, ACCESS_TOKEN_TTL_MS)
+}
+
+export function stopProactiveTokenRefresh() {
+  if (proactiveRefreshTimer != null) {
+    window.clearInterval(proactiveRefreshTimer)
+    proactiveRefreshTimer = null
+  }
+}
+
 axiosInstance.interceptors.request.use(async (config) => {
   if (isMutatingMethod(config.method)) {
     const token = await ensureCsrfToken()
@@ -53,23 +81,21 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    // If 401 and not already retried, try refreshing
+    // Access token expired — rotate using refresh cookie, then retry once.
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
       !originalRequest.url?.includes('/users/refresh') &&
-      !originalRequest.url?.includes('/users/login') &&
-      !originalRequest.url?.includes('/users/me')
+      !originalRequest.url?.includes('/users/login')
     ) {
       originalRequest._retry = true
       try {
         await axiosInstance.post('/users/refresh', {})
-        // Retry original request with new cookie
         return axiosInstance(originalRequest)
       } catch (refreshError) {
         resetCsrfTokenCache()
-        // Refresh failed — redirect to login only if not already there
-        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        stopProactiveTokenRefresh()
+        if (shouldRedirectToLoginAfterRefreshFailure(originalRequest.url)) {
           window.location.href = '/login'
         }
         return Promise.reject(refreshError)

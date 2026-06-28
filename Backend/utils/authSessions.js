@@ -120,6 +120,16 @@ export async function createAuthSession(userId, deviceId) {
  * @returns {{ user: import('../model/User.js').default, newRefreshToken: string } | null}
  */
 export async function rotateRefreshToken(presentedToken, userId, res) {
+  const account = await User.findById(userId).select('isBlocked')
+  if (!account) {
+    return null
+  }
+  if (account.isBlocked) {
+    await invalidateUserRefreshToken(account)
+    clearAuthCookies(res)
+    return { blocked: true }
+  }
+
   const newRefreshToken = generateRefreshToken(userId)
   const newExpiry = getRefreshExpiresAt()
   const presentedHash = hashRefreshToken(presentedToken)

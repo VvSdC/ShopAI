@@ -6,6 +6,15 @@ export function buildProductSearchDocument(product) {
   const sizes = Array.isArray(product.sizes) ? product.sizes.join(', ') : ''
   const qtyLeft = (product.totalQty ?? 0) - (product.totalSold ?? 0)
 
+  const type = product.sizeMeasurementType ?? 'apparel'
+  const label = (product.sizeLabel || '').trim()
+  const sizeLine =
+    type === 'none'
+      ? 'No size selection required'
+      : sizes
+        ? `Sizes (${label || 'Size'}): ${sizes}`
+        : ''
+
   return [
     product.name,
     `Brand: ${product.brand || ''}`,
@@ -13,7 +22,7 @@ export function buildProductSearchDocument(product) {
     product.description || '',
     tags ? `Tags: ${tags}` : '',
     colors ? `Colors: ${colors}` : '',
-    sizes ? `Sizes: ${sizes}` : '',
+    sizeLine,
     `Price: INR ${product.price ?? 0}`,
     qtyLeft > 0 ? 'In stock' : 'Out of stock',
   ]

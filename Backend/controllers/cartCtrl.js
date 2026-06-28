@@ -8,6 +8,7 @@ import {
   removeCoupon,
   syncLocalItems,
   validateCartStock,
+  clearCart,
 } from '../services/cartService.js'
 
 export const getCartCtrl = asyncHandler(async (req, res) => {
@@ -48,4 +49,9 @@ export const syncCartCtrl = asyncHandler(async (req, res) => {
 export const validateServerCartCtrl = asyncHandler(async (req, res) => {
   const result = await validateCartStock(req.userAuthId)
   res.json({ status: 'success', ...result })
+})
+
+export const clearCartCtrl = asyncHandler(async (req, res) => {
+  const cart = await clearCart(req.userAuthId)
+  res.json({ status: 'success', message: 'Cart cleared', cart })
 })

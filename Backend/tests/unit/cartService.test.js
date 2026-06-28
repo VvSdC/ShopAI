@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import Cart from '../../model/Cart.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
-import { getCart, syncLocalItems } from '../../services/cartService.js'
+import { getCart, syncLocalItems, addItem } from '../../services/cartService.js'
 
 describe('cartService findOrCreateCart', () => {
   it('returns one cart per user when create races on the unique user index', async () => {
@@ -198,5 +198,41 @@ describe('cart coupon metadata', () => {
     expect(cart.couponDiscount).toBe(10)
     expect(cart.couponValidUntil).toBeTruthy()
     expect(cart.couponDaysLeft).toMatch(/day/)
+  })
+})
+
+describe('addItem', () => {
+  it('accepts no-size products using the One Size placeholder', async () => {
+    const user = await User.create({
+      fullname: 'No Size User',
+      email: `no-size-cart-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const product = await Product.create({
+      name: `No Size Product ${Date.now()}`,
+      description: 'Test',
+      brand: 'TestBrand',
+      category: new mongoose.Types.ObjectId(),
+      sizeMeasurementType: 'none',
+      sizeLabel: '',
+      sizes: [],
+      colors: ['Black'],
+      images: ['https://example.com/img.jpg'],
+      price: 299,
+      totalQty: 5,
+    })
+
+    const cart = await addItem(user._id, {
+      productId: product._id,
+      color: 'Black',
+      size: 'One Size',
+      qty: 1,
+    })
+
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0].size).toBe('One Size')
+    expect(cart.items[0].color).toBe('Black')
+    expect(cart.total).toBe(299)
   })
 })

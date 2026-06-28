@@ -5,11 +5,20 @@ import User from '../../model/User.js'
 import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
 const processPaidOrder = vi.fn()
+const clearCart = vi.fn().mockResolvedValue({ items: [], isEmpty: true })
 
 vi.mock('../../services/orderRefund.js', () => ({
   createStripeRefund: vi.fn().mockResolvedValue({ id: 're_test' }),
   persistPaymentReferences: vi.fn().mockResolvedValue({}),
 }))
+
+vi.mock('../../services/cartService.js', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    clearCart: (...args) => clearCart(...args),
+  }
+})
 
 vi.mock('../../services/orderFulfillment.js', async (importOriginal) => {
   const actual = await importOriginal()
@@ -26,6 +35,7 @@ import { atomicallyReserveStock } from '../../services/stockService.js'
 describe('orderService', () => {
   beforeEach(() => {
     processPaidOrder.mockReset()
+    clearCart.mockClear()
   })
 
   it('skips fulfillment when order is already paid (webhook idempotency)', async () => {
@@ -58,6 +68,7 @@ describe('orderService', () => {
     expect(result.fulfillment).toBeNull()
     expect(result.updatedOrder._id.toString()).toBe(order._id.toString())
     expect(processPaidOrder).not.toHaveBeenCalled()
+    expect(clearCart).toHaveBeenCalledWith(user._id)
 
     const unchanged = await Order.findById(order._id)
     expect(unchanged.paymentStatus).toBe('paid')

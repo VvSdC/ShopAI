@@ -15,6 +15,27 @@ import {
 } from '../services/catalogCache.js'
 import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
 import { AppError } from '../utils/appError.js'
+import { normalizeProductSizes } from '../utils/normalizeProductSizes.js'
+import { brandMongoCondition, mongoInCondition, parseBrandFilterQuery, parseColorFilterQuery } from '../utils/parseBrandFilter.js'
+
+async function buildCatalogFilterFromQuery(query) {
+  const filter = {}
+  const brandMatch = brandMongoCondition(parseBrandFilterQuery(query.brand))
+  if (brandMatch) filter.brand = brandMatch
+  if (query.category) {
+    const categoryId = await resolveCategoryId(query.category)
+    if (!categoryId) return { filter: null, unknownCategory: true }
+    filter.category = categoryId
+  }
+  const colorMatch = mongoInCondition(parseColorFilterQuery(query.color))
+  if (colorMatch) filter.colors = colorMatch
+  if (query.size) filter.sizes = query.size
+  if (query.price) {
+    const [min, max] = String(query.price).split('-')
+    filter.price = { $gte: Number(min), $lte: Number(max) }
+  }
+  return { filter, unknownCategory: false }
+}
 
 async function invalidateProductCatalogCaches() {
   await invalidateProductListCache()
@@ -41,11 +62,16 @@ function isDuplicateKeyError(err) {
 // @route   POST /api/v1/products
 // @access  Private/Admin
 export const createProductCtrl = asyncHandler(async (req, res) => {
-  const { name, description, category, sizes, colors, price, totalQty, brand } =
+  const { name, description, category, sizes, colors, price, totalQty, brand, sizeMeasurementType, sizeLabel } =
     req.body
   if (!req.files?.length) {
     throw new AppError('At least one product image is required', 400)
   }
+  const normalizedSizes = normalizeProductSizes({
+    sizeMeasurementType,
+    sizeLabel,
+    sizes,
+  })
   const convertedImgs = req.files.map((file) => file?.path)
   //Product exists
   const productExists = await Product.findOne({ name })
@@ -76,7 +102,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
       name,
       description,
       category: categoryFound._id,
-      sizes,
+      ...normalizedSizes,
       colors,
       user: req.userAuthId,
       price,
@@ -115,11 +141,13 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   const searchQuery = req.query.q?.trim() || req.query.name?.trim() || ''
 
   if (searchQuery) {
+    const selectedBrands = parseBrandFilterQuery(req.query.brand)
+    const selectedColors = parseColorFilterQuery(req.query.color)
     const searchArgs = {
       query: searchQuery,
       category: req.query.category,
-      brand: req.query.brand,
-      color: req.query.color,
+      brands: selectedBrands,
+      colors: selectedColors,
       size: req.query.size,
       inStock: req.query.inStock === 'true',
       limit,
@@ -141,28 +169,19 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     })
   }
 
-  const filter = {}
-  if (req.query.brand) filter.brand = req.query.brand
-  if (req.query.category) {
-    const categoryId = await resolveCategoryId(req.query.category)
-    if (!categoryId) {
-      return res.json({
-        status: 'success',
-        total: 0,
-        results: 0,
-        pagination: {},
-        message: 'No products found for this category',
-        products: [],
-      })
-    }
-    filter.category = categoryId
+  const { filter: catalogFilter, unknownCategory } = await buildCatalogFilterFromQuery(req.query)
+  if (unknownCategory) {
+    return res.json({
+      status: 'success',
+      total: 0,
+      results: 0,
+      pagination: {},
+      message: 'No products found for this category',
+      products: [],
+    })
   }
-  if (req.query.color) filter.colors = req.query.color
-  if (req.query.size) filter.sizes = req.query.size
-  if (req.query.price) {
-    const priceRange = req.query.price.split('-')
-    filter.price = { $gte: priceRange[0], $lte: priceRange[1] }
-  }
+
+  const filter = catalogFilter || {}
 
   const listKey = productsListCacheKey({
     page,
@@ -280,8 +299,16 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     price,
     totalQty,
     brand,
+    sizeMeasurementType,
+    sizeLabel,
   } = req.body
   //validation
+
+  const normalizedSizes = normalizeProductSizes({
+    sizeMeasurementType,
+    sizeLabel,
+    sizes,
+  })
 
   let categoryId
   if (category) {
@@ -299,7 +326,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       name,
       description,
       ...(categoryId ? { category: categoryId } : {}),
-      sizes,
+      ...normalizedSizes,
       colors,
       price,
       totalQty,
