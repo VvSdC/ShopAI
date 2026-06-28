@@ -16,10 +16,8 @@ import {
   PlusCircleIcon,
   TicketIcon,
   ReceiptPercentIcon,
-  FolderPlusIcon,
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
-  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline'
 import { logoutAction } from '../../redux/slices/users/usersSlice'
 import user from './user.png'
@@ -51,7 +49,6 @@ const navSections = [
   {
     title: 'Catalog',
     links: [
-      { name: 'Add Category', href: 'add-category', icon: FolderPlusIcon },
       { name: 'All Categories', href: 'manage-category', icon: Squares2X2Icon },
       { name: 'All Colors', href: 'all-colors', icon: SwatchIcon },
       { name: 'All Brands', href: 'all-brands', icon: BuildingStorefrontIcon },
@@ -101,9 +98,14 @@ function SidebarNav({ onNavigate }) {
   )
 }
 
-function SidebarBrand() {
+function SidebarBrand({ onNavigate }) {
   return (
-    <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 px-4 py-4">
+    <Link
+      to="/"
+      onClick={onNavigate}
+      title="Back to store"
+      className="flex shrink-0 items-center gap-2.5 border-b border-white/10 px-4 py-4 transition-colors hover:bg-white/5"
+    >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white">
         <Squares2X2Icon className="h-5 w-5" />
       </span>
@@ -113,7 +115,7 @@ function SidebarBrand() {
           Admin Console
         </p>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -139,26 +141,6 @@ export default function AdminDashboard() {
   const handleLogout = () => {
     dispatch(logoutAction()).then(() => navigate('/', { replace: true }))
   }
-
-  const sidebarFooter = (
-    <div className="shrink-0 space-y-1 border-t border-white/10 p-3">
-      <Link
-        to="/"
-        className="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-      >
-        <ArrowTopRightOnSquareIcon className="h-5 w-5 shrink-0" />
-        Back to store
-      </Link>
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-red-500/10 hover:text-red-300"
-      >
-        <ArrowRightOnRectangleIcon className="h-5 w-5 shrink-0" />
-        Sign out
-      </button>
-    </div>
-  )
 
   return (
     <div className="min-h-screen bg-stone-100">
@@ -208,9 +190,8 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </Transition.Child>
-                <SidebarBrand />
+                <SidebarBrand onNavigate={() => setSidebarOpen(false)} />
                 <SidebarNav onNavigate={() => setSidebarOpen(false)} />
-                {sidebarFooter}
               </Dialog.Panel>
             </Transition.Child>
             <div className="w-14 shrink-0" aria-hidden="true" />
@@ -223,7 +204,6 @@ export default function AdminDashboard() {
         <div className="flex h-full flex-col bg-slate-900">
           <SidebarBrand />
           <SidebarNav />
-          {sidebarFooter}
         </div>
       </div>
 
