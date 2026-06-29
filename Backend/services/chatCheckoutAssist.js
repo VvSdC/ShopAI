@@ -4,6 +4,10 @@ import { listShippingAddresses } from './addressService.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'
 import { isCheckoutProceedIntent } from './chatIntentHelpers.js'
+import {
+  isOrdinalPickPhrase,
+  lastAssistantLooksLikeProductListing,
+} from './chatGraph/productContext.js'
 
 export { isCheckoutProceedIntent, isAffirmativeReply, conversationMentionsCheckoutPending } from './chatIntentHelpers.js'
 
@@ -13,19 +17,37 @@ export function alreadyHasAddressIntent(text) {
   )
 }
 
-export function parseAddressSelection(text, addresses = []) {
+export function lastAssistantMentionsAddressPicker(history = []) {
+  const last = [...(history || [])].reverse().find((m) => m.role === 'assistant')
+  if (!last) return false
+  const content = String(last.content || '').toLowerCase()
+  return /saved shipping address(?:es)?|reply \*\*1\*\* or \*\*2\*\*|which address|choose (?:an |a )?address|shipping address/i.test(
+    content
+  )
+}
+
+export function isProductCatalogOrdinalPick(userText, history = []) {
+  return isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(history)
+}
+
+export function parseAddressSelection(text, addresses = [], history = []) {
   if (!addresses.length) return null
+  if (isProductCatalogOrdinalPick(text, history)) return null
+
   const t = String(text || '').trim().toLowerCase()
+  const addressPickerActive = lastAssistantMentionsAddressPicker(history)
 
   const numOnly = t.match(/^(\d+)$/)
-  if (numOnly) {
+  if (numOnly && addressPickerActive) {
     const choice = parseInt(numOnly[1], 10)
     const byChoice = addresses.find((a) => a.choiceNumber === choice)
     if (byChoice) return byChoice
   }
 
-  if (/\b(first|1st|one)\b/.test(t) && addresses[0]) return addresses[0]
-  if (/\b(second|2nd|two)\b/.test(t) && addresses[1]) return addresses[1]
+  if (addressPickerActive) {
+    if (/\b(first|1st)\b/.test(t) && addresses[0]) return addresses[0]
+    if (/\b(second|2nd)\b/.test(t) && addresses[1]) return addresses[1]
+  }
 
   for (const a of addresses) {
     const city = (a.city || '').toLowerCase()
@@ -83,6 +105,10 @@ function resolveAddressIndex(addr, addresses) {
  * @returns {{ toolResults: object[], reply: string|null }}
  */
 export async function runCheckoutAssist(userId, userText, messages = [], toolResults = []) {
+  if (isProductCatalogOrdinalPick(userText, messages)) {
+    return { toolResults, reply: null }
+  }
+
   const hasCheckout = toolResults.some(
     (r) => r?.checkoutUrl && /^https:\/\/checkout\.stripe\.com\//i.test(r.checkoutUrl)
   )
@@ -93,7 +119,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
   const proceed = isCheckoutProceedIntent(userText, messages)
   const addressRecall = alreadyHasAddressIntent(userText)
   const { addresses = [] } = await listShippingAddresses(userId)
-  const selected = parseAddressSelection(userText, addresses)
+  const selected = parseAddressSelection(userText, addresses, messages)
 
   const shouldAssist = proceed || addressRecall || selected
 

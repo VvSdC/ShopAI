@@ -1,6 +1,9 @@
 import {
   activeCatalogProducts,
   isAddToCartVariantIntent,
+  isCatalogOrdinalSelection,
+  isOrdinalPickPhrase,
+  lastAssistantLooksLikeProductListing,
 } from './productContext.js'
 
 export const ROUTE_NAMES = [
@@ -133,6 +136,16 @@ export function classifyIntentHeuristic(text, history = []) {
   const route = routeIntentHeuristic(text, history)
   const t = String(text || '').trim()
 
+  if (isCatalogOrdinalSelection(t, history)) {
+    const route = /\b(add|put)\b/i.test(t.toLowerCase()) ? 'checkout' : 'product_detail'
+    return { route, confidence: 'high', reason: 'heuristic_catalog_ordinal' }
+  }
+
+  if (isOrdinalPickPhrase(t) && lastAssistantLooksLikeProductListing(history)) {
+    const route = /\b(add|put)\b/i.test(t.toLowerCase()) ? 'checkout' : 'product_detail'
+    return { route, confidence: 'high', reason: 'heuristic_ordinal_listing_pick' }
+  }
+
   if (isAffirmative(t)) {
     if (lastAssistantMentionsCheckout(history)) {
       return { route: 'checkout', confidence: 'high', reason: 'heuristic_affirmative_checkout' }
@@ -187,6 +200,14 @@ function isAmbiguousReferencePattern(text) {
 export function routeIntentHeuristic(text, history = []) {
   const t = String(text || '').trim().toLowerCase()
   if (!t) return 'general'
+
+  if (isCatalogOrdinalSelection(text, history)) {
+    return /\b(add|put)\b/i.test(t) ? 'checkout' : 'product_detail'
+  }
+
+  if (isOrdinalPickPhrase(text) && lastAssistantLooksLikeProductListing(history)) {
+    return /\b(add|put)\b/i.test(t) ? 'checkout' : 'product_detail'
+  }
 
   if (/compare|versus|\bvs\.?\b|better than|difference between|which one should/i.test(t)) {
     return 'comparison'

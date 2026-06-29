@@ -1,6 +1,63 @@
 import { resolveActiveCartQueue } from '../cartQueue.js'
 import { getPurchaseIntent } from '../purchaseIntentExtractor.js'
 
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i
+
+const ORDINAL_PICK_PATTERN =
+  /\b(?:the\s+)?(?:first|second|third|fourth|fifth|sixth|seventh|eighth)(?:\s+(?:one|item|product|option))?\b|\b[1-8](?:st|nd|rd|th)\b|(?:#|no\.?\s*)[1-8]\b/i
+
+export function isOrdinalPickPhrase(userText) {
+  return ORDINAL_PICK_PATTERN.test(String(userText || '').trim().toLowerCase())
+}
+
+export function lastAssistantLooksLikeProductListing(history = []) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i]
+    if (msg.role !== 'assistant') continue
+    const content = String(msg.content || '')
+    if (/saved shipping address(?:es)?|reply \*\*1\*\* or \*\*2\*\*|proceed to checkout/i.test(content)) {
+      return false
+    }
+    if (msg.catalogProducts?.length) return true
+    if (/found \d+ products|in our catalog/i.test(content)) return true
+    if (/\bview product\b/i.test(content) && /₹/.test(content)) return true
+    if (parseListingNamesFromContent(content).length >= 2 && /₹/.test(content)) return true
+    return false
+  }
+  return false
+}
+
+export function parseListingNamesFromContent(content) {
+  const names = []
+  const seen = new Set()
+
+  for (const line of String(content || '').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || /^tell me which/i.test(trimmed)) continue
+
+    const boldLinked = trimmed.match(/\*\*([^*]+)\*\*/)
+    if (boldLinked) {
+      const name = boldLinked[1].trim()
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase())
+        names.push(name)
+      }
+      continue
+    }
+
+    const plain = trimmed.match(/^(?:\d+\.\s*)?(.+?)\s*—\s*₹/)
+    if (plain) {
+      const name = plain[1].replace(/\*\*/g, '').trim()
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase())
+        names.push(name)
+      }
+    }
+  }
+
+  return names
+}
+
 function normalizeProductName(name) {
   return String(name || '')
     .toLowerCase()
@@ -9,7 +66,16 @@ function normalizeProductName(name) {
     .trim()
 }
 
-function extractProductsFromMessage(content) {
+function extractProductsFromMessage(content, catalogProducts) {
+  if (Array.isArray(catalogProducts) && catalogProducts.length) {
+    return catalogProducts
+      .map((p) => ({
+        id: String(p.id || ''),
+        name: String(p.name || '').trim(),
+      }))
+      .filter((p) => /^[a-f0-9]{24}$/i.test(p.id))
+  }
+
   const items = []
   const seen = new Set()
   const text = String(content || '')
@@ -34,7 +100,21 @@ function extractProductsFromMessage(content) {
     }
   }
 
+  if (!items.length) {
+    for (const name of parseListingNamesFromContent(text)) {
+      const key = name.toLowerCase()
+      if (!seen.has(key)) {
+        seen.add(key)
+        items.push({ id: '', name })
+      }
+    }
+  }
+
   return items
+}
+
+export function extractCatalogProductsFromContent(content) {
+  return extractProductsFromMessage(content).filter((item) => OBJECT_ID_PATTERN.test(item.id))
 }
 
 /** Products from the most recent assistant catalog listing (avoids stale items). */
@@ -42,7 +122,7 @@ export function extractProductsFromLastListing(history) {
   for (let i = (history || []).length - 1; i >= 0; i--) {
     const msg = history[i]
     if (msg.role !== 'assistant') continue
-    const items = extractProductsFromMessage(msg.content)
+    const items = extractProductsFromMessage(msg.content, msg.catalogProducts)
     if (items.length) return items
   }
   return []
@@ -54,15 +134,48 @@ export function extractProductsFromHistory(history) {
 
   for (const message of history || []) {
     if (message.role !== 'assistant') continue
-    for (const item of extractProductsFromMessage(message.content)) {
-      if (!seen.has(item.id)) {
-        seen.add(item.id)
+    for (const item of extractProductsFromMessage(message.content, message.catalogProducts)) {
+      const key = item.id || `name:${item.name}`
+      if (!seen.has(key)) {
+        seen.add(key)
         items.push(item)
       }
     }
   }
 
   return items
+}
+
+/** Resolve "the first one", "#2", "second item", etc. against the latest catalog listing. */
+export function resolveOrdinalCatalogProduct(userText, history = []) {
+  const listing = extractProductsFromLastListing(history)
+  if (!listing.length) return null
+
+  const t = String(userText || '').toLowerCase().trim()
+  const ordinalMatchers = [
+    { re: /\b(?:the\s+)?first(?:\s+(?:one|item|product|option))?\b|\b1st\b|(?:#|no\.?\s*)1\b/, index: 0 },
+    { re: /\b(?:the\s+)?second(?:\s+(?:one|item|product|option))?\b|\b2nd\b|(?:#|no\.?\s*)2\b/, index: 1 },
+    { re: /\b(?:the\s+)?third(?:\s+(?:one|item|product|option))?\b|\b3rd\b|(?:#|no\.?\s*)3\b/, index: 2 },
+    { re: /\b(?:the\s+)?fourth(?:\s+(?:one|item|product|option))?\b|\b4th\b|(?:#|no\.?\s*)4\b/, index: 3 },
+    { re: /\b(?:the\s+)?fifth(?:\s+(?:one|item|product|option))?\b|\b5th\b|(?:#|no\.?\s*)5\b/, index: 4 },
+    { re: /\b(?:the\s+)?sixth(?:\s+(?:one|item|product|option))?\b|\b6th\b|(?:#|no\.?\s*)6\b/, index: 5 },
+    { re: /\b(?:the\s+)?seventh(?:\s+(?:one|item|product|option))?\b|\b7th\b|(?:#|no\.?\s*)7\b/, index: 6 },
+    { re: /\b(?:the\s+)?eighth(?:\s+(?:one|item|product|option))?\b|\b8th\b|(?:#|no\.?\s*)8\b/, index: 7 },
+  ]
+
+  for (const { re, index } of ordinalMatchers) {
+    if (re.test(t) && listing[index]) {
+      return listing[index]
+    }
+  }
+
+  return null
+}
+
+export function isCatalogOrdinalSelection(userText, history = []) {
+  if (!isOrdinalPickPhrase(userText)) return false
+  if (!lastAssistantLooksLikeProductListing(history)) return false
+  return Boolean(resolveOrdinalCatalogProduct(userText, history))
 }
 
 export function activeCatalogProducts(history) {
@@ -83,9 +196,15 @@ export function isBulkAddIntent(userText) {
   )
 }
 
-export function isExplicitAddIntent(userText) {
+export function isExplicitAddIntent(userText, history = []) {
   const t = String(userText || '').trim().toLowerCase()
   if (/^you can add\b/.test(t)) return false
+  if (isOrdinalPickPhrase(userText) && !/\b(add|put)\b/.test(t)) {
+    return false
+  }
+  if (isCatalogOrdinalSelection(userText, history) && !/\b(add|put)\b/.test(t)) {
+    return false
+  }
   return /\b(add|buy|purchase|want|get|need|order)\b/.test(t)
 }
 
@@ -119,7 +238,7 @@ export function isAddToCartVariantIntent(text, history = []) {
   if (!extractProductsFromHistory(history).length) return false
   if (getPendingCartProductName(history)) return true
   if (isBulkAddIntent(text)) return true
-  if (isExplicitAddIntent(text)) return true
+  if (isExplicitAddIntent(text, history)) return true
   return false
 }
 
@@ -134,6 +253,9 @@ export function resolveProductIdFromPending(history, pendingName) {
 export async function resolveProductIdFromContext(history, userText, cartQueue = null) {
   const items = activeCatalogProducts(history)
   if (!items.length) return null
+
+  const ordinal = resolveOrdinalCatalogProduct(userText, history)
+  if (ordinal?.id) return ordinal.id
 
   const intent = await getPurchaseIntent(userText, history, cartQueue)
 

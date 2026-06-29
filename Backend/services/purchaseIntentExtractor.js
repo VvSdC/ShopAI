@@ -5,6 +5,7 @@ import { patchLlmUsageContext } from './llmUsageContext.js'
 import {
   activeCatalogProducts,
   getPendingCartProductName,
+  resolveOrdinalCatalogProduct,
 } from './chatGraph/productContext.js'
 import { resolveActiveCartQueue } from './cartQueue.js'
 import {
@@ -169,6 +170,22 @@ export async function getPurchaseIntent(userText, history = [], cartQueue = null
   const cached = getCachedPurchaseIntent(userText, history)
   if (cached) return cached
 
+  const ordinal = resolveOrdinalCatalogProduct(userText, history)
+  if (ordinal?.id) {
+    const wantsAdd = /\b(add|put)\b/i.test(String(userText || '').toLowerCase())
+    const intent = {
+      intent: wantsAdd ? 'add_to_cart' : 'product_detail',
+      product_id: ordinal.id,
+      product_ids: [],
+      size: null,
+      color: null,
+      qty: null,
+      confidence: 'high',
+    }
+    setCachedPurchaseIntent(userText, history, intent)
+    return intent
+  }
+
   try {
     const intent = await extractPurchaseIntentWithLlm(userText, history, cartQueue)
     setCachedPurchaseIntent(userText, history, intent)
@@ -195,6 +212,10 @@ export function intentToPurchaseShape(intent) {
 export function isCartAssistIntent(intent) {
   if (!intent) return false
   return ['add_to_cart', 'variant_reply', 'bulk_add'].includes(intent.intent)
+}
+
+export function isProductDetailIntent(intent) {
+  return intent?.intent === 'product_detail'
 }
 
 export function isVariantReplyIntent(intent) {

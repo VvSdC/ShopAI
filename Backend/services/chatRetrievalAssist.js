@@ -1,6 +1,6 @@
 /** Deterministic product search fallback — runs when the agent skips search or invents catalog items. */
 import { executeTool } from './chatTools.js'
-import { buildCatalogBackedReply, looksLikeHallucinatedProductLinks } from './chatPostProcess.js'
+import { buildCatalogBackedReply, looksLikeHallucinatedProductLinks, replyHasCatalogProductLinks } from './chatPostProcess.js'
 import { isDiscoveryIntent } from './chatGraph/routerHeuristic.js'
 import { isKitBundleQuery } from './chatGraph/productContext.js'
 
@@ -87,6 +87,17 @@ export async function runRetrievalAssist(
   const toolsUsed = graphResult.toolsUsed || []
 
   if (!needsForcedSearch({ route, userText, history, toolsUsed, toolResults, reply })) {
+    const prior = lastSearchFromToolResults(toolResults)
+    if (
+      prior?.products?.length &&
+      !replyHasCatalogProductLinks(reply) &&
+      !replyHasCatalogProductLinks(graphResult.reply)
+    ) {
+      return {
+        toolResults,
+        reply: buildCatalogBackedReply(prior, { kitQuery: isKitBundleQuery(userText) }),
+      }
+    }
     return { toolResults, reply: null }
   }
 

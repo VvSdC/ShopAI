@@ -38,6 +38,15 @@ const chatMessageSchema = new mongoose.Schema(
       orderId: { type: String },
       totalPrice: { type: Number },
     },
+    catalogProducts: {
+      type: [
+        {
+          id: { type: String, required: true },
+          name: { type: String, default: '' },
+        },
+      ],
+      default: undefined,
+    },
   },
   { timestamps: true }
 )

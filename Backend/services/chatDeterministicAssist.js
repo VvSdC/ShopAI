@@ -3,6 +3,7 @@ import { runCartAssist } from './chatCartAssist.js'
 import { runAddressAssist } from './chatAddressAssist.js'
 import { runCheckoutAssist } from './chatCheckoutAssist.js'
 import { runRetrievalAssist } from './chatRetrievalAssist.js'
+import { runProductDetailAssist } from './chatProductDetailAssist.js'
 import { ensureCheckoutOnConfirm } from './chatPostProcess.js'
 
 /**
@@ -56,6 +57,16 @@ export async function runDeterministicChatAssist({
     reply = retrievalAssist.reply
   }
 
+  const detailAssist = await runProductDetailAssist(userId, userText, history, toolResults, {
+    route: graphResult.route,
+    cartQueue: sessionCartQueue,
+  })
+  toolResults = detailAssist.toolResults
+  const lockedProductDetailReply = detailAssist.reply || null
+  if (lockedProductDetailReply) {
+    reply = lockedProductDetailReply
+  }
+
   const cartAssist = await runCartAssist(userId, userText, history, toolResults, {
     route: graphResult.route,
     cartQueue: sessionCartQueue,
@@ -81,6 +92,10 @@ export async function runDeterministicChatAssist({
   }
 
   toolResults = await ensureCheckoutOnConfirm(userId, userText, messages, toolResults)
+
+  if (lockedProductDetailReply) {
+    reply = lockedProductDetailReply
+  }
 
   return { reply, toolResults, cartQueue }
 }

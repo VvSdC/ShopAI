@@ -8,6 +8,7 @@ import { clampChatText, clampSessionMessageText } from '../utils/chatMessageLimi
 import { trimHistoryToTokenBudget } from '../utils/chatHistoryTrim.js'
 import { CHAT_HISTORY_TOKEN_BUDGET } from '../constants/chatLimits.js'
 import { normalizeCartQueue, stripCartQueueMarker } from './cartQueue.js'
+import { extractCatalogProductsFromContent } from './chatGraph/productContext.js'
 
 export const MAX_SESSIONS_PER_USER = 50
 export const MAX_MESSAGES_PER_SESSION = 100
@@ -147,7 +148,8 @@ export async function appendMessages(
   userContent,
   assistantContent,
   checkout = null,
-  cartQueue = undefined
+  cartQueue = undefined,
+  catalogProducts = null
 ) {
   const userEntry = {
     role: 'user',
@@ -165,6 +167,13 @@ export async function appendMessages(
       orderId: checkout.orderId,
       totalPrice: checkout.totalPrice,
     }
+  }
+
+  if (Array.isArray(catalogProducts) && catalogProducts.length) {
+    assistantEntry.catalogProducts = catalogProducts.map((p) => ({
+      id: String(p.id),
+      name: String(p.name || '').slice(0, 200),
+    }))
   }
 
   const priorCount = session.messageCount ?? session.messages?.length ?? 0
@@ -250,10 +259,24 @@ export function sessionHistoryForApi(
 ) {
   const mapped = (session?.messages || [])
     .slice(-maxMessages)
-    .map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: clampChatText(stripCartQueueMarker(m.content), CHAT_MESSAGE_MAX_LENGTH),
-    }))
+    .map((m) => {
+      const entry = {
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: clampChatText(stripCartQueueMarker(m.content), CHAT_MESSAGE_MAX_LENGTH),
+      }
+      if (m.catalogProducts?.length) {
+        entry.catalogProducts = m.catalogProducts.map((p) => ({
+          id: String(p.id),
+          name: String(p.name || ''),
+        }))
+      } else if (entry.role === 'assistant') {
+        const parsed = extractCatalogProductsFromContent(entry.content)
+        if (parsed.length) {
+          entry.catalogProducts = parsed
+        }
+      }
+      return entry
+    })
   return trimHistoryToTokenBudget(mapped, tokenBudget)
 }
 

@@ -15,6 +15,8 @@ import {
   sanitizeAssistantReply,
   applyCheckoutReply,
   formatAgentReply,
+  ensureSearchCatalogReply,
+  resolveCatalogProductsForSession,
 } from '../services/chatPostProcess.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 import { runWithPurchaseIntentCache } from '../services/purchaseIntentContext.js'
@@ -173,16 +175,27 @@ async function persistAndRespond(
     sessionCartQueue,
   })
 
+  const baseReply = ensureSearchCatalogReply(assistedReply, toolResults, userText)
+
   const formattedReply = formatAgentReply(
-    assistedReply,
+    baseReply,
     graphResult.messages || [],
     userText,
-    toolResults
+    toolResults,
+    history
   )
   const reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
   const payload = buildChatResponse(reply, toolResults)
   const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
-  await appendMessages(session, userText, reply, payload.checkout || null, cartQueuePatch)
+  const catalogToSave = resolveCatalogProductsForSession(toolResults, reply)
+  await appendMessages(
+    session,
+    userText,
+    reply,
+    payload.checkout || null,
+    cartQueuePatch,
+    catalogToSave.length ? catalogToSave : null
+  )
   await maybeTrimOldSessions(userId)
   payload.sessionId = String(session._id)
   payload.sessionTitle = session.title

@@ -58,6 +58,9 @@ function normalizeMessageForTrim(message) {
   if (message.tool_call_id) {
     normalized.tool_call_id = message.tool_call_id
   }
+  if (message.catalogProducts?.length) {
+    normalized.catalogProducts = message.catalogProducts
+  }
 
   return normalized
 }

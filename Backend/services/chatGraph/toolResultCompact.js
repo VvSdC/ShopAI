@@ -66,6 +66,8 @@ export function compactProductDetail(product) {
     qtyLeft: lean.qtyLeft,
     colors: lean.colors,
     sizes: lean.sizes,
+    sizeMeasurementType: lean.sizeMeasurementType,
+    sizeLabel: lean.sizeLabel,
     productUrl: lean.productUrl,
     totalReviews: lean.totalReviews,
     description: truncateText(lean.description, DETAIL_DESCRIPTION_MAX),
