@@ -5,6 +5,10 @@ import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'
 import { isCheckoutProceedIntent } from './chatIntentHelpers.js'
 import {
+  looksLikeAddressInput,
+  lastAssistantAskedForAddressFields,
+} from './chatAddressAssist.js'
+import {
   isOrdinalPickPhrase,
   lastAssistantLooksLikeProductListing,
 } from './chatGraph/productContext.js'
@@ -49,13 +53,20 @@ export function parseAddressSelection(text, addresses = [], history = []) {
   if (addressPickerActive) {
     if (/\b(first|1st)\b/.test(t) && addresses[0]) return addresses[0]
     if (/\b(second|2nd)\b/.test(t) && addresses[1]) return addresses[1]
-  }
 
-  for (const a of addresses) {
-    const city = (a.city || '').toLowerCase()
-    const province = (a.province || '').toLowerCase()
-    if (city && t.includes(city)) return a
-    if (province && t.includes(province)) return a
+    for (const a of addresses) {
+      const city = (a.city || '').toLowerCase()
+      const province = (a.province || '').toLowerCase()
+      if (city && (t === city || (t.length <= 40 && new RegExp(`\\b${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(t)))) {
+        return a
+      }
+      if (
+        province &&
+        (t === province || (t.length <= 40 && new RegExp(`\\b${province.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(t)))
+      ) {
+        return a
+      }
+    }
   }
 
   return null
@@ -68,7 +79,7 @@ export function buildAddressPickerReply(addresses) {
     return `${n}. ${name}**${a.city}, ${a.province}** — ${a.address}, ${a.postalCode}`
   })
 
-  return `You have **${addresses.length}** saved shipping address${addresses.length === 1 ? '' : 'es'}:\n\n${lines.join('\n')}\n\nReply **1** or **2** (or say the city name, e.g. Bangalore) and I will start checkout with that address.\n\nManage addresses anytime in [My Profile](/customer-profile).`
+  return `You have **${addresses.length}** saved shipping address${addresses.length === 1 ? '' : 'es'}:\n\n${lines.join('\n')}\n\nPick an address below, tap **New address**, or reply with the number or city name (e.g. Bangalore).\n\nManage addresses anytime in [My Profile](/customer-profile).`
 }
 
 function buildCheckoutBlockedReply(preview) {
@@ -94,6 +105,33 @@ function checkoutToolPayload(session) {
   }
 }
 
+function withAddressPickerResults(toolResults, addresses) {
+  if (!addresses?.length) return toolResults
+  return [
+    ...toolResults,
+    {
+      toolName: 'get_my_addresses',
+      count: addresses.length,
+      addresses: addresses.map((a) => ({
+        choiceNumber: a.choiceNumber,
+        label: `${a.city}, ${a.province}`,
+        city: a.city,
+        province: a.province,
+        address: a.address,
+        postalCode: a.postalCode,
+        name: a.name,
+      })),
+    },
+  ]
+}
+
+function returnAddressPicker(toolResults, addresses) {
+  return {
+    toolResults: withAddressPickerResults(toolResults, addresses),
+    reply: buildAddressPickerReply(addresses),
+  }
+}
+
 function resolveAddressIndex(addr, addresses) {
   if (addr == null) return undefined
   if (Number.isFinite(addr.addressIndex)) return addr.addressIndex
@@ -116,12 +154,21 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
     const checkoutActions = new Set([
       'checkout',
       'address_pick',
-      'address_save',
       'view_cart',
     ])
     if (!checkoutActions.has(plan.action) && plan.action !== 'other') {
       return { toolResults, reply: null }
     }
+  }
+
+  if (plan?.action === 'address_save') {
+    return { toolResults, reply: null }
+  }
+  if (looksLikeAddressInput(userText)) {
+    return { toolResults, reply: null }
+  }
+  if (lastAssistantAskedForAddressFields(messages)) {
+    return { toolResults, reply: null }
   }
 
   const hasCheckout = toolResults.some(
@@ -150,7 +197,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
   }
 
   if ((proceed || addressRecall) && addresses.length > 1 && !selected) {
-    return { toolResults, reply: buildAddressPickerReply(addresses) }
+    return returnAddressPicker(toolResults, addresses)
   }
 
   const addressIndex =
@@ -161,7 +208,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
         : undefined
 
   if (addressIndex == null) {
-    return { toolResults, reply: buildAddressPickerReply(addresses) }
+    return returnAddressPicker(toolResults, addresses)
   }
 
   const preview = await previewCheckout(userId, { addressIndex })
@@ -173,7 +220,7 @@ export async function runCheckoutAssist(userId, userText, messages = [], toolRes
     proceed || selected || (addresses.length === 1 && addressRecall)
 
   if (!shouldCreateSession) {
-    return { toolResults, reply: buildAddressPickerReply(addresses) }
+    return returnAddressPicker(toolResults, addresses)
   }
 
   try {

@@ -97,7 +97,7 @@ export async function runDeterministicChatAssist({
     cartQueue = cartAssist.cartQueue
   }
 
-  const addressAssist = await runAddressAssist(userId, userText, toolResults)
+  const addressAssist = await runAddressAssist(userId, userText, toolResults, { history, plan })
   toolResults = addressAssist.toolResults
   if (addressAssist.reply && !replyLocked) {
     reply = addressAssist.reply
@@ -108,7 +108,7 @@ export async function runDeterministicChatAssist({
     plan,
   })
   toolResults = checkoutAssist.toolResults
-  if (checkoutAssist.reply && !replyLocked) {
+  if (checkoutAssist.reply && !replyLocked && !addressAssist.reply) {
     reply = checkoutAssist.reply
     replyKind = 'checkout_link'
   }

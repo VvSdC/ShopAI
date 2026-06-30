@@ -54,6 +54,20 @@ describe('chatCheckoutAssist address selection', () => {
   it('does not parse bare numbers outside address-picker context', () => {
     expect(parseAddressSelection('2', addresses, productListingHistory)).toBeNull()
   })
+
+  it('does not treat a new address line mentioning a saved city as address selection', () => {
+    expect(
+      parseAddressSelection(
+        'Building 7, Infosys SEZ, Pocharam, Hyderabad 500098',
+        addresses,
+        []
+      )
+    ).toBeNull()
+  })
+
+  it('does not treat a state-only follow-up as address selection outside the picker', () => {
+    expect(parseAddressSelection('Telangana', addresses, [])).toBeNull()
+  })
 })
 
 describe('runCheckoutAssist', () => {

@@ -209,7 +209,7 @@ export function sanitizeAssistantReply(reply) {
     .trim()
 }
 
-export function buildCatalogBackedReply(searchResult, { kitQuery = false } = {}) {
+export function buildCatalogBackedReply(searchResult, { kitQuery = false, cardsOnly = false } = {}) {
   const count = searchResult.count ?? 0
   if (count === 0) {
     return (
@@ -218,7 +218,6 @@ export function buildCatalogBackedReply(searchResult, { kitQuery = false } = {})
     )
   }
 
-  const list = formatProductListBlock(searchResult)
   const intro =
     count === 1
       ? 'I found **1** product in our catalog that matches:'
@@ -229,10 +228,19 @@ export function buildCatalogBackedReply(searchResult, { kitQuery = false } = {})
     : ''
 
   const outro = kitQuery
+    ? 'Tell me which items to add (e.g. *Add the bat and leather ball, 2 each*) or tap a product card below.'
+    : 'Tap a product card below for details, or tell me which one to add (size, color, and quantity when needed).'
+
+  if (cardsOnly) {
+    return `${kitNote}${intro}\n\n${outro}`
+  }
+
+  const list = formatProductListBlock(searchResult)
+  const legacyOutro = kitQuery
     ? 'Tell me which items to add (e.g. *Add the bat and leather ball, 2 each*) or tap **View product** for details.'
     : 'Tap **View product** to see full details. Tell me which items to add, with size, color, and quantity when needed.'
 
-  return `${kitNote}${intro}\n\n${list}\n\n${outro}`
+  return `${kitNote}${intro}\n\n${list}\n\n${legacyOutro}`
 }
 
 export function applyKitSearchReply(reply, userText) {
@@ -342,10 +350,12 @@ export function findLastProductDetailsInToolResults(toolResults = []) {
   return null
 }
 
-export function buildProductDetailReply(product, _options = {}) {
+export function buildProductDetailReply(product, options = {}) {
   if (!product || product.error) {
     return product?.error || 'I could not load that product. Please try again.'
   }
+
+  const compact = Boolean(options.compact)
 
   const noSizeProduct = product.sizeMeasurementType === 'none'
   const sizeLabel = product.sizeLabel || 'Size'
@@ -366,6 +376,14 @@ export function buildProductDetailReply(product, _options = {}) {
         ? 'In stock'
         : 'Out of stock'
   const url = product.productUrl || `/products/${product.id}`
+
+  if (compact) {
+    return [
+      `Here’s **${product.name}** — ${formatInr(product.price)}.`,
+      '',
+      'Use the card below to view details, or tell me the **size** and **quantity** to add it to your cart.',
+    ].join('\n')
+  }
 
   const lines = [
     `**${product.name}** — ${formatInr(product.price)}`,
@@ -468,8 +486,42 @@ export function formatAgentReply(
   return sanitizeAssistantReply(formatted)
 }
 
-export function buildChatResponse(reply, toolResults) {
-  const payload = { success: true, reply }
+/** Shorten prose when structured UI blocks carry listings, detail, cart, or addresses. */
+export function applyBlockAwareReply(reply, blocks, toolResults = [], userText = '') {
+  if (!blocks?.length) return reply
+
+  if (blocks.some((b) => b.type === 'product_listing')) {
+    const catalog = findSearchCatalog([], toolResults)
+    if (catalog?.products?.length) {
+      return buildCatalogBackedReply(catalog, {
+        kitQuery: isKitBundleQuery(userText),
+        cardsOnly: true,
+      })
+    }
+  }
+
+  if (blocks.some((b) => b.type === 'product_detail')) {
+    const detail = findLastProductDetailsInToolResults(toolResults)
+    if (detail) {
+      return buildProductDetailReply(detail, { compact: true })
+    }
+  }
+
+  if (blocks.some((b) => b.type === 'cart_summary')) {
+    const intro =
+      /added/i.test(reply) ? "I've updated your cart:" : 'Your cart:'
+    return `${intro}\n\nSee the summary below. Would you like to **proceed to checkout** or apply a coupon?`
+  }
+
+  if (blocks.some((b) => b.type === 'address_picker')) {
+    return 'Choose a **shipping address** below, tap **New address**, or reply with the number or city name.'
+  }
+
+  return reply
+}
+
+export function buildChatResponse(reply, toolResults, extra = {}) {
+  const payload = { success: true, reply, ...extra }
   const clientActions = collectClientActions(toolResults)
   if (clientActions.length) {
     payload.clientActions = clientActions

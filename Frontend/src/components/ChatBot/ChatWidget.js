@@ -5,6 +5,7 @@ import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
 import { formatMessage, TypingDots, buildClientWelcomeMessage } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
+import ChatMessageBody from './chatBlocks/ChatMessageBody'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
 import { checkoutCardVisible } from './checkoutMessageHelpers'
 import { useCheckoutHandlers } from './useCheckoutHandlers'
@@ -32,6 +33,7 @@ function mapApiMessages(items) {
     role: m.role,
     content: m.content,
     checkout: m.checkout || null,
+    blocks: m.blocks || null,
   }))
 }
 
@@ -198,10 +200,8 @@ export default function ChatWidget() {
     growTextarea(e.target, WIDGET_TEXTAREA_MAX_HEIGHT)
   }
 
-  const handleSend = async () => {
-
-    const text = input.trim()
-
+  const handleSend = async (overrideText) => {
+    const text = (overrideText ?? input).trim()
     if (!text || isLoading) return
 
 
@@ -258,6 +258,7 @@ export default function ChatWidget() {
                 ...msg,
                 content: data.reply,
                 checkout: data.checkout || null,
+                blocks: data.blocks || null,
                 streaming: false,
               }
             : msg
@@ -459,7 +460,12 @@ export default function ChatWidget() {
                         <TypingDots />
                       )
                     ) : (
-                      formatMessage(msg.content)
+                      <ChatMessageBody
+                        content={msg.content}
+                        blocks={msg.blocks}
+                        onQuickAction={handleSend}
+                        disabled={isLoading}
+                      />
                     )
                   ) : (
                     msg.content

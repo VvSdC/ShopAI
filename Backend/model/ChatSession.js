@@ -71,6 +71,10 @@ const chatMessageSchema = new mongoose.Schema(
       maxlength: 12,
       default: undefined,
     },
+    blocks: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: undefined,
+    },
   },
   { timestamps: true }
 )

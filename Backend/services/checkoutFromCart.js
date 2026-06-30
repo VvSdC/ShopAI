@@ -1,6 +1,5 @@
 import User from '../model/User.js'
 import {
-  clearCart,
   getCart,
   getCartOrderItems,
 } from './cartService.js'
@@ -48,8 +47,19 @@ export async function previewCheckout(userId, { addressIndex } = {}) {
   const user = await User.findById(userId).select(
     'hasShippingAddress shippingAddresses fullname'
   )
-  const { orderItems, couponCode } = await getCartOrderItems(userId)
   const { address, error } = resolveShippingAddress(user, addressIndex)
+
+  let orderItems = []
+  let couponCode = null
+  try {
+    const cartData = await getCartOrderItems(userId)
+    orderItems = cartData.orderItems
+    couponCode = cartData.couponCode
+  } catch (err) {
+    if (!/cart is empty/i.test(String(err?.message || ''))) {
+      throw err
+    }
+  }
 
   const cart = await getCart(userId)
 
@@ -89,8 +99,6 @@ export async function checkoutFromCart(userId, { addressIndex } = {}) {
     couponCode,
     source: 'chat',
   })
-
-  await clearCart(userId)
 
   return session
 }

@@ -17,6 +17,7 @@ import {
   AI_CHATBOT_LABEL,
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
+import ChatMessageBody from './chatBlocks/ChatMessageBody'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
 import { checkoutCardVisible } from './checkoutMessageHelpers'
 import { useStripeReturnHandler } from './useStripeReturnHandler'
@@ -102,6 +103,7 @@ export default function AssistantPage() {
         role: m.role,
         content: m.content,
         checkout: m.checkout || null,
+        blocks: m.blocks || null,
       })),
     []
   )
@@ -301,6 +303,7 @@ export default function AssistantPage() {
                 ...msg,
                 content: data.reply,
                 checkout: data.checkout || null,
+                blocks: data.blocks || null,
                 streaming: false,
               }
             : msg
@@ -646,7 +649,12 @@ export default function AssistantPage() {
                         <TypingDots />
                       )
                     ) : (
-                      formatMessage(msg.content)
+                      <ChatMessageBody
+                        content={msg.content}
+                        blocks={msg.blocks}
+                        onQuickAction={handleSend}
+                        disabled={isLoading}
+                      />
                     )
                   ) : (
                     msg.content
