@@ -33,5 +33,11 @@ export async function runChatGraph({
     routeReason: result.routeReason || null,
     guardAllowed: result.guardAllowed !== false,
     guardReason: result.guardReason || null,
+    plan: result.plan || null,
+    language: result.language || 'en',
+    languageLabel: result.languageLabel || 'English',
+    languageScript: result.languageScript || 'latin',
+    replyKind: result.replyKind || null,
+    replyLocked: Boolean(result.replyLocked),
   }
 }

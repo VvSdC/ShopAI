@@ -149,12 +149,16 @@ export async function appendMessages(
   assistantContent,
   checkout = null,
   cartQueue = undefined,
-  catalogProducts = null
+  catalogProducts = null,
+  metadata = {}
 ) {
+  const { messageKind = null, language = null, userLanguage = null } = metadata || {}
+
   const userEntry = {
     role: 'user',
     content: clampSessionMessageText(userContent),
   }
+  if (userLanguage) userEntry.language = String(userLanguage).slice(0, 12)
 
   const assistantEntry = {
     role: 'assistant',
@@ -175,6 +179,9 @@ export async function appendMessages(
       name: String(p.name || '').slice(0, 200),
     }))
   }
+
+  if (messageKind) assistantEntry.messageKind = messageKind
+  if (language) assistantEntry.language = String(language).slice(0, 12)
 
   const priorCount = session.messageCount ?? session.messages?.length ?? 0
   const shouldUpdateTitle =
@@ -231,6 +238,8 @@ export function mapSessionMessageForClient(message) {
       totalPrice: message.checkout.totalPrice,
     }
   }
+  if (message.messageKind) out.messageKind = message.messageKind
+  if (message.language) out.language = message.language
   return out
 }
 
@@ -275,6 +284,8 @@ export function sessionHistoryForApi(
           entry.catalogProducts = parsed
         }
       }
+      if (m.messageKind) entry.messageKind = m.messageKind
+      if (m.language) entry.language = m.language
       return entry
     })
   return trimHistoryToTokenBudget(mapped, tokenBudget)

@@ -20,6 +20,8 @@ export function alreadyHasAddressIntent(text) {
 export function lastAssistantMentionsAddressPicker(history = []) {
   const last = [...(history || [])].reverse().find((m) => m.role === 'assistant')
   if (!last) return false
+  if (last.messageKind === 'address_picker') return true
+  if (last.messageKind && last.messageKind !== 'address_picker') return false
   const content = String(last.content || '').toLowerCase()
   return /saved shipping address(?:es)?|reply \*\*1\*\* or \*\*2\*\*|which address|choose (?:an |a )?address|shipping address/i.test(
     content
@@ -104,9 +106,22 @@ function resolveAddressIndex(addr, addresses) {
  * Server-side checkout steps when the model skips tools (saved addresses, picker, Stripe session).
  * @returns {{ toolResults: object[], reply: string|null }}
  */
-export async function runCheckoutAssist(userId, userText, messages = [], toolResults = []) {
+export async function runCheckoutAssist(userId, userText, messages = [], toolResults = [], options = {}) {
   if (isProductCatalogOrdinalPick(userText, messages)) {
     return { toolResults, reply: null }
+  }
+  // Trust the planner: if it's not a checkout-related action, skip entirely.
+  const plan = options.plan
+  if (plan) {
+    const checkoutActions = new Set([
+      'checkout',
+      'address_pick',
+      'address_save',
+      'view_cart',
+    ])
+    if (!checkoutActions.has(plan.action) && plan.action !== 'other') {
+      return { toolResults, reply: null }
+    }
   }
 
   const hasCheckout = toolResults.some(

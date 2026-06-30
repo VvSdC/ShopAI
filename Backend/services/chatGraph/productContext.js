@@ -10,10 +10,21 @@ export function isOrdinalPickPhrase(userText) {
   return ORDINAL_PICK_PATTERN.test(String(userText || '').trim().toLowerCase())
 }
 
+export function lastAssistantMessageKind(history = []) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i]
+    if (msg.role !== 'assistant') continue
+    return msg.messageKind || null
+  }
+  return null
+}
+
 export function lastAssistantLooksLikeProductListing(history = []) {
   for (let i = history.length - 1; i >= 0; i--) {
     const msg = history[i]
     if (msg.role !== 'assistant') continue
+    if (msg.messageKind === 'product_listing') return true
+    if (msg.messageKind && msg.messageKind !== 'product_listing') return false
     const content = String(msg.content || '')
     if (/saved shipping address(?:es)?|reply \*\*1\*\* or \*\*2\*\*|proceed to checkout/i.test(content)) {
       return false

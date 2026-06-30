@@ -155,13 +155,14 @@ describe('guardNode (fused routing)', () => {
     expect(chatCompletion).not.toHaveBeenCalled()
   })
 
-  it('uses one fused LLM call for ambiguous messages', async () => {
+  it('uses one planner LLM call for ambiguous messages', async () => {
     const { chatCompletion } = await import('../../services/llmService.js')
     chatCompletion.mockResolvedValue({
       choices: [
         {
           message: {
-            content: '{"allowed":true,"route":"general","reason":"ambiguous reference"}',
+            content:
+              '{"allowed":true,"language":"en","language_label":"English","script":"latin","route":"general","action":"other","reason":"ambiguous reference","product_ref":{"kind":"pronoun","value":null},"slots":{},"missing":[]}',
           },
         },
       ],
@@ -173,8 +174,34 @@ describe('guardNode (fused routing)', () => {
     })
     expect(result.guardAllowed).toBe(true)
     expect(result.route).toBe('general')
+    expect(result.language).toBe('en')
+    expect(result.plan).toBeTruthy()
     expect(chatCompletion).toHaveBeenCalledOnce()
-    expect(chatCompletion.mock.calls[0][2]).toEqual({ maxTokens: 60 })
+  })
+
+  it('detects transliterated multilingual messages and returns language hint', async () => {
+    const { chatCompletion } = await import('../../services/llmService.js')
+    chatCompletion.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content:
+              '{"allowed":true,"language":"te","language_label":"Telugu","script":"latin","route":"retrieval","action":"browse","reason":"product_search","product_ref":{"kind":"none","value":null},"slots":{"query":"cricket ball"},"missing":[],"normalized_query_en":"cricket ball"}',
+          },
+        },
+      ],
+    })
+
+    const result = await guardNode({
+      userText: 'naaku oka cricket ball kavali',
+      history: [],
+    })
+    expect(result.guardAllowed).toBe(true)
+    expect(result.route).toBe('retrieval')
+    expect(result.language).toBe('te')
+    expect(result.languageLabel).toBe('Telugu')
+    expect(result.languageScript).toBe('latin')
+    expect(result.plan.normalized_query_en).toBe('cricket ball')
   })
 
   it('refuses injection without LLM', async () => {

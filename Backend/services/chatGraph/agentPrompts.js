@@ -20,6 +20,11 @@ Only access the current customer's data via tools. Never discuss other customers
 Never fabricate products, prices, stock, payment status, or checkout URLs.
 Format prices in INR with ₹. Use markdown links [View product](/products/ID) for products.
 
+LANGUAGE (critical):
+- Detect the customer's language from their message (English, Hindi, Telugu, Tamil, Hinglish, Tinglish, etc.).
+- Reply in the SAME language and SAME script the customer used. If they wrote an Indian language using English/Latin letters (e.g. "naaku oka cricket ball kavali"), reply in that language using English/Latin letters too — keep it natural and friendly.
+- Always keep product names, brand names, prices (₹), markdown links, and any tool call arguments in standard English form regardless of reply language.
+
 GAP-FILLING (critical): Customers write in many styles and languages. If anything required is missing, ask clearly for only what is missing — e.g. PIN/postal code, phone number, size, color, quantity, city, state, street address. Accept free-form replies. Never ask for internal product IDs. Never invent checkout or cart URLs.`
 
 const POLICY_KNOWLEDGE = `Checkout: cart → address → Stripe Pay (in-app). Returns: 3 days post-delivery (chat/My Profile). Cancel: pending/processing before ship. Pay: Stripe only—no invented links.`
@@ -80,6 +85,57 @@ export function getAgentSystemPrompt(route, userName, options = {}) {
 
 export function buildAgentSystemPrompt(route, userName, options = {}) {
   return personalizeRouteTemplate(getCachedRouteTemplate(route, options), userName)
+}
+
+function planContextBlock(plan) {
+  if (!plan) return null
+  const lines = []
+  if (plan.action && plan.action !== 'other') {
+    lines.push(`- detected_action: ${plan.action}`)
+  }
+  const ref = plan.product_ref
+  if (ref && ref.kind !== 'none') {
+    const parts = [`kind=${ref.kind}`]
+    if (ref.id) parts.push(`id=${ref.id}`)
+    if (ref.name) parts.push(`name="${ref.name}"`)
+    if (ref.value) parts.push(`value="${ref.value}"`)
+    lines.push(`- product_reference: ${parts.join(', ')}`)
+  }
+  const slots = plan.slots || {}
+  const slotEntries = Object.entries(slots).filter(([, v]) => v != null && v !== '')
+  if (slotEntries.length) {
+    const text = slotEntries.map(([k, v]) => `${k}=${v}`).join(', ')
+    lines.push(`- slots: ${text}`)
+  }
+  if (Array.isArray(plan.missing) && plan.missing.length) {
+    lines.push(`- missing_before_action: ${plan.missing.join(', ')}`)
+  }
+  if (plan.normalized_query_en && plan.language !== 'en') {
+    lines.push(`- english_query_hint: ${plan.normalized_query_en}`)
+  }
+  if (!lines.length) return null
+  return `PLANNER_CONTEXT (use for tool calls; do not show to customer):\n${lines.join('\n')}`
+}
+
+function languageInstructionBlock(plan) {
+  if (!plan) return null
+  const label = plan.language_label || 'English'
+  if (label === 'English' && plan.script === 'latin') return null
+  if (plan.script === 'latin') {
+    return `LANGUAGE_HINT: Customer wrote in ${label} using Latin letters (transliterated). Reply in the same ${label}-in-Latin-script style — natural, conversational, and friendly. Keep product names, prices, ₹ amounts, markdown links, and tool arguments in English.`
+  }
+  return `LANGUAGE_HINT: Customer wrote in ${label} (${plan.script} script). Reply in ${label} (${plan.script}). Keep product names, prices, ₹ amounts, markdown links, and tool arguments in English.`
+}
+
+/**
+ * Route system prompt + language hint + planner context.
+ * Pass plan from LangGraph state — never re-derive intent inside the agent.
+ */
+export function buildAgentSystemPromptWithContext(route, userName, plan, options = {}) {
+  const base = buildAgentSystemPrompt(route, userName, options)
+  const language = languageInstructionBlock(plan)
+  const context = planContextBlock(plan)
+  return [base, language, context].filter(Boolean).join('\n\n')
 }
 
 function buildRouteTemplate(route, options = {}) {

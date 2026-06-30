@@ -32,7 +32,13 @@ export async function resolveListingNameToProductId(name) {
   return fuzzy?._id ? String(fuzzy._id) : null
 }
 
-async function resolveProductIdForDetail(userText, history, cartQueue) {
+async function resolveProductIdForDetail(userText, history, cartQueue, plan) {
+  if (plan?.product_ref?.id) return plan.product_ref.id
+  if (plan?.product_ref?.name) {
+    const byName = await resolveListingNameToProductId(plan.product_ref.name)
+    if (byName) return byName
+  }
+
   const ordinal = resolveOrdinalCatalogProduct(userText, history)
   if (ordinal?.id) return ordinal.id
   if (ordinal?.name) {
@@ -68,7 +74,10 @@ export async function runProductDetailAssist(
   toolResults = [],
   options = {}
 ) {
-  if (!shouldRunProductDetailAssist(userText, history, options.route)) {
+  const plan = options.plan || null
+  const plannerWantsDetail = plan?.action === 'view_details'
+
+  if (!plannerWantsDetail && !shouldRunProductDetailAssist(userText, history, options.route)) {
     const intent = await getPurchaseIntent(userText, history, options.cartQueue ?? null)
     if (!isProductDetailIntent(intent)) {
       return { toolResults, reply: null }
@@ -78,7 +87,8 @@ export async function runProductDetailAssist(
   const productId = await resolveProductIdForDetail(
     userText,
     history,
-    options.cartQueue ?? null
+    options.cartQueue ?? null,
+    plan
   )
   if (!productId) {
     if (isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(history)) {
@@ -100,6 +110,6 @@ export async function runProductDetailAssist(
 
   return {
     toolResults: [...toolResults, { ...result, toolName: 'get_product_details' }],
-    reply: buildProductDetailReply(result),
+    reply: buildProductDetailReply(result, { plan }),
   }
 }

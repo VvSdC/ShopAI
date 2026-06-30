@@ -61,6 +61,8 @@ function normalizeMessageForTrim(message) {
   if (message.catalogProducts?.length) {
     normalized.catalogProducts = message.catalogProducts
   }
+  if (message.messageKind) normalized.messageKind = message.messageKind
+  if (message.language) normalized.language = message.language
 
   return normalized
 }
@@ -91,10 +93,14 @@ export function trimHistoryToTokenBudget(
 }
 
 export function normalizeChatHistoryMessage(message) {
-  return {
+  const out = {
     role: message.role === 'user' ? 'user' : 'assistant',
     content: clampChatText(String(message.content ?? ''), CHAT_MESSAGE_MAX_LENGTH),
   }
+  if (message.catalogProducts?.length) out.catalogProducts = message.catalogProducts
+  if (message.messageKind) out.messageKind = message.messageKind
+  if (message.language) out.language = message.language
+  return out
 }
 
 export function prepareChatHistoryForLlm(

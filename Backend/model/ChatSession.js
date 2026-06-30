@@ -47,6 +47,30 @@ const chatMessageSchema = new mongoose.Schema(
       ],
       default: undefined,
     },
+    messageKind: {
+      type: String,
+      enum: [
+        'product_listing',
+        'product_detail',
+        'cart_summary',
+        'cart_confirm',
+        'address_picker',
+        'address_saved',
+        'checkout_link',
+        'order_summary',
+        'order_update',
+        'policy',
+        'greeting',
+        'refuse',
+        'reply',
+      ],
+      default: undefined,
+    },
+    language: {
+      type: String,
+      maxlength: 12,
+      default: undefined,
+    },
   },
   { timestamps: true }
 )

@@ -329,7 +329,7 @@ export function findLastProductDetailsInToolResults(toolResults = []) {
   return null
 }
 
-export function buildProductDetailReply(product) {
+export function buildProductDetailReply(product, _options = {}) {
   if (!product || product.error) {
     return product?.error || 'I could not load that product. Please try again.'
   }
@@ -391,19 +391,23 @@ export function formatAgentReply(
   messages,
   userText = '',
   toolResults = [],
-  history = []
+  history = [],
+  { plan = null, replyKind = null, replyLocked = false } = {}
 ) {
+  if (replyLocked && reply) {
+    return sanitizeAssistantReply(reply)
+  }
+
   const historyForOrdinal = history.length ? history : messages
   const hasCartAdd = toolResults.some(
     (r) => r?.toolName === 'add_to_cart' && r?.success && (r?.cart?.items?.length || 0) > 0
   )
+  const ordinalLike =
+    plan?.product_ref?.kind === 'ordinal' ||
+    isCatalogOrdinalSelection(userText, historyForOrdinal) ||
+    (isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(historyForOrdinal))
 
-  if (
-    !hasCartAdd &&
-    /cart is empty/i.test(String(reply || '')) &&
-    (isCatalogOrdinalSelection(userText, historyForOrdinal) ||
-      (isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(historyForOrdinal)))
-  ) {
+  if (!hasCartAdd && /cart is empty/i.test(String(reply || '')) && ordinalLike) {
     reply = null
   }
 
@@ -411,22 +415,22 @@ export function formatAgentReply(
     const lastDetails =
       findLastProductDetails(messages) || findLastProductDetailsInToolResults(toolResults)
     if (lastDetails) {
-      return sanitizeAssistantReply(buildProductDetailReply(lastDetails))
+      return sanitizeAssistantReply(buildProductDetailReply(lastDetails, { plan }))
     }
 
     if (looksLikeProductDetailReply(reply)) {
       return sanitizeAssistantReply(reply)
     }
 
-    const picked = resolveOrdinalCatalogProduct(userText, historyForOrdinal)
-    if (
-      picked?.name &&
-      (isCatalogOrdinalSelection(userText, historyForOrdinal) ||
-        (isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(historyForOrdinal)))
-    ) {
-      return sanitizeAssistantReply(
-        `You selected **${picked.name}** from the list. Tell me to **add** it to your cart with size, color, and quantity, or tap **View product** on the listing above for full details.`
-      )
+    if (ordinalLike) {
+      const pickedName =
+        plan?.product_ref?.name ||
+        resolveOrdinalCatalogProduct(userText, historyForOrdinal)?.name
+      if (pickedName) {
+        return sanitizeAssistantReply(
+          `You selected **${pickedName}** from the list. Tell me to **add** it to your cart with size, color, and quantity, or tap **View product** on the listing above for full details.`
+        )
+      }
     }
   }
 
@@ -436,7 +440,8 @@ export function formatAgentReply(
   if (
     lastCatalog?.strictListing &&
     !looksLikeProductDetailReply(reply) &&
-    !isOrdinalPickPhrase(userText)
+    !ordinalLike &&
+    replyKind !== 'product_detail'
   ) {
     formatted = buildCatalogBackedReply(lastCatalog, {
       kitQuery: isKitBundleQuery(userText),

@@ -25,6 +25,20 @@ import { CHAT_HISTORY_MAX_ITEMS } from '../constants/chatLimits.js'
 import { runWithChatStream } from '../services/chatStreamContext.js'
 import { initSseResponse, writeSseEvent } from '../services/chatStream.js'
 
+function deriveMessageKind({ replyKind, toolResults = [], payload = {} }) {
+  if (replyKind) return replyKind
+  if (payload?.checkout?.checkoutUrl) return 'checkout_link'
+  const names = (toolResults || []).map((r) => r?.toolName)
+  if (names.includes('get_product_details')) return 'product_detail'
+  if (names.includes('add_to_cart')) return 'cart_confirm'
+  if (names.includes('get_cart')) return 'cart_summary'
+  if (names.includes('get_my_addresses')) return 'address_picker'
+  if (names.includes('save_address')) return 'address_saved'
+  if (names.includes('search_products')) return 'product_listing'
+  if (names.some((n) => /order/i.test(n || ''))) return 'order_summary'
+  return null
+}
+
 async function resolveChatSession(userId, userName, sessionId) {
   if (sessionId) {
     const session = await getSessionForUser(userId, sessionId)
@@ -167,7 +181,13 @@ async function persistAndRespond(
   history = [],
   sessionCartQueue = null
 ) {
-  const { reply: assistedReply, toolResults, cartQueue } = await runDeterministicChatAssist({
+  const {
+    reply: assistedReply,
+    toolResults,
+    cartQueue,
+    replyKind: assistReplyKind,
+    replyLocked: assistReplyLocked,
+  } = await runDeterministicChatAssist({
     userId,
     userText,
     history,
@@ -175,26 +195,38 @@ async function persistAndRespond(
     sessionCartQueue,
   })
 
-  const baseReply = ensureSearchCatalogReply(assistedReply, toolResults, userText)
+  const replyKind = assistReplyKind || graphResult.replyKind || null
+  const replyLocked = Boolean(assistReplyLocked || graphResult.replyLocked)
+
+  const baseReply = replyLocked
+    ? assistedReply
+    : ensureSearchCatalogReply(assistedReply, toolResults, userText)
 
   const formattedReply = formatAgentReply(
     baseReply,
     graphResult.messages || [],
     userText,
     toolResults,
-    history
+    history,
+    { plan: graphResult.plan || null, replyKind, replyLocked }
   )
   const reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
   const payload = buildChatResponse(reply, toolResults)
   const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
   const catalogToSave = resolveCatalogProductsForSession(toolResults, reply)
+  const messageKind = deriveMessageKind({ replyKind, toolResults, payload })
   await appendMessages(
     session,
     userText,
     reply,
     payload.checkout || null,
     cartQueuePatch,
-    catalogToSave.length ? catalogToSave : null
+    catalogToSave.length ? catalogToSave : null,
+    {
+      messageKind,
+      language: graphResult.language || null,
+      userLanguage: graphResult.language || null,
+    }
   )
   await maybeTrimOldSessions(userId)
   payload.sessionId = String(session._id)
