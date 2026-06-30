@@ -116,15 +116,28 @@ export function replyHasCatalogProductLinks(reply) {
   return /\[View product\]\(\/products\/[a-f0-9]{24}\)/i.test(String(reply || ''))
 }
 
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i
+
 export function extractCatalogFromToolResults(toolResults = []) {
   const searchResult = findSearchCatalog([], toolResults)
-  if (!searchResult?.products?.length) return []
-  return searchResult.products
-    .map((p) => ({
-      id: String(p.id || p._id || ''),
-      name: String(p.name || '').trim(),
-    }))
-    .filter((p) => /^[a-f0-9]{24}$/i.test(p.id))
+  if (searchResult?.products?.length) {
+    return searchResult.products
+      .map((p) => ({
+        id: String(p.id || p._id || ''),
+        name: String(p.name || '').trim(),
+      }))
+      .filter((p) => OBJECT_ID_RE.test(p.id))
+  }
+
+  // No search result, but a product detail view counts as the active catalog
+  // for follow-up turns (so "2 bats 28 size" after a detail card can resolve
+  // back to that product without re-searching).
+  const detail = findLastProductDetailsInToolResults(toolResults)
+  if (detail?.id && detail?.name && OBJECT_ID_RE.test(String(detail.id))) {
+    return [{ id: String(detail.id), name: String(detail.name).trim() }]
+  }
+
+  return []
 }
 
 export function extractCatalogFromReply(reply) {

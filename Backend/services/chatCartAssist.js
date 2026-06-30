@@ -6,6 +6,7 @@ import {
   getPendingCartProductName,
   isBulkAddIntent,
   isExplicitAddIntent,
+  lastAssistantMessageKind,
   parseQuantityIntent,
   resolveProductIdFromContext,
 } from './chatGraph/productContext.js'
@@ -211,7 +212,18 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
   const sessionQueue = options.cartQueue ?? null
   const intent = await getPurchaseIntent(userText, history, sessionQueue)
 
+  // After a product_detail card, treat ANY message that contains variant info
+  // (a digit, a size keyword, or a color keyword) as a cart variant reply —
+  // even if the purchase-intent LLM was uncertain. Otherwise the user gets
+  // the product detail again instead of an add-to-cart confirmation.
+  const variantAfterDetail =
+    lastAssistantMessageKind(history) === 'product_detail' &&
+    /(\d+|\b(?:small|medium|large|xl|xxl|xs|one size|red|blue|green|black|white|yellow|orange|pink|grey|gray|brown|navy|maroon)\b)/i.test(
+      String(userText || '')
+    )
+
   if (
+    !variantAfterDetail &&
     !isCartAssistIntent(intent) &&
     !isExplicitAddIntent(userText, history) &&
     !isBulkAddIntent(userText)
