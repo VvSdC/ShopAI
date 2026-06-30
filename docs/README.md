@@ -1,380 +1,435 @@
 # ShopAI — Developer Guide
 
-Technical overview of the ShopAI monorepo: architecture, request flows, the chatbot pipeline, hybrid retrieval, and admin tooling.
+A plain-language tour of the codebase: what each piece does, how a request flows end-to-end, and where to look when you change something.
+
+> **One-line summary:** ShopAI is an e-commerce site (React + Express + MongoDB) with a multilingual shopping chatbot on top. The chatbot understands your message in one LLM call (a "planner"), then either talks to product/cart/order tools or replies directly.
 
 ---
 
-## Repository layout
+## 1. What's in the repo
 
-| Path | Role |
-|------|------|
-| `Frontend/` | React storefront, Shop with AI UI, admin dashboard, Developer Analytics |
-| `Backend/` | Express API, MongoDB models, AI services, search pipeline, Stripe webhooks |
-| `Backend/.env.example` | Environment variable reference — copy to `Backend/.env` |
-| `Backend/docs/` | Focused deep-dives (chatbot, search box, product/review tagging) |
+| Path | What lives here |
+|------|-----------------|
+| `Frontend/` | React app — storefront, cart, checkout, chat UI, admin dashboard |
+| `Backend/` | Express API, MongoDB models, chat pipeline, search pipeline, Stripe |
+| `Backend/.env.example` | All environment variables documented — copy to `Backend/.env` |
+| `Backend/docs/` | Deep-dives (chatbot, search, tagging) |
+| `docs/README.md` | **You are here** — high-level guide |
 
-**Stack:** Node.js 20+, Express, MongoDB (Mongoose), React, Stripe, multi-provider LLM APIs.
+**Stack:** Node 20+, Express, MongoDB (Mongoose), React, Stripe, multi-provider LLM APIs, optional Redis + BullMQ.
 
 ---
 
-## System architecture
+## 2. The big picture
 
 ```mermaid
 flowchart TB
-  subgraph Client
-    FE[React Frontend]
+  subgraph Client[Browser]
+    FE[React app]
   end
 
-  subgraph Backend
-    API[Express app — routes + controllers]
-    CHAT[LangGraph chat workflow]
-    TOOLS[Chat tools — 20 shop actions]
-    SEARCH[Hybrid search pipeline]
-    LLM[LLM service — provider fallback]
+  subgraph Server[Express API]
+    API[Routes + controllers]
+    CHAT[Chat pipeline]
+    TOOLS[20 chat tools]
+    SEARCH[Hybrid search]
+    LLM[LLM service<br/>provider fallback]
+  end
+
+  subgraph Data[Storage]
     DB[(MongoDB)]
+    REDIS[(Redis<br/>optional)]
   end
 
-  subgraph External
+  subgraph External[Third-party]
     STRIPE[Stripe]
     EMBED[Embedding APIs]
     RERANK[Rerank APIs]
-    CHAT_LLM[Chat LLM providers]
+    CHAT_LLM[Chat LLM<br/>providers]
   end
 
-  FE -->|JWT + REST| API
+  FE -->|JWT + REST + SSE| API
   API --> CHAT
-  CHAT --> LLM
-  LLM --> CHAT_LLM
+  CHAT --> LLM --> CHAT_LLM
   CHAT --> TOOLS
-  TOOLS --> DB
   TOOLS --> SEARCH
+  TOOLS --> DB
   TOOLS --> STRIPE
   SEARCH --> EMBED
   SEARCH --> RERANK
   SEARCH --> DB
+  API <--> REDIS
+  API <--> DB
 ```
 
-**Layers:**
+Four layers:
 
-1. **Frontend** — product browsing, cart, checkout UI, full-page chat, admin CRUD, Developer Analytics.
-2. **API** — auth middleware, validation (Zod), rate limits, controllers.
-3. **Services** — business logic isolated from HTTP (cart, checkout, search, chat graph, LLM).
-4. **Data** — MongoDB for users, products, orders, carts, chat sessions, embeddings on products.
-
-There is **no WebSocket chat streaming** today. Each chat message is a single HTTP request/response cycle.
+1. **Frontend** — browses products, manages cart/checkout, hosts the chat widget + full-page chat, admin CRUD.
+2. **API** — auth (JWT cookies), Zod validation, rate limits, controllers.
+3. **Services** — pure business logic (cart, checkout, orders, search, chat). No HTTP code here.
+4. **Data** — MongoDB for everything persistent; Redis (optional) for cache + job queues.
 
 ---
 
-## What happens at runtime
+## 3. What happens when a user…
 
-### Typical product search (website)
+### …searches products on the storefront
 
-1. User opens `/products-filters?q=cricket+bat`.
-2. `GET /api/v1/products?q=...` hits `productsCtrl.js`.
-3. When `q` is present, `searchProducts()` runs the hybrid pipeline (see [Retrieval](#retrieval-hybrid-search-bi-encoder--cross-encoder-rerank)).
-4. JSON product cards return to the React product list.
+```
+URL /products-filters?q=cricket+bat
+    → GET /api/v1/products?q=cricket+bat
+    → productsCtrl.js
+    → searchProducts()       (keyword + vector + RRF + rerank + relevance trim)
+    → JSON product cards
+```
 
-### Typical chat message
+### …sends a chat message
 
-1. Logged-in user sends `POST /shopai/chat/message` with `message` and optional `sessionId`.
-2. `chatCtrl.js` trims history to a **token budget**, loads session, calls `runChatGraph()` inside an LLM usage context.
-3. LangGraph runs **guard → router → specialized agent → format**.
-4. Agent may loop on tools (up to 7 rounds) — search, cart, orders, checkout, etc. Tool results are **compacted** before they enter the LLM message history.
-5. **Deterministic assist** (`chatDeterministicAssist.js`) — rule-based fallbacks when the agent skips tools (cart variants, pasted addresses, checkout picker). Disable with `ENABLE_CHAT_DETERMINISTIC_ASSIST=false`.
-6. Reply sanitization, checkout-backed reply, client actions; route + `routeReason` logged for observability.
-7. Response JSON: `reply`, optional `clientActions`, `cartSummary`, `checkout`, `sessionId`.
+```
+POST /shopai/chat/message  (or stream variant)
+    → chatCtrl.js
+       1. load session + trim history to token budget
+       2. runChatGraph()             ← LangGraph: guard → router → agent
+       3. runDeterministicChatAssist() ← rule-based safety net
+       4. format reply + persist
+    → JSON { reply, clientActions?, cartSummary?, checkout?, sessionId }
+```
 
-### Background jobs (not user-facing)
+### …completes checkout
 
-| Job | When | What |
-|-----|------|------|
-| Product AI tagging | Product create/update | Adds searchable tags (`ProductTagging`) |
-| Embedding sync | Startup queue or in-process fallback | Builds `searchDocument` + bi-encoder vectors (`embeddingSyncQueue.js`) |
-| Checkout expiry | After Stripe session created | BullMQ job expires unpaid checkout if the tab closes (`checkoutQueue.js`) |
-| Coupon cache bust | Coupon create/update + at `endDate` | Invalidates `coupons:active` precisely at boundaries |
-| Stripe webhooks | Payment events | `orderService.applyStripeCheckoutSession()` → fulfillment |
-| Chat eval suite | Admin triggers from Developer Analytics | Background job with polling status |
-| LLM usage flush | Every 5s or 100 records | Batched `LlmUsageLog` inserts (`llmUsageLogger.js`) |
+```
+Chat or cart UI
+    → checkoutFromCart()     (creates Stripe session, server-side cart snapshot)
+    → user pays on Stripe
+    → Stripe webhook → orderService.applyStripeCheckoutSession()
+    → order created, stock reserved, confirmation email queued
+```
 
 ---
 
-## Chatbot architecture (LangGraph)
+## 4. The chatbot pipeline (the heart of ShopAI)
 
-The assistant no longer uses a single monolithic prompt + full tool list. Each message flows through a compiled **LangGraph** workflow in `Backend/services/chatGraph/`.
+The chatbot is **two phases**, not two competing LLM systems:
+
+```mermaid
+flowchart LR
+  IN[User message] --> GRAPH[Phase 1<br/>LangGraph<br/>guard + agent + tools]
+  GRAPH --> ASSIST[Phase 2<br/>Deterministic assist<br/>cart / address / checkout safety net]
+  ASSIST --> FMT[Format + sanitize]
+  FMT --> OUT[Reply to user]
+```
+
+- **Phase 1 (LangGraph)** decides intent, picks an agent, and the agent calls tools.
+- **Phase 2 (deterministic assist)** runs only when the agent skipped a tool call it should have made (e.g. didn't fetch the cart). It cannot overwrite a "locked" reply from Phase 1.
+
+### 4a. Phase 1 — LangGraph in detail
 
 ```mermaid
 flowchart LR
   START --> Guard
-  Guard -->|blocked| Refuse
+  Guard -->|blocked| Refuse --> Format
   Guard -->|allowed| Router
-  Router --> Agent[Specialized agent]
-  Refuse --> Format
-  Agent --> Format
+  Router --> Retrieval
+  Router --> ProductDetail[Product detail]
+  Router --> Checkout
+  Router --> Payment
+  Router --> OrderSummary[Order summary]
+  Router --> OrderUpdate[Order update]
+  Router --> Comparison
+  Router --> Policies
+  Router --> General
+  Retrieval --> Format
+  ProductDetail --> Format
+  Checkout --> Format
+  Payment --> Format
+  OrderSummary --> Format
+  OrderUpdate --> Format
+  Comparison --> Format
+  Policies --> Format
+  General --> Format
   Format --> END
 ```
 
-### Nodes
+**Guard node** decides three things in **one LLM call** (the *planner*):
 
-| Node | Purpose |
-|------|---------|
-| **Guard** | LLM safety classifier (`guardClassifier.js`) for prompt injection and off-topic requests; fails open if LLM unavailable |
-| **Router** | Keyword intent routing to one of eight agents |
-| **Agent** | Scoped system prompt + subset of tools + internal tool loop |
-| **Refuse** | Fixed safe reply when guard blocks |
-| **Format** | Catalog-backed product listings + strip fake Stripe URLs / bad markup |
+| Decision | Example output |
+|----------|----------------|
+| Is it safe? | `allowed: true` or `block_reason: injection / off_topic` |
+| What language? | `language: te, label: Telugu, script: latin` (Telugu in English letters) |
+| What does the user want? | `action: view_details, product_ref: { kind: ordinal, value: 2 }` |
 
-### Specialized agents
+This single planner call replaces the older "safety classifier → fused router → purchase intent extractor" chain. For obviously-English shopping queries (e.g. "show me cricket bats") a heuristic short-circuits the LLM entirely.
 
-| Route | Typical intents | Tools (subset) |
-|-------|-----------------|----------------|
-| `retrieval` | “Show me cricket bats”, browse, recommend | `search_products`, `get_product_details`, categories, brands |
-| `comparison` | “Which bat is better?” | Same as retrieval |
-| `payment` | “Did my payment go through?” | `get_my_orders`, `get_order_details` |
-| `order_summary` | “My recent orders” | `get_my_orders`, `get_order_details` |
-| `order_update` | Cancel, return, refund | Order tools + `cancel_order`, `submit_return_request` |
-| `checkout` | Cart, coupons, addresses, pay | Cart, address, preview/create checkout tools |
-| `policies` | Return policy, how checkout works | Policy prompt + `get_active_coupons` |
-| `general` | Greeting, identity, broad help | Light tool set |
+**Router node** uses the planner's `route` field to send the message to one of nine specialized agents:
 
-### Tool execution
+| Route | Typical user intent | Tools available (subset) |
+|-------|---------------------|--------------------------|
+| `retrieval` | "Show me cricket bats" | `search_products`, categories, brands |
+| `product_detail` | "Tell me about the first one" | `get_product_details` |
+| `comparison` | "Which bat is better?" | Retrieval tools |
+| `checkout` | "Add 2 to cart", "checkout" | Cart, address, checkout tools |
+| `payment` | "Did my payment go through?" | Order + payment tools |
+| `order_summary` | "My recent orders" | Order tools |
+| `order_update` | "Cancel order #123" | `cancel_order`, `submit_return_request` |
+| `policies` | "Return policy?" | Policy text + `get_active_coupons` |
+| `general` | Greetings, identity | Light tool set |
 
-- All **20 tools** live in `Backend/services/chatTools.js`.
-- Each agent only receives the tools it needs — smaller context, fewer wrong tool calls.
-- Tool results are real DB/API data; the formatter enforces **strict product listings** from `search_products` output.
+**Agent node** has a small system prompt + only the tools its route needs (smaller context = fewer wrong tool calls). It can loop on tools up to 7 rounds.
 
-### Chat pipeline: one LLM path, two phases
+**Format node** sanitizes the reply: catalog-backed product listings, no fake Stripe URLs, no hallucinated markdown.
 
-| Phase | Module | Role |
-|-------|--------|------|
-| **1. LangGraph** | `services/chatGraph/` | Guard, intent router, specialized agent + tools |
-| **2. Deterministic assist** | `services/chatDeterministicAssist.js` | Cart/checkout/address fallbacks when tools were skipped — **not** a second LLM |
+### 4b. Phase 2 — Deterministic assist
 
-Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md) (two-phase section).
+Five small modules run in sequence after the graph. Each only acts if the agent missed something **and** the reply isn't locked:
 
-### Token & context optimizations
+```
+runDeterministicChatAssist
+  ├─ retrievalAssist        (re-run search if agent forgot)
+  ├─ productDetailAssist    (resolve ordinal picks → product details) — locks reply
+  ├─ cartAssist             (handle "add it" follow-ups, multi-add queue)
+  ├─ addressAssist          (parse pasted address into shipping fields)
+  └─ checkoutAssist         (start Stripe session if user said "proceed")
+```
 
-| Technique | Where | Purpose |
-|-----------|--------|---------|
-| Tool result compaction | `chatGraph/toolResultCompact.js` | Strip images, embeddings, long descriptions from tool messages before LLM history |
-| System prompt cache | `getAgentSystemPrompt()` + module-scoped `promptCache` | Same `(route, userName)` prompt built once per process |
-| Token-budget history | `utils/chatHistoryTrim.js` | Drop oldest turns when history exceeds `CHAT_HISTORY_TOKEN_BUDGET` (default 8000 est. tokens) |
-| Batched usage logs | `llmUsageLogger.js` | `insertMany` buffer instead of per-call writes |
+The **reply-lock** mechanism prevents earlier good replies (e.g. a product detail card) from being overwritten by later assists that misinterpret an ordinal pick as an address selection — a bug class the project hit repeatedly before.
 
-### Route observability
+### 4c. Multilingual support
 
-Each chat request logs routing to `LlmUsageLog`:
+The planner detects:
 
-- `patchLlmUsageContext({ route, routeReason })` after the graph runs
-- `recordChatRouteDecision()` — one `span: 'route-decision'` row per message for classifier/heuristic evaluation
-- Agent LLM spans inherit `route` + `routeReason` from context set in `routerNode`
+- **English** → reply in English.
+- **Native script** (Hindi/Telugu/Tamil/...) → reply in that script.
+- **Transliterated** (e.g. "naaku oka cricket ball kavali" = Telugu in English letters) → reply in the **same transliterated style**, friendly and natural.
 
-Query production: filter `span: 'route-decision'` or group `byRoute` in Developer Analytics.
+The agent's system prompt receives a `LANGUAGE_HINT` block from the planner; product names, prices (₹), markdown links, and tool arguments always stay in English regardless of reply language.
 
-### LLM provider fallback
+### 4d. Message kinds — context with intent
 
-`llmService.js` tries providers in order until one succeeds:
+Every assistant message is tagged with a `messageKind` when persisted:
 
-1. OpenRouter  
-2. Google Gemini (`geminiClient.js` — native API with OpenAI-compatible fallback)  
-3. Mistral  
-4. Hugging Face Inference Router  
-5. Groq  
+`product_listing`, `product_detail`, `cart_summary`, `cart_confirm`, `address_picker`, `address_saved`, `checkout_link`, `order_summary`, `order_update`, `policy`, `greeting`, `refuse`, `reply`.
 
-Chat eval and live chat both call `runChatGraph()` so behavior stays aligned.
+Why it matters: when the user says "the second one", we know from the *previous* assistant's `messageKind` whether it's an ordinal product pick (`product_listing`) or an address pick (`address_picker`). No more brittle regex on rendered markdown.
 
-### Key files
+### 4e. Sessions, history, streaming
+
+- Sessions stored in `ChatSession` (Mongoose), up to 100 messages per session, 50 sessions per user.
+- History sent to the LLM is trimmed to a token budget (`CHAT_HISTORY_TOKEN_BUDGET`, default ~8k est. tokens).
+- Catalog products from listings are stored as structured `catalogProducts[]` on the assistant message — no need to re-parse markdown to resolve "first/second/etc".
+- **Streaming endpoint** `POST /shopai/chat/message/stream` (SSE) emits `route`, `tool_start`, `tool_end`, `text_delta`, and a final `done` event.
+
+### 4f. Key files
 
 | File | Role |
 |------|------|
-| `services/chatGraph/index.js` | `runChatGraph()` entry point |
-| `services/chatGraph/graph.js` | StateGraph compile |
-| `services/chatGraph/guardClassifier.js` | LLM safety gate (injection / off-topic) |
-| `services/chatGraph/guard.js` | Guard node + refuse messages |
-| `services/chatGraph/router.js` | Intent → route |
+| `services/chatPlanner.js` | **Single LLM planner** — language + intent + slots + product ref |
+| `services/chatGraph/graph.js` | LangGraph compile |
+| `services/chatGraph/guard.js` | Safety + heuristic shortcut + planner |
+| `services/chatGraph/agentPrompts.js` | Route system prompts + multilingual hint injection |
 | `services/chatGraph/agentRunner.js` | Per-agent LLM + tool loop |
-| `services/chatGraph/agentPrompts.js` | Scoped system prompts |
-| `services/chatPostProcess.js` | Sanitize, catalog reply, checkout reply helpers |
-| `controllers/chatCtrl.js` | HTTP layer, sessions, usage context |
-| `services/chatDeterministicAssist.js` | Post-graph cart/checkout/address fallbacks |
-| `services/chatSessionService.js` | Persist conversations |
-| `utils/chatHistoryTrim.js` | Token-budget history trimming |
+| `services/chatGraph/productContext.js` | Product reference resolution (ordinals, pending, etc.) |
+| `services/chatTools.js` | All 20 chat tools |
+| `services/chatDeterministicAssist.js` | Phase-2 orchestrator |
+| `services/chatPostProcess.js` | Reply formatting + sanitization |
+| `services/chatSessionService.js` | Persist + load sessions |
+| `controllers/chatCtrl.js` | HTTP layer for chat (sync + SSE) |
 
-Further detail: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md)
+Deep-dive: [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md)
 
 ---
 
-## Retrieval: hybrid search, bi-encoder & cross-encoder rerank
-
-Product discovery (website search box **and** chat `search_products` tool) uses the same pipeline in `Backend/services/search/searchService.js`.
-
-### Mental model
-
-| Stage | Model type | Role |
-|-------|------------|------|
-| **Keyword search** | Classic text match | Fast recall on exact words in name, description, brand, category, tags |
-| **Vector search** | **Bi-encoder** (embedding model) | Encode query and each product *independently*; rank by cosine similarity |
-| **RRF merge** | Rank fusion | Combine keyword + vector lists without one dominating |
-| **Rerank** | **Cross-encoder** (reranker model) | Score query + each candidate *together* for precise final ordering |
-
-**Bi-encoder** (e.g. `BAAI/bge-m3` via Hugging Face): cheap at scale — one embedding per product at index time, one embedding per query at search time. Good recall, weaker fine-grained ordering.
-
-**Cross-encoder reranker** (e.g. Voyage `rerank-2.5`, Cohere, Jina): expensive per pair but much better at “does this product actually match this query?” Used only on the top ~30 RRF candidates.
+## 5. Search & retrieval (used by storefront *and* chat)
 
 ```mermaid
 flowchart TB
-  Q[Query text]
-  Q --> KW[Keyword path — MongoDB text match]
-  Q --> BE[Bi-encoder — embed query]
-  BE --> VS[Vector search — cosine vs product embeddings]
-  KW --> RRF[Reciprocal Rank Fusion]
+  Q[Query text] --> KW[Keyword search<br/>MongoDB regex on name/desc/tags]
+  Q --> BE[Bi-encoder<br/>embed query]
+  BE --> VS[Vector search<br/>cosine vs product embeddings]
+  KW --> RRF[RRF merge<br/>fair fusion of two ranked lists]
   VS --> RRF
-  RRF --> CE[Cross-encoder rerank — top N candidates]
-  CE --> OUT[Ranked product list]
+  RRF --> CE[Cross-encoder rerank<br/>top N pairs]
+  CE --> TRIM[Lexical relevance trim<br/>cut off-topic tail]
+  TRIM --> OUT[Final product list]
 ```
 
-### Indexing pipeline
+| Stage | What it does | Why it's there |
+|-------|--------------|----------------|
+| Keyword | Exact word match on name/desc/brand/tags | Cheap, high precision when the user uses the right words |
+| Bi-encoder | One embedding per query, cosine vs product embeddings | Catches synonyms and intent |
+| RRF | Reciprocal Rank Fusion of the two lists | Neither list dominates |
+| Cross-encoder | Re-scores each (query, product) pair together | Best fine-grained ordering |
+| **Trim** | Drops items whose lexical score is < 55% of top, or after a > 50% score gap | **Stops "3 relevant + 9 noise" tails** |
 
-1. **AI product tags** — improves keyword leg and `searchDocument` text ([ProductTagging.md](../Backend/docs/ProductTagging.md)).
-2. **`documentBuilder.js`** — concatenates name, brand, category, description, tags, variants, price, stock into `searchDocument`.
-3. **`embeddingService.js`** — bi-encoder API → vector stored on `Product.embedding`.
-4. **`embeddingSyncService.js`** — startup catch-up for missing/stale embeddings; bump `SEARCH_EMBEDDING_VERSION` to force refresh.
-5. **Manual reindex** — `npm run search:reindex` in `Backend/`.
+The trim step is what fixed the "after 3 good products, irrelevant ones appear" bug — the reranker keeps semantically-similar but off-topic items (e.g. cricket helmet for a cricket bat query); the lexical pass drops them.
 
-### Search request pipeline
+### Indexing
 
-1. **Keyword path** — `productSearch.js`: multi-word rules, scoring, limit `SEARCH_KEYWORD_LIMIT`.
-2. **Vector path** — embed query → `vectorSearch.js` (Atlas Vector Search on `mongodb+srv://`, else in-app cosine similarity locally).
-3. **RRF** — `hybridRanker.js`, constant `SEARCH_RRF_K`.
-4. **Rerank** — `rerankService.js` on top `RERANK_TOP_N` documents; skipped if `RERANK_ENABLED=false` or all APIs fail.
-5. **Map** — `mapProductSearchResult()` for API/chat consumption.
+1. **AI product tags** improve recall (`ProductTagging.md`).
+2. `documentBuilder.js` builds `searchDocument` (name + brand + category + tags + description).
+3. `embeddingService.js` produces vectors → stored on `Product.embedding`.
+4. `embeddingSyncService.js` catches up missing/stale embeddings at startup.
+5. Manual refresh: `cd Backend && npm run search:reindex`.
 
-Chat wraps this via `searchProductsForChat()` in `chatTools.js` with strict listing metadata so the formatter can override hallucinated product lists.
-
-Further detail: [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md)
+Deep-dive: [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md)
 
 ---
 
-## Redis, BullMQ & response cache
+## 6. Cart, checkout, orders
 
-Optional **`REDIS_URL`** powers job queues and a shared response cache. Without Redis, the API falls back to MongoDB for reads and client poll + webhooks for checkout.
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant API as Express API
+  participant DB as MongoDB
+  participant ST as Stripe
 
-### BullMQ queues
-
-| Queue | Flag | Purpose |
-|-------|------|---------|
-| Checkout expiry | `ENABLE_CHECKOUT_QUEUE=true` | Expire unpaid Stripe sessions when `checkoutExpiresAt` passes |
-| Embedding sync | `ENABLE_EMBEDDING_SYNC_QUEUE=true` | Deferred embedding backfill on startup |
-| Coupon cache bust | (auto when Redis set) | `DEL` coupon keys at `startDate` / `endDate` |
-
-**Worker placement**
-
-| Environment | `RUN_QUEUE_WORKERS_IN_API` | What to run |
-|-------------|---------------------------|-------------|
-| Local dev / test | `true` (default) | `npm run dev` — workers inside API |
-| Production | `false` (default when `NODE_ENV=production`) | API: `npm run start:server` **and** worker: `npm run start:worker` |
-
-Do not run checkout expiry, embedding sync, and coupon-cache workers in the same Node process as production HTTP traffic unless you explicitly set `RUN_QUEUE_WORKERS_IN_API=true` (not recommended — slow jobs compete with request handling).
-
-```bash
-# Production worker process (separate from API)
-cd Backend && npm run start:worker
+  U->>API: Add to cart (UI or chat)
+  API->>DB: Save Cart, validate stock
+  U->>API: Proceed to checkout
+  API->>ST: Create Checkout Session
+  ST-->>API: Session URL
+  API-->>U: Open Stripe-hosted payment page
+  U->>ST: Pay
+  ST->>API: Webhook (checkout.session.completed)
+  API->>DB: orderService.applyStripeCheckoutSession()
+  API->>DB: Reserve stock, create Order
+  API->>U: Confirmation email (queued)
 ```
 
-Graceful shutdown: workers → LLM usage flush → Redis cache quit → HTTP server.
-
-### Response cache (`cacheService.js`)
-
-Invalidate-on-mutation plus safety TTL. All callers use `cacheService` — never raw Redis.
-
-| Key pattern | TTL | Invalidated on |
-|-------------|-----|----------------|
-| `catalog:categories:all` | 60s | Category CRUD + product CRUD |
-| `catalog:brands:all` | 60s | Brand CRUD |
-| `catalog:colors:all` | 60s | Color CRUD |
-| `coupons:active`, `coupons:code:*` | 120s | Coupon CRUD + BullMQ at `endDate` |
-| `products:list:*` | 300s | Product CRUD only (not orders) |
-
-**Not cached:** search/chat results, store policy, per-product stock-sensitive reads.
-
----
-
-## Orders & fulfillment
-
-Canonical order logic lives in **`services/orderService.js`** (`orderService` singleton). Controllers, chat tools, webhooks, and payment polling all call it — no duplicated Stripe update + fulfillment blocks.
+Canonical order logic is `services/orderService.js` — controllers, chat tools, webhooks, and payment polling all call the same module.
 
 | Concern | Module |
 |---------|--------|
-| CRUD, cancel, stats, chat summaries | `orderService.js` |
-| Paid-order stock + confirmation email | `orderFulfillment.js` |
-| Stripe refunds / payment refs | `orderRefund.js` |
-| Checkout session creation | `orderCheckout.js` |
-| Payment poll + manual expire | `orderPaymentPollService.js` |
-| Chat cancel/return orchestration | `orderActionsService.js` |
-
-**Payment sync path:** `orderService.applyStripeCheckoutSession()` — used by webhook, verify-payment, and poll.
-
-**Stock:** atomic reservation on pay (`stockService.js`); `releaseStock` on cancel.
+| Cart CRUD + qtyLeft + price warnings | `services/cartService.js` |
+| Checkout session creation | `services/orderCheckout.js` |
+| Payment sync (webhook + verify + poll) | `services/orderService.applyStripeCheckoutSession()` |
+| Stock reservation / release | `services/stockService.js` |
+| Cancel + return orchestration (from chat) | `services/orderActionsService.js` |
+| Order CRUD + stats | `services/orderService.js` |
+| Refunds | `services/orderRefund.js` |
 
 ---
 
-## Developer Analytics
+## 7. Background jobs (BullMQ, optional)
 
-Admin-only UI at `/admin/developer-analytics` (requires admin role).
+| Job | Trigger | Purpose |
+|-----|---------|---------|
+| Product AI tagging | Product create/update | Add searchable tags |
+| Embedding sync | Startup | Backfill missing/stale vectors |
+| Checkout expiry | After Stripe session created | Expire unpaid sessions |
+| Coupon cache bust | At `startDate` / `endDate` | Invalidate `coupons:active` precisely |
+| Stripe webhooks | Payment events | Trigger fulfillment |
+| Chat eval suite | Admin trigger | Run golden test cases |
+| LLM usage flush | Every 5s or 100 records | Batched `LlmUsageLog` inserts |
 
-| Tab | API | Purpose |
-|-----|-----|---------|
-| **Inference** | `GET/POST /shopai/analytics/inference/*` | Smoke-test LLM providers with model picker and a “Hi” prompt |
-| **Evaluate Chatbot** | `POST /shopai/analytics/chat-eval/run`, `GET .../status/:jobId` | Run golden test cases with live progress, deterministic checks, and LLM judge |
+### Worker placement
 
-Eval cases live in `Backend/services/chatEvalCases.js`. Each case runs through **`runChatGraph()`** — same pipeline as production chat. Cases are spaced by ~10s to reduce Gemini rate-limit errors during full suite runs.
+| Environment | `RUN_QUEUE_WORKERS_IN_API` | What to run |
+|-------------|---------------------------|-------------|
+| Dev / test | `true` (default) | `npm run dev` — workers inside API |
+| Production | `false` (default in `NODE_ENV=production`) | API: `npm run start:server` **and** worker: `npm run start:worker` |
+
+Don't run heavy jobs alongside production HTTP traffic — they compete for CPU and event loop.
 
 ---
 
-## Environment & local setup
+## 8. Caching (Redis, optional)
 
-1. Copy `Backend/.env.example` → `Backend/.env` and fill keys.
-2. MongoDB running locally or Atlas URI in `MONGO_URL`.
-3. `cd Backend && npm install && npm run dev`
-4. `cd Frontend && npm install && npm start`
+Without Redis everything still works — slower for hot reads, no job queues, no checkout-expiry timer (relies on Stripe webhooks).
+
+| Key pattern | TTL | Cleared on |
+|-------------|-----|-----------|
+| `catalog:categories:all` | 60s | Category or product CRUD |
+| `catalog:brands:all` | 60s | Brand CRUD |
+| `catalog:colors:all` | 60s | Color CRUD |
+| `coupons:active`, `coupons:code:*` | 120s | Coupon CRUD + `endDate` |
+| `products:list:*` | 300s | Product CRUD |
+
+**Not cached:** search results, chat replies, store policy, stock-sensitive reads.
+
+All callers use `services/cacheService.js` — never raw Redis.
+
+---
+
+## 9. LLM provider fallback
+
+`services/llmService.js` tries providers in order until one succeeds:
+
+1. OpenRouter
+2. Google Gemini (native API with OpenAI-compatible fallback)
+3. Mistral
+4. Hugging Face Inference Router
+5. Groq
+
+Every call is logged to `LlmUsageLog` (batched). The chat planner and per-route agents all funnel through this.
+
+---
+
+## 10. Developer Analytics (admin only)
+
+URL: `/admin/developer-analytics`
+
+| Tab | What it does |
+|-----|--------------|
+| **Inference** | Smoke-test LLM providers with a model picker and a "Hi" prompt |
+| **Evaluate Chatbot** | Run golden test cases (`Backend/services/chatEvalCases.js`) through `runChatGraph()` with live progress, deterministic checks, and an LLM judge |
+| **Usage** | Group LLM usage by `route`, `routeReason`, `span` — answers "which route is calling the LLM most?" |
+
+Eval cases run through the **same** `runChatGraph()` as live chat, so what you measure is what you ship.
+
+---
+
+## 11. Environment & setup
+
+```bash
+# 1. Copy and fill the env
+cp Backend/.env.example Backend/.env
+
+# 2. Install + run backend
+cd Backend && npm install && npm run dev
+
+# 3. Install + run frontend (new terminal)
+cd Frontend && npm install && npm start
+```
 
 **Minimum for chat:** `JWT_KEY`, `MONGO_URL`, at least one LLM key (`OPENROUTER_API_KEY` recommended).
 
-**Minimum for semantic search:** embedding key (`HUGGINGFACE_API_KEY` default) + products indexed.
+**Minimum for semantic search:** an embedding key (`HUGGINGFACE_API_KEY` is the default).
 
-**Minimum for rerank:** `VOYAGE_API_KEY` (default provider) or another rerank provider key.
+**Minimum for rerank:** `VOYAGE_API_KEY` (or Cohere / Jina / OpenRouter rerank key).
 
-**Stripe:** `STRIPE_KEY` + webhook secret for checkout; use `npm start` in Backend to run server + `stripe listen`.
+**Stripe:** `STRIPE_KEY` + webhook secret. Use `npm start` in `Backend/` to run server + `stripe listen` together.
 
-**Redis (optional):** `REDIS_URL` enables cache + queues. See `Backend/.env.example` for `ENABLE_CHECKOUT_QUEUE`, `ENABLE_EMBEDDING_SYNC_QUEUE`, `RUN_QUEUE_WORKERS_IN_API`, `ENABLE_CHAT_DETERMINISTIC_ASSIST`.
+**Redis (optional):** `REDIS_URL`. Flags: `ENABLE_CHECKOUT_QUEUE`, `ENABLE_EMBEDDING_SYNC_QUEUE`, `RUN_QUEUE_WORKERS_IN_API`, `ENABLE_CHAT_DETERMINISTIC_ASSIST`.
 
-Run tests: `cd Backend && npm test`
+**Run tests:** `cd Backend && npm test`
 
 ---
 
-## Related documentation
+## 12. Where to look when…
 
-| Document | Topic |
-|----------|-------|
+| You want to… | Open |
+|--------------|------|
+| Change how the chatbot understands a message | `services/chatPlanner.js` |
+| Add a chat tool | `services/chatTools.js` + `chatGraph/toolSets.js` |
+| Tweak a route's tone / behavior | `services/chatGraph/agentPrompts.js` |
+| Adjust safety / routing thresholds | `services/chatGraph/guard.js`, `routerHeuristic.js` |
+| Fix retrieval quality | `services/productSearch.js` (lexical trim) + `services/search/searchService.js` |
+| Add a new background job | `services/queueWorkers.js` + a new file in `services/` |
+| Track LLM cost or routes | `services/llmUsageLogger.js` |
+| Change order/payment flow | `services/orderService.js` (canonical) |
+| Modify cart calculations | `services/cartService.js` |
+| Add an admin metric | Frontend `components/Admin/DeveloperAnalytics/` + an API in `controllers/analyticsCtrl.js` |
+
+---
+
+## 13. Related docs
+
+| Doc | Topic |
+|-----|-------|
 | [`Backend/docs/Chatbot.md`](../Backend/docs/Chatbot.md) | Chat API, tools, sessions, response shape |
 | [`Backend/docs/Searchbox.md`](../Backend/docs/Searchbox.md) | Hybrid search, embeddings, rerankers, config |
 | [`Backend/docs/ProductTagging.md`](../Backend/docs/ProductTagging.md) | AI tags for catalog search |
 | [`Backend/docs/CommentTagging.md`](../Backend/docs/CommentTagging.md) | Review moderation and tags |
+| [`Backend/docs/OpenAPI.md`](../Backend/docs/OpenAPI.md) | OpenAPI generation notes |
 | [`Backend/.env.example`](../Backend/.env.example) | Full environment reference |
-
----
-
-## Quick reference — main entry points
-
-| Concern | Entry |
-|---------|--------|
-| Chat message | `POST /shopai/chat/message` → `chatCtrl.js` → `runChatGraph()` → `runDeterministicChatAssist()` |
-| Product search | `GET /api/v1/products?q=` → `searchProducts()` |
-| Product browse (cached) | `GET /api/v1/products` (no `q`) → `productsCtrl` + Redis cache |
-| Chat product search | Tool `search_products` → `searchProductsForChat()` |
-| Orders | `services/orderService.js` |
-| LLM calls + usage logs | `services/llmService.js`, `services/llmUsageLogger.js` |
-| Graph compile | `services/chatGraph/graph.js` |
-| Cache | `services/cacheService.js`, `services/catalogCache.js` |
-| Queues | `services/queueWorkers.js`, `worker.js` |
-| Embeddings | `services/search/embeddingService.js` |
-| Reranking | `services/search/rerankService.js` |

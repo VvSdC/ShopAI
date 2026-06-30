@@ -6,7 +6,7 @@ import {
 } from '../llmService.js'
 import { patchLlmUsageContext } from '../llmUsageContext.js'
 import { executeTool } from '../chatTools.js'
-import { getAgentSystemPrompt, shouldIncludePolicyKnowledge } from './agentPrompts.js'
+import { buildAgentSystemPromptWithContext, shouldIncludePolicyKnowledge } from './agentPrompts.js'
 import { getToolsForRoute } from './toolSets.js'
 import { serializeToolResultForLlm } from './toolResultCompact.js'
 import { emitChatStreamEvent, isChatStreamActive } from '../chatStreamContext.js'
@@ -113,7 +113,12 @@ export async function runAgentWithTools(state, route) {
     route === 'policies'
       ? { includePolicyKnowledge: shouldIncludePolicyKnowledge(state.history) }
       : {}
-  const systemPrompt = getAgentSystemPrompt(route, state.userName, promptOptions)
+  const systemPrompt = buildAgentSystemPromptWithContext(
+    route,
+    state.userName,
+    state.plan || null,
+    promptOptions
+  )
   const messages = [
     { role: 'system', content: systemPrompt },
     ...state.history,

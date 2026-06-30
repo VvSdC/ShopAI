@@ -6,6 +6,14 @@ import {
 } from './chatIntentHelpers.js'
 import { isKitBundleQuery } from './chatGraph/productContext.js'
 import { stripCartQueueMarker } from './cartQueue.js'
+import { productRequiresSizeSelection } from '../utils/normalizeProductSizes.js'
+import {
+  extractCatalogProductsFromContent,
+  isCatalogOrdinalSelection,
+  isOrdinalPickPhrase,
+  lastAssistantLooksLikeProductListing,
+  resolveOrdinalCatalogProduct,
+} from './chatGraph/productContext.js'
 
 export function collectClientActions(toolResults) {
   const actions = []
@@ -102,6 +110,52 @@ export function looksLikeHallucinatedProductLinks(reply) {
   const links = [...reply.matchAll(/\[View product\]\(\/products\/([^)]+)\)/gi)]
   if (!links.length) return false
   return links.some((match) => !/^[a-f0-9]{24}$/i.test(match[1]))
+}
+
+export function replyHasCatalogProductLinks(reply) {
+  return /\[View product\]\(\/products\/[a-f0-9]{24}\)/i.test(String(reply || ''))
+}
+
+export function extractCatalogFromToolResults(toolResults = []) {
+  const searchResult = findSearchCatalog([], toolResults)
+  if (!searchResult?.products?.length) return []
+  return searchResult.products
+    .map((p) => ({
+      id: String(p.id || p._id || ''),
+      name: String(p.name || '').trim(),
+    }))
+    .filter((p) => /^[a-f0-9]{24}$/i.test(p.id))
+}
+
+export function extractCatalogFromReply(reply) {
+  return extractCatalogProductsFromContent(reply)
+}
+
+export function resolveCatalogProductsForSession(toolResults = [], reply = '') {
+  const fromTools = extractCatalogFromToolResults(toolResults)
+  if (fromTools.length) return fromTools
+  return extractCatalogFromReply(reply)
+}
+
+function looksLikeProductDetailReply(reply) {
+  const text = String(reply || '')
+  return (
+    /\[View product\]\(\/products\/[a-f0-9]{24}\)/i.test(text) &&
+    /If you would like to add this to your cart/i.test(text)
+  )
+}
+
+export function ensureSearchCatalogReply(reply, toolResults = [], userText = '') {
+  if (looksLikeProductDetailReply(reply) || isOrdinalPickPhrase(userText)) {
+    return reply
+  }
+
+  const searchResult = findSearchCatalog([], toolResults)
+  if (!searchResult?.products?.length || replyHasCatalogProductLinks(reply)) {
+    return reply
+  }
+
+  return buildCatalogBackedReply(searchResult, { kitQuery: isKitBundleQuery(userText) })
 }
 
 export function formatInr(price) {
@@ -254,23 +308,40 @@ export function findLastProductDetails(messages) {
     if (msg.role !== 'tool') continue
     const data = parseToolContent(msg.content)
     if (!data || data.error) continue
+    if (data.cart || Array.isArray(data.products) || Array.isArray(data.orders)) {
+      continue
+    }
     if (data.id && data.name && (data.description != null || data.sizes || data.colors)) {
       return data
     }
-    return null
   }
   return null
 }
 
-export function buildProductDetailReply(product) {
+export function findLastProductDetailsInToolResults(toolResults = []) {
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const row = toolResults[i]
+    if (row?.error) continue
+    if (row?.toolName === 'get_product_details' || (row?.id && row?.name && row?.description != null)) {
+      if (row.id && row.name) return row
+    }
+  }
+  return null
+}
+
+export function buildProductDetailReply(product, _options = {}) {
   if (!product || product.error) {
     return product?.error || 'I could not load that product. Please try again.'
   }
 
+  const noSizeProduct = product.sizeMeasurementType === 'none'
+  const sizeLabel = product.sizeLabel || 'Size'
   const sizes =
-    Array.isArray(product.sizes) && product.sizes.length
-      ? product.sizes.join(', ')
-      : 'One size'
+    noSizeProduct
+      ? 'No size selection required'
+      : Array.isArray(product.sizes) && product.sizes.length
+        ? product.sizes.join(', ')
+        : 'One size'
   const colors =
     Array.isArray(product.colors) && product.colors.length
       ? product.colors.join(', ')
@@ -291,7 +362,7 @@ export function buildProductDetailReply(product) {
     `- **Brand:** ${product.brand || '—'}`,
     `- **Category:** ${product.category || '—'}`,
     `- **Stock:** ${stock}`,
-    `- **Available sizes:** ${sizes}`,
+    `- **Available ${noSizeProduct ? 'sizes' : sizeLabel.toLowerCase()}:** ${sizes}`,
     `- **Available colors:** ${colors}`,
   ]
 
@@ -303,22 +374,75 @@ export function buildProductDetailReply(product) {
     '',
     `[View product](${url})`,
     '',
-    'If you would like to add this to your cart, tell me your preferred **size**, **color**, and **quantity**.'
+    productRequiresSizeSelection(product) && (product.colors?.length || 0) > 1
+      ? 'If you would like to add this to your cart, tell me your preferred **size**, **color**, and **quantity**.'
+      : productRequiresSizeSelection(product)
+        ? 'If you would like to add this to your cart, tell me your preferred **size** and **quantity**.'
+        : (product.colors?.length || 0) > 1
+          ? 'If you would like to add this to your cart, tell me your preferred **color** and **quantity**.'
+          : 'If you would like to add this to your cart, tell me the **quantity** (size and color are optional for this item).'
   )
 
   return lines.join('\n')
 }
 
-export function formatAgentReply(reply, messages, userText = '', toolResults = []) {
-  const lastDetails = findLastProductDetails(messages)
-  if (lastDetails) {
-    return sanitizeAssistantReply(buildProductDetailReply(lastDetails))
+export function formatAgentReply(
+  reply,
+  messages,
+  userText = '',
+  toolResults = [],
+  history = [],
+  { plan = null, replyKind = null, replyLocked = false } = {}
+) {
+  if (replyLocked && reply) {
+    return sanitizeAssistantReply(reply)
+  }
+
+  const historyForOrdinal = history.length ? history : messages
+  const hasCartAdd = toolResults.some(
+    (r) => r?.toolName === 'add_to_cart' && r?.success && (r?.cart?.items?.length || 0) > 0
+  )
+  const ordinalLike =
+    plan?.product_ref?.kind === 'ordinal' ||
+    isCatalogOrdinalSelection(userText, historyForOrdinal) ||
+    (isOrdinalPickPhrase(userText) && lastAssistantLooksLikeProductListing(historyForOrdinal))
+
+  if (!hasCartAdd && /cart is empty/i.test(String(reply || '')) && ordinalLike) {
+    reply = null
+  }
+
+  if (!hasCartAdd) {
+    const lastDetails =
+      findLastProductDetails(messages) || findLastProductDetailsInToolResults(toolResults)
+    if (lastDetails) {
+      return sanitizeAssistantReply(buildProductDetailReply(lastDetails, { plan }))
+    }
+
+    if (looksLikeProductDetailReply(reply)) {
+      return sanitizeAssistantReply(reply)
+    }
+
+    if (ordinalLike) {
+      const pickedName =
+        plan?.product_ref?.name ||
+        resolveOrdinalCatalogProduct(userText, historyForOrdinal)?.name
+      if (pickedName) {
+        return sanitizeAssistantReply(
+          `You selected **${pickedName}** from the list. Tell me to **add** it to your cart with size, color, and quantity, or tap **View product** on the listing above for full details.`
+        )
+      }
+    }
   }
 
   const lastCatalog = findSearchCatalog(messages, toolResults)
   let formatted = reply
 
-  if (lastCatalog?.strictListing) {
+  if (
+    lastCatalog?.strictListing &&
+    !looksLikeProductDetailReply(reply) &&
+    !ordinalLike &&
+    replyKind !== 'product_detail'
+  ) {
     formatted = buildCatalogBackedReply(lastCatalog, {
       kitQuery: isKitBundleQuery(userText),
     })

@@ -27,7 +27,13 @@ import { formatInr } from './chatPostProcess.js'
 import { resolveActiveCartQueue } from './cartQueue.js'
 
 function cartAddsInResults(toolResults) {
-  return toolResults.filter((r) => r?.success && r?.cart && r?.toolName === 'add_to_cart')
+  return toolResults.filter(
+    (r) =>
+      r?.success &&
+      r?.toolName === 'add_to_cart' &&
+      Array.isArray(r?.cart?.items) &&
+      r.cart.items.length > 0
+  )
 }
 
 function buildPickProductsPrompt(history) {
@@ -71,7 +77,7 @@ async function buildCartConfirmationReply(userId, toolResults) {
   }
 
   if (!cart?.items?.length) {
-    return 'Your cart is empty. Tell me what you would like to add.'
+    return null
   }
 
   const lines = cart.items.map(
@@ -144,7 +150,9 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
 
   while (remaining.length) {
     const current = remaining[0]
-    const product = await Product.findById(current.productId).select('name colors sizes price')
+    const product = await Product.findById(current.productId).select(
+      'name colors sizes price sizeMeasurementType'
+    )
     if (!product) {
       remaining.shift()
       continue
@@ -190,17 +198,24 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
 export async function runCartAssist(userId, userText, history = [], toolResults = [], options = {}) {
   const llmAdds = cartAddsInResults(toolResults)
   if (llmAdds.length) {
-    return {
-      toolResults,
-      reply: await buildCartConfirmationReply(userId, toolResults),
-      cartQueue: null,
+    const confirmation = await buildCartConfirmationReply(userId, toolResults)
+    if (confirmation) {
+      return {
+        toolResults,
+        reply: confirmation,
+        cartQueue: null,
+      }
     }
   }
 
   const sessionQueue = options.cartQueue ?? null
   const intent = await getPurchaseIntent(userText, history, sessionQueue)
 
-  if (!isCartAssistIntent(intent) && !isExplicitAddIntent(userText) && !isBulkAddIntent(userText)) {
+  if (
+    !isCartAssistIntent(intent) &&
+    !isExplicitAddIntent(userText, history) &&
+    !isBulkAddIntent(userText)
+  ) {
     if (!getPendingCartProductName(history) && !resolveActiveCartQueue(history, sessionQueue)) {
       return { toolResults, reply: null }
     }
@@ -222,11 +237,11 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     )
   }
 
-  if (isBulkAddIntent(userText) && !isExplicitAddIntent(userText)) {
+  if (isBulkAddIntent(userText) && !isExplicitAddIntent(userText, history)) {
     return { toolResults, reply: buildPickProductsPrompt(history) }
   }
 
-  if (isBulkAddIntent(userText) && isExplicitAddIntent(userText)) {
+  if (isBulkAddIntent(userText) && isExplicitAddIntent(userText, history)) {
     const vague = /\b(add|put)\s+(them|those|these)\b/i.test(userText)
     const multi = resolveProductIdsFromIntent(intent, history)
     if (vague && multi.length < 2) {
@@ -237,7 +252,7 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
   const multi = resolveProductIdsFromIntent(intent, history)
   const qty = intent.qty || parseQuantityIntent(userText)
 
-  if (multi.length > 1 && (intent.intent === 'bulk_add' || isExplicitAddIntent(userText))) {
+  if (multi.length > 1 && (intent.intent === 'bulk_add' || isExplicitAddIntent(userText, history))) {
     const queue = buildQueueFromProducts(multi, qty)
     return processCartQueue(userId, userText, history, toolResults, queue, purchase, queue, intent)
   }
@@ -257,7 +272,9 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     return { toolResults, reply: null }
   }
 
-  const product = await Product.findById(resolvedId).select('name colors sizes price')
+  const product = await Product.findById(resolvedId).select(
+    'name colors sizes price sizeMeasurementType'
+  )
   if (!product) {
     return { toolResults, reply: null }
   }
@@ -271,9 +288,10 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
 
   if (attempt.ok) {
     const newResults = [...toolResults, { ...attempt.result, toolName: 'add_to_cart' }]
+    const confirmation = await buildCartConfirmationReply(userId, newResults)
     return {
       toolResults: newResults,
-      reply: await buildCartConfirmationReply(userId, newResults),
+      reply: confirmation,
       cartQueue: null,
     }
   }

@@ -1,12 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   extractProductsFromHistory,
+  extractProductsFromLastListing,
   isKitBundleQuery,
   isExplicitAddIntent,
   getPendingCartProductName,
   parseQuantityIntent,
+  parseListingNamesFromContent,
+  resolveOrdinalCatalogProduct,
+  isCatalogOrdinalSelection,
 } from '../../services/chatGraph/productContext.js'
 import { buildProductDetailReply } from '../../services/chatPostProcess.js'
+import { routeIntentHeuristic } from '../../services/chatGraph/routerHeuristic.js'
 
 vi.mock('../../services/llmService.js', () => ({
   chatCompletion: vi.fn(),
@@ -20,12 +25,69 @@ const history = [
   },
 ]
 
+const kitListingHistory = [
+  {
+    role: 'assistant',
+    content: `I found 8 products in our catalog that match:
+
+1. **APT Grand Edition Complete Cricket Kit MRF** — ₹3,989 · 20 in stock · [View product](/products/507f1f77bcf86cd799439012)
+2. **DSC Spliit with Helmet Junior Kashmir Willow Cricket Kit for Juniors** — ₹7,549 · 50 in stock · [View product](/products/507f1f77bcf86cd799439013)`,
+  },
+]
+
 describe('productContext catalog parsing', () => {
   it('extracts product ids from assistant listings', () => {
     const items = extractProductsFromHistory(history)
     expect(items).toHaveLength(1)
     expect(items[0].id).toBe('507f1f77bcf86cd799439011')
     expect(items[0].name).toContain('Jack & Jones')
+  })
+
+  it('resolves ordinal picks from the latest listing only', () => {
+    const items = extractProductsFromLastListing(kitListingHistory)
+    expect(items).toHaveLength(2)
+
+    const first = resolveOrdinalCatalogProduct('I need the first one', kitListingHistory)
+    expect(first?.id).toBe('507f1f77bcf86cd799439012')
+    expect(first?.name).toContain('APT Grand Edition')
+
+    const second = resolveOrdinalCatalogProduct('give me the second one', kitListingHistory)
+    expect(second?.id).toBe('507f1f77bcf86cd799439013')
+  })
+
+  it('resolves ordinals from persisted catalogProducts when links are missing', () => {
+    const history = [
+      {
+        role: 'assistant',
+        content:
+          'I found 8 products in our catalog that match:\n\n1. **APT Grand Edition Complete Cricket Kit MRF** — ₹3,989 · View product',
+        catalogProducts: [
+          { id: '507f1f77bcf86cd799439012', name: 'APT Grand Edition Complete Cricket Kit MRF' },
+          { id: '507f1f77bcf86cd799439013', name: 'DSC Spliit with Helmet Junior Kashmir Willow Cricket Kit for Juniors' },
+        ],
+      },
+    ]
+
+    expect(extractProductsFromLastListing(history)).toHaveLength(2)
+    expect(resolveOrdinalCatalogProduct('the first', history)?.id).toBe('507f1f77bcf86cd799439012')
+    expect(resolveOrdinalCatalogProduct('I need the first one', history)?.name).toContain('APT Grand Edition')
+  })
+
+  it('parses plain catalog lines without markdown links', () => {
+    const plainListing = `I found 6 products in our catalog that match:
+
+SG Cricket Balls Super 50 — ₹549 · 50 in stock · View product
+SG Shield 20 Cricket Balls — ₹464 · 50 in stock · View product
+Classic Poplar Willow Tennis Ball Cricket Bat for Adults, Boys & Girls — ₹939 · 100 in stock · View product`
+
+    const names = parseListingNamesFromContent(plainListing)
+    expect(names).toHaveLength(3)
+    expect(names[1]).toBe('SG Shield 20 Cricket Balls')
+
+    const history = [{ role: 'assistant', content: plainListing }]
+    const second = resolveOrdinalCatalogProduct('I need the second one', history)
+    expect(second?.name).toBe('SG Shield 20 Cricket Balls')
+    expect(routeIntentHeuristic('I need the second one', history)).toBe('product_detail')
   })
 })
 
@@ -78,6 +140,18 @@ describe('productContext resolveProductIdFromContext', () => {
     )
     expect(id).toBe('507f1f77bcf86cd799439011')
   })
+
+  it('resolves the first listing item without calling the LLM', async () => {
+    const { runWithPurchaseIntentCache } = await import('../../services/purchaseIntentContext.js')
+    const { resolveProductIdFromContext } = await import('../../services/chatGraph/productContext.js')
+    const { chatCompletion } = await import('../../services/llmService.js')
+
+    const id = await runWithPurchaseIntentCache(() =>
+      resolveProductIdFromContext(kitListingHistory, 'I need the first one')
+    )
+    expect(id).toBe('507f1f77bcf86cd799439012')
+    expect(chatCompletion).not.toHaveBeenCalled()
+  })
 })
 
 describe('buildProductDetailReply', () => {
@@ -95,7 +169,7 @@ describe('buildProductDetailReply', () => {
       productUrl: '/products/507f1f77bcf86cd799439011',
     })
 
-    expect(reply).toContain('Available sizes')
+    expect(reply).toContain('Available size')
     expect(reply).toContain('S, M, L')
     expect(reply).toContain('Available colors')
     expect(reply).toContain('Red, Navy')
@@ -110,6 +184,17 @@ describe('simple cart helpers', () => {
 
   it('does not treat "you can add" as explicit customer add', () => {
     expect(isExplicitAddIntent('You can add them to the cart')).toBe(false)
+  })
+
+  it('does not treat ordinal catalog picks as immediate cart adds', () => {
+    expect(isExplicitAddIntent('I need the first one', kitListingHistory)).toBe(false)
+    expect(isCatalogOrdinalSelection('I need the first one', kitListingHistory)).toBe(true)
+    expect(isExplicitAddIntent('add the first one to cart', kitListingHistory)).toBe(true)
+  })
+
+  it('routes ordinal picks to product detail instead of checkout', () => {
+    expect(routeIntentHeuristic('I need the first one', kitListingHistory)).toBe('product_detail')
+    expect(routeIntentHeuristic('add the first one', kitListingHistory)).toBe('checkout')
   })
 
   it('detects kit queries', () => {

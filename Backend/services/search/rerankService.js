@@ -101,8 +101,8 @@ function orderedProviders() {
   })
 }
 
-const RERANK_MIN_SCORE = 0.28
-const RERANK_RELATIVE_TO_TOP = 0.5
+const RERANK_MIN_SCORE = 0.32
+const RERANK_RELATIVE_TO_TOP = 0.6
 
 export function filterRerankResults(results, { minScore = RERANK_MIN_SCORE, relativeToTop = RERANK_RELATIVE_TO_TOP } = {}) {
   if (!results?.length) return []

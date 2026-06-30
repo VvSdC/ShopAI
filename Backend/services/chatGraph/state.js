@@ -9,6 +9,12 @@ export const ChatGraphState = Annotation.Root({
   guardReason: Annotation(),
   route: Annotation({ default: () => 'general' }),
   routeReason: Annotation({ default: () => '' }),
+  plan: Annotation({ default: () => null }),
+  language: Annotation({ default: () => 'en' }),
+  languageLabel: Annotation({ default: () => 'English' }),
+  languageScript: Annotation({ default: () => 'latin' }),
+  replyKind: Annotation({ default: () => null }),
+  replyLocked: Annotation({ default: () => false }),
   messages: Annotation({ default: () => [] }),
   toolResults: Annotation({
     default: () => [],

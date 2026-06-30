@@ -248,12 +248,15 @@ export const toolDefinitions = [
     function: {
       name: 'add_to_cart',
       description:
-        'Add a product to the cart. Requires product_id, size, color, and qty. Call get_product_details first if size/color are unknown. If the same product+size+color is already in cart, this SETS the quantity (does not stack duplicates). Do NOT call again on checkout confirmation — use get_cart instead.',
+        'Add a product to the cart. Requires product_id, color, and qty. Size is required for multi-size apparel; use "One Size" when get_product_details shows sizeMeasurementType "none" or only one size. Call get_product_details first if size/color are unknown. If the same product+size+color is already in cart, this SETS the quantity (does not stack duplicates). Do NOT call again on checkout confirmation — use get_cart instead.',
       parameters: {
         type: 'object',
         properties: {
           product_id: { type: 'string', description: 'Product MongoDB ID' },
-          size: { type: 'string', description: 'Size e.g. M, L' },
+          size: {
+            type: 'string',
+            description: 'Size e.g. M, L, or "One Size" when the product has no sizes',
+          },
           color: { type: 'string', description: 'Color name' },
           qty: { type: 'number', description: 'Quantity (default 1)' },
         },
@@ -444,7 +447,9 @@ const toolExecutors = {
 
   async get_product_details(_userId, args) {
     const product = await Product.findById(args.product_id)
-      .select('name description brand category price totalQty totalSold colors sizes images')
+      .select(
+        'name description brand category price totalQty totalSold colors sizes sizeMeasurementType sizeLabel images'
+      )
       .populate('category', 'name')
       .populate({ path: 'reviews', match: PUBLIC_REVIEW_MATCH })
 
@@ -462,6 +467,8 @@ const toolExecutors = {
       qtyLeft: product.totalQty - product.totalSold,
       colors: product.colors,
       sizes: product.sizes,
+      sizeMeasurementType: product.sizeMeasurementType || 'apparel',
+      sizeLabel: product.sizeLabel || '',
       images: product.images,
       totalReviews: product.reviews?.length || 0,
       productUrl: `/products/${id}`,
