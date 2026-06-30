@@ -124,9 +124,13 @@ export async function searchProducts(args = {}) {
     const rerankedIndices = rerankRows.map((r) => r.index)
     const reorderedIds = applyRerankOrder(mergedIdList, rerankedIndices, ordered)
     ordered = reorderedIds.map((id) => productMap.get(id)).filter(Boolean)
-  } else {
-    ordered = trimToRelevantProducts(ordered, query, limit)
   }
+
+  // Always apply the lexical relevance trim — even after a successful rerank.
+  // The reranker keeps semantically-similar items that may still be off-topic
+  // (e.g. "cricket helmet" for a "cricket bat" query). The lexical pass uses
+  // word-overlap signals against the actual product fields to cut tail noise.
+  ordered = trimToRelevantProducts(ordered, query, limit)
 
   const enriched = await enrichProductsWithCategoryNames(ordered.slice(0, limit))
   const final = enriched.map(mapProductSearchResult)

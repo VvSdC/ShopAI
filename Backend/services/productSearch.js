@@ -105,25 +105,52 @@ export function rankProductsByQuery(products, query) {
     .map(({ product }) => product)
 }
 
-/** Drop weak tail matches when reranker is unavailable (keyword/RRF-only path). */
+/**
+ * Drop weak tail matches.
+ *
+ * Three guardrails (any one cuts the tail):
+ *   - score <= 0 (no lexical overlap at all — vector false positives)
+ *   - score < topScore * RELATIVE_FLOOR (too weak vs. best match)
+ *   - large gap to previous item (e.g. 3 strong matches then noise)
+ *
+ * Always keeps at least one product when something matched, so we don't
+ * accidentally return zero results for queries that did match.
+ */
+const RELEVANCE_RELATIVE_FLOOR = 0.55
+const RELEVANCE_GAP_RATIO = 0.5
+
 export function trimToRelevantProducts(products, query, maxResults = 12) {
   if (!products?.length || !query?.trim()) return products.slice(0, maxResults)
 
-  const scored = products
-    .map((product) => ({ product, score: scoreProductForQuery(product, query) }))
-    .sort((a, b) => b.score - a.score)
+  const scored = products.map((product) => ({
+    product,
+    score: scoreProductForQuery(product, query),
+  }))
+  const maxScore = scored.reduce((m, { score }) => (score > m ? score : m), 0)
 
-  const topScore = scored[0]?.score ?? 0
+  // No lexical overlap anywhere (e.g. plural query vs. singular names) —
+  // trust the upstream order (keyword/vector/rerank) and just cap the count.
+  if (maxScore <= 0) return products.slice(0, maxResults)
+
+  const sorted = [...scored].sort((a, b) => b.score - a.score)
+  const topScore = sorted[0].score
   const kept = []
+  let lastScore = topScore
 
-  for (const { product, score } of scored) {
+  for (const { product, score } of sorted) {
     if (kept.length >= maxResults) break
     if (score <= 0) break
-    if (kept.length > 0 && topScore > 0 && score < topScore * 0.45) break
+    if (kept.length > 0 && score < topScore * RELEVANCE_RELATIVE_FLOOR) break
+    if (kept.length > 0 && lastScore > 0 && score < lastScore * RELEVANCE_GAP_RATIO) break
     kept.push(product)
+    lastScore = score
   }
 
-  return kept.length > 0 ? kept : scored.slice(0, Math.min(3, maxResults)).map(({ product }) => product)
+  if (kept.length > 0) return kept
+  return sorted
+    .filter(({ score }) => score > 0)
+    .slice(0, Math.min(3, maxResults))
+    .map(({ product }) => product)
 }
 
 export function mapProductSearchResult(product) {
