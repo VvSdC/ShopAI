@@ -192,6 +192,29 @@ describe('simple cart helpers', () => {
     expect(isExplicitAddIntent('add the first one to cart', kitListingHistory)).toBe(true)
   })
 
+  it('routes variant replies after a product_detail message to checkout, not product_detail', () => {
+    const productDetailHistory = [
+      {
+        role: 'assistant',
+        messageKind: 'product_detail',
+        content:
+          '**MRF Winner Kashmir Willow Cricket Bat** \u2014 \u20b92,899\n\nIf you would like to add this to your cart, tell me your preferred **size** and **quantity**.',
+        catalogProducts: [{ id: '507f1f77bcf86cd799439011', name: 'MRF Winner Kashmir Willow Cricket Bat' }],
+      },
+    ]
+    expect(routeIntentHeuristic('2 bats 28 size', productDetailHistory)).toBe('checkout')
+    expect(routeIntentHeuristic('rendu batlu 28 size', productDetailHistory)).toBe('checkout')
+    expect(routeIntentHeuristic('size large red 1', productDetailHistory)).toBe('checkout')
+  })
+
+  it('does not match the bare word "size" as a product detail request', () => {
+    expect(routeIntentHeuristic('what size shirts do you have', shirtListingHistory)).toBe(
+      'product_detail'
+    )
+    // No "what/available/chart/guide" qualifier and no listing history → falls through to general
+    expect(routeIntentHeuristic('size', [])).not.toBe('product_detail')
+  })
+
   it('routes ordinal picks to product detail instead of checkout', () => {
     expect(routeIntentHeuristic('I need the first one', kitListingHistory)).toBe('product_detail')
     expect(routeIntentHeuristic('add the first one', kitListingHistory)).toBe('checkout')

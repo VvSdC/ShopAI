@@ -152,7 +152,7 @@ export async function appendMessages(
   catalogProducts = null,
   metadata = {}
 ) {
-  const { messageKind = null, language = null, userLanguage = null } = metadata || {}
+  const { messageKind = null, language = null, userLanguage = null, blocks = null } = metadata || {}
 
   const userEntry = {
     role: 'user',
@@ -182,6 +182,9 @@ export async function appendMessages(
 
   if (messageKind) assistantEntry.messageKind = messageKind
   if (language) assistantEntry.language = String(language).slice(0, 12)
+  if (Array.isArray(blocks) && blocks.length) {
+    assistantEntry.blocks = blocks
+  }
 
   const priorCount = session.messageCount ?? session.messages?.length ?? 0
   const shouldUpdateTitle =
@@ -240,6 +243,9 @@ export function mapSessionMessageForClient(message) {
   }
   if (message.messageKind) out.messageKind = message.messageKind
   if (message.language) out.language = message.language
+  if (Array.isArray(message.blocks) && message.blocks.length) {
+    out.blocks = message.blocks
+  }
   return out
 }
 

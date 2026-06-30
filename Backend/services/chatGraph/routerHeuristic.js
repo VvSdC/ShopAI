@@ -4,6 +4,7 @@ import {
   isCatalogOrdinalSelection,
   isOrdinalPickPhrase,
   lastAssistantLooksLikeProductListing,
+  lastAssistantMessageKind,
 } from './productContext.js'
 
 export const ROUTE_NAMES = [
@@ -22,7 +23,10 @@ const PAYMENT_STATUS_PATTERN =
   /payment status|did my payment|payment go through|payment done|did i pay|have i paid|was (?:my )?payment/i
 
 const PRODUCT_DETAIL_PATTERN =
-  /\b(details?|more info(?:rmation)?|tell me (?:more )?about|describe (?:the )?|what about the|sizes?|colors?|specs?)\b/i
+  /\b(details?|more info(?:rmation)?|tell me (?:more )?about|describe (?:the )?|what about the|what (?:sizes?|colors?|are the (?:sizes?|colors?))|available (?:sizes?|colors?)|size (?:chart|guide)|specs?(?:ifications?)?)\b/i
+
+const VARIANT_REPLY_HINT_PATTERN =
+  /(\d+|\bsmall\b|\bmedium\b|\blarge\b|\bxl\b|\bxxl\b|\bone size\b|\bxs\b|\bs\b|\bm\b|\bl\b|red|blue|green|black|white|yellow|orange|pink|grey|gray|brown|navy|maroon)/i
 
 const DISCOVERY_PATTERN =
   /search|find|show me|looking for|available|browse|category|brand|recommend|what do you have|options?|which ones?|help me (?:find|choose)/i
@@ -129,10 +133,28 @@ function isHighConfidenceCheckout(text, history) {
 }
 
 /**
+ * After a product_detail card, a short variant reply ("2 bats 28 size",
+ * "size M red", "1 large") is a cart variant — NOT another detail request.
+ * The word "size" alone (in any language) used to land here as product_detail
+ * because of the old PRODUCT_DETAIL_PATTERN. Now we treat it as checkout.
+ */
+function isVariantReplyAfterProductDetail(text, history) {
+  if (lastAssistantMessageKind(history) !== 'product_detail') return false
+  const t = String(text || '').trim().toLowerCase()
+  if (!t) return false
+  if (PRODUCT_DETAIL_PATTERN.test(t) && !VARIANT_REPLY_HINT_PATTERN.test(t)) return false
+  return VARIANT_REPLY_HINT_PATTERN.test(t)
+}
+
+/**
  * Fast path for intent routing. Returns high confidence when heuristic signals are
  * unambiguous; low confidence triggers LLM disambiguation in intentClassifier.
  */
 export function classifyIntentHeuristic(text, history = []) {
+  if (isVariantReplyAfterProductDetail(text, history)) {
+    return { route: 'checkout', confidence: 'high', reason: 'heuristic_variant_after_detail' }
+  }
+
   const route = routeIntentHeuristic(text, history)
   const t = String(text || '').trim()
 
@@ -200,6 +222,10 @@ function isAmbiguousReferencePattern(text) {
 export function routeIntentHeuristic(text, history = []) {
   const t = String(text || '').trim().toLowerCase()
   if (!t) return 'general'
+
+  if (isVariantReplyAfterProductDetail(text, history)) {
+    return 'checkout'
+  }
 
   if (isCatalogOrdinalSelection(text, history)) {
     return /\b(add|put)\b/i.test(t) ? 'checkout' : 'product_detail'

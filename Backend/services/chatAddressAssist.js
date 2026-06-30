@@ -6,7 +6,20 @@ import { buildAddressMissingPrompt } from './chatMissingFields.js'
 export function looksLikeAddressInput(text) {
   const raw = String(text || '').trim()
   if (raw.length < 15) return false
-  return /,/.test(raw) || /\b\d{6}\b/.test(raw) || /\b(street|road|lane|nagar|enclave|hyderabad|delhi|mumbai|bangalore)\b/i.test(raw)
+  return (
+    /,/.test(raw) ||
+    /\b\d{6}\b/.test(raw) ||
+    /\b(street|road|lane|nagar|enclave|hyderabad|delhi|mumbai|bangalore)\b/i.test(raw)
+  )
+}
+
+export function lastAssistantAskedForAddressFields(history = []) {
+  const last = [...(history || [])].reverse().find((m) => m.role === 'assistant')
+  if (!last) return false
+  const content = String(last.content || '').toLowerCase()
+  return /save your delivery address|share these details|street address|house number|pin\s*\/\s*postal|postal code|phone number|\bstate\b|province|delivery address/i.test(
+    content
+  )
 }
 
 export function extractAddressDraft(text) {
@@ -30,23 +43,28 @@ export function extractAddressDraft(text) {
   if (phoneMatch) draft.phone = phoneMatch[0].replace(/\s+/g, '')
 
   const parts = raw.split(',').map((p) => p.trim()).filter(Boolean)
-  if (parts.length >= 2) {
-    draft.province = parts[parts.length - 1]
-    if (draft.postal_code) {
-      const cityLineIdx = parts.findIndex((p) => p.includes(draft.postal_code))
-      if (cityLineIdx >= 0) {
-        draft.city = parts[cityLineIdx].replace(draft.postal_code, '').trim()
-        draft.address = parts.slice(0, cityLineIdx).join(', ')
-      }
-    }
-    if (!draft.city && parts.length >= 3) {
-      draft.city = parts[parts.length - 2].replace(/\d{6}/, '').trim()
-      draft.address = parts.slice(0, parts.length - 2).join(', ')
-    }
+  if (parts.length < 2) {
+    if (parts.length === 1) draft.address = parts[0]
+    return draft
   }
 
-  if (!draft.address && parts.length >= 1 && !draft.city) {
-    draft.address = parts.join(', ')
+  const lastPart = parts[parts.length - 1]
+  const lastHasPin = draft.postal_code && lastPart.includes(draft.postal_code)
+
+  if (lastHasPin) {
+    draft.city = lastPart.replace(draft.postal_code, '').trim()
+    draft.address = parts.slice(0, parts.length - 1).join(', ')
+    return draft
+  }
+
+  draft.province = lastPart.replace(/\d{6}/, '').trim()
+  if (parts.length >= 3) {
+    draft.city = parts[parts.length - 2].replace(/\d{6}/, '').trim()
+    draft.address = parts.slice(0, parts.length - 2).join(', ')
+  } else {
+    draft.city = draft.province
+    draft.province = ''
+    draft.address = parts[0]
   }
 
   return draft
@@ -62,30 +80,44 @@ export function listMissingAddressFields(draft, userPhone = '') {
   return missing
 }
 
+function lastUserAddressDraft(history = []) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i]
+    if (msg?.role === 'user' && looksLikeAddressInput(msg.content)) {
+      return extractAddressDraft(msg.content)
+    }
+  }
+  return null
+}
+
+function applyPartialAddressReply(draft, text) {
+  const t = String(text || '').trim()
+  const next = { ...draft }
+
+  const pin = t.match(/\b(\d{6})\b/)
+  if (pin) next.postal_code = pin[1]
+
+  const phone = t.match(/(?:\+91[\s-]?)?[6-9]\d{9}\b/)
+  if (phone) next.phone = phone[0].replace(/\s+/g, '')
+
+  if (/^[a-z][a-z\s]{1,38}$/i.test(t) && !/\d/.test(t)) {
+    if (!next.province) next.province = t
+    else if (!next.city) next.city = t
+  }
+
+  return next
+}
+
 function addressAlreadySaved(toolResults) {
   return toolResults.some(
     (r) => r?.success && (r?.toolName === 'add_shipping_address' || r?.addressIndex != null)
   )
 }
 
-export async function runAddressAssist(userId, userText, toolResults = []) {
-  if (addressAlreadySaved(toolResults)) {
-    return { toolResults, reply: null }
-  }
-
-  if (!looksLikeAddressInput(userText)) {
-    return { toolResults, reply: null }
-  }
-
-  const user = await User.findById(userId).select('phone fullname')
-  const draft = extractAddressDraft(userText)
+async function saveAddressDraft(userId, draft, user, toolResults) {
   const missing = listMissingAddressFields(draft, user?.phone)
-
   if (missing.length) {
-    return {
-      toolResults,
-      reply: buildAddressMissingPrompt(missing),
-    }
+    return { toolResults, reply: buildAddressMissingPrompt(missing) }
   }
 
   const payload = {
@@ -115,4 +147,33 @@ export async function runAddressAssist(userId, userText, toolResults = []) {
     toolResults: [...toolResults, { ...result, toolName: 'add_shipping_address' }],
     reply: `Saved your delivery address:\n**${draft.address}, ${draft.city}, ${draft.province} ${draft.postal_code}**\n\nSay **proceed to checkout** when you're ready — I'll open secure Stripe payment.`,
   }
+}
+
+export async function runAddressAssist(userId, userText, toolResults = [], options = {}) {
+  const { history = [], plan = null } = options
+
+  if (addressAlreadySaved(toolResults)) {
+    return { toolResults, reply: null }
+  }
+
+  const user = await User.findById(userId).select('phone fullname')
+  const collectingAddress =
+    plan?.action === 'address_save' || lastAssistantAskedForAddressFields(history)
+
+  let draft = null
+
+  if (looksLikeAddressInput(userText)) {
+    draft = extractAddressDraft(userText)
+  } else if (collectingAddress && lastAssistantAskedForAddressFields(history)) {
+    const prior = lastUserAddressDraft(history)
+    if (prior) {
+      draft = applyPartialAddressReply(prior, userText)
+    }
+  }
+
+  if (!draft) {
+    return { toolResults, reply: null }
+  }
+
+  return saveAddressDraft(userId, draft, user, toolResults)
 }

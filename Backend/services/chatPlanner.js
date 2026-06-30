@@ -344,6 +344,7 @@ NORMALIZED_QUERY_EN:
 Rules:
 - Use the CATALOG list to set product_ref.name accurately for ordinals.
 - Affirmative replies (yes/ok/proceed/haan/sare/avunu) after a checkout/address prompt → action="checkout".
+- After a "product_detail" message (last_assistant_kind=product_detail), if the user replies with size/qty/color variant info (digits, size names, color names, in ANY language) → action="add_to_cart", product_ref.kind="pending", route="checkout". Do NOT classify this as view_details again — the customer is filling in the variant slots the previous reply asked for.
 - Never invent IDs not in catalog.
 
 Reply ONE JSON object.`

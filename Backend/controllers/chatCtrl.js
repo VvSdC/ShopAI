@@ -17,7 +17,9 @@ import {
   formatAgentReply,
   ensureSearchCatalogReply,
   resolveCatalogProductsForSession,
+  applyBlockAwareReply,
 } from '../services/chatPostProcess.js'
+import { buildChatBlocks } from '../services/chatBlocks.js'
 import { runWithLlmUsageContext, patchLlmUsageContext } from '../services/llmUsageContext.js'
 import { runWithPurchaseIntentCache } from '../services/purchaseIntentContext.js'
 import { recordChatRouteDecision } from '../services/llmUsageLogger.js'
@@ -210,11 +212,16 @@ async function persistAndRespond(
     history,
     { plan: graphResult.plan || null, replyKind, replyLocked }
   )
-  const reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
-  const payload = buildChatResponse(reply, toolResults)
+  let reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
+  const messageKind = deriveMessageKind({ replyKind, toolResults, payload: {} })
+  const blocks = buildChatBlocks({ toolResults, messageKind })
+  if (blocks.length) {
+    reply = sanitizeAssistantReply(applyBlockAwareReply(reply, blocks, toolResults, userText))
+  }
+  const payload = buildChatResponse(reply, toolResults, blocks.length ? { blocks } : {})
   const cartQueuePatch = cartQueue !== undefined ? cartQueue : undefined
   const catalogToSave = resolveCatalogProductsForSession(toolResults, reply)
-  const messageKind = deriveMessageKind({ replyKind, toolResults, payload })
+  const finalMessageKind = deriveMessageKind({ replyKind, toolResults, payload })
   await appendMessages(
     session,
     userText,
@@ -223,9 +230,10 @@ async function persistAndRespond(
     cartQueuePatch,
     catalogToSave.length ? catalogToSave : null,
     {
-      messageKind,
+      messageKind: finalMessageKind,
       language: graphResult.language || null,
       userLanguage: graphResult.language || null,
+      blocks: blocks.length ? blocks : null,
     }
   )
   await maybeTrimOldSessions(userId)
