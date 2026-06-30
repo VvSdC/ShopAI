@@ -70,6 +70,10 @@ function mapServerCartItems(items) {
     size: item.size,
     description: item.description || '',
     image: item.image || '',
+    qtyLeft: item.qtyLeft,
+    unavailable: item.unavailable,
+    adjusted: item.adjusted,
+    reason: item.reason,
   }))
 }
 

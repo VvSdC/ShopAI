@@ -89,15 +89,28 @@ export default function AllOrders() {
           </div>
         </div>
 
-        <div className="mt-3 overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-stone-300">
+        <div className="mt-3 overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm [-webkit-overflow-scrolling:touch]">
+          <table className="min-w-[40rem] w-full divide-y divide-stone-300">
             <thead className="bg-stone-50">
               <tr>
-                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">Order ID</th>
-                <th className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 lg:table-cell">Payment Status</th>
-                <th className="hidden px-3 py-3.5 text-left text-sm font-semibold text-stone-900 sm:table-cell">Order Date</th>
-                <th className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">Status</th>
-                <th className="px-3 py-3.5 text-left text-sm font-semibold text-stone-900">Total</th>
+                <th scope="col" className="min-w-[9rem] py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-stone-900 sm:pl-6">
+                  Order ID
+                </th>
+                <th scope="col" className="hidden min-w-[7rem] px-3 py-3.5 text-left text-sm font-semibold text-stone-900 lg:table-cell">
+                  Payment Status
+                </th>
+                <th scope="col" className="hidden min-w-[6.5rem] px-3 py-3.5 text-left text-sm font-semibold text-stone-900 md:table-cell">
+                  Order Date
+                </th>
+                <th scope="col" className="min-w-[6.5rem] px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
+                  Status
+                </th>
+                <th scope="col" className="min-w-[5rem] px-3 py-3.5 text-left text-sm font-semibold text-stone-900">
+                  Total
+                </th>
+                <th scope="col" className="min-w-[6.5rem] py-3.5 pl-3 pr-4 text-right text-sm font-semibold text-stone-900 sm:pr-6">
+                  Edit
+                </th>
               </tr>
             </thead>
             {loading ? (
@@ -120,15 +133,25 @@ export default function AllOrders() {
               <tbody className="divide-y divide-stone-200 bg-white">
                 {paginated.map((order) => (
                   <tr key={order._id}>
-                    <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-stone-900 sm:w-auto sm:max-w-none sm:pl-6">{order._id}</td>
-                    <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{order.paymentStatus}</td>
-                    <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{new Date(order?.createdAt).toLocaleDateString()}</td>
-                    <td className="hidden px-3 py-4 text-sm text-stone-500 sm:table-cell">{order?.status}</td>
-                    <td className="px-3 py-4 text-sm text-stone-500">{order?.totalPrice}</td>
-                    <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <td className="max-w-[12rem] truncate py-4 pl-4 pr-3 text-sm font-medium text-stone-900 sm:max-w-none sm:pl-6">
+                      {order._id}
+                    </td>
+                    <td className="hidden whitespace-nowrap px-3 py-4 text-sm text-stone-500 lg:table-cell">
+                      {order.paymentStatus}
+                    </td>
+                    <td className="hidden whitespace-nowrap px-3 py-4 text-sm text-stone-500 md:table-cell">
+                      {new Date(order?.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
+                      {order?.status}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
+                      {order?.totalPrice}
+                    </td>
+                    <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                       {isAdminOrderStatusLocked(order) ? (
                         <span
-                          className="text-stone-300 cursor-not-allowed"
+                          className="inline-block text-stone-300 cursor-not-allowed"
                           title={adminOrderStatusLockReason(order)}
                         >
                           Edit
@@ -144,7 +167,7 @@ export default function AllOrders() {
                             });
                           }}
                           onBlur={() => setEditingOrderId(null)}
-                          className="rounded-md border border-stone-300 py-1 pl-2 pr-7 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          className="w-[6.75rem] max-w-full rounded-md border border-stone-300 py-1 pl-2 pr-7 text-sm focus:border-indigo-500 focus:ring-indigo-500"
                         >
                           <option value="pending">Pending</option>
                           <option value="processing">Processing</option>
@@ -153,6 +176,7 @@ export default function AllOrders() {
                         </select>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => setEditingOrderId(order?._id)}
                           className="text-indigo-600 hover:text-indigo-900"
                         >

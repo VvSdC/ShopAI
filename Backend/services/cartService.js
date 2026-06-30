@@ -82,23 +82,28 @@ function computeTotals(items, discountRate) {
   return { subtotal, discountAmount, total }
 }
 
-export function formatCartPayload(cart, discountMeta = null, { priceWarnings = [] } = {}) {
+export function formatCartPayload(cart, discountMeta = null, { priceWarnings = [], productMap = {} } = {}) {
   const discountRate = discountMeta?.discountRate ?? 0
   const { subtotal, discountAmount, total } = computeTotals(cart.items, discountRate)
   const itemCount = cart.items.reduce((sum, i) => sum + (i.qty || 0), 0)
 
   const payload = {
-    items: cart.items.map((item) => ({
-      _id: String(item._id),
-      name: item.name,
-      qty: item.qty,
-      price: item.price,
-      totalPrice: item.totalPrice,
-      color: item.color,
-      size: item.size,
-      description: item.description,
-      image: item.image,
-    })),
+    items: cart.items.map((item) => {
+      const product = productMap[productIdKey(item._id)]
+      const qtyLeft = product ? product.totalQty - product.totalSold : undefined
+      return {
+        _id: String(item._id),
+        name: item.name,
+        qty: item.qty,
+        price: item.price,
+        totalPrice: item.totalPrice,
+        color: item.color,
+        size: item.size,
+        description: item.description,
+        image: item.image,
+        ...(qtyLeft !== undefined ? { qtyLeft } : {}),
+      }
+    }),
     couponCode: cart.couponCode || null,
     couponDiscount: discountMeta?.discountPercent ?? null,
     subtotal,
@@ -181,7 +186,7 @@ function cartLineSnapshotChanged(before, after) {
 /** Batch-refresh cart line snapshots from live catalog (price, name, image). */
 async function refreshCartItemsFromCatalog(cart) {
   if (!cart.items?.length) {
-    return { priceWarnings: [], saved: false }
+    return { priceWarnings: [], saved: false, productMap: {} }
   }
 
   const productMap = await loadProductMapForCartItems(cart.items)
@@ -203,12 +208,12 @@ async function refreshCartItemsFromCatalog(cart) {
     await cart.save()
   }
 
-  return { priceWarnings, saved }
+  return { priceWarnings, saved, productMap }
 }
 
 export async function getCart(userId) {
   const cart = await findOrCreateCart(userId)
-  const { priceWarnings } = await refreshCartItemsFromCatalog(cart)
+  const { priceWarnings, productMap } = await refreshCartItemsFromCatalog(cart)
   let discountMeta = { discountRate: 0, discountPercent: 0 }
   if (cart.couponCode) {
     try {
@@ -218,7 +223,7 @@ export async function getCart(userId) {
       await cart.save()
     }
   }
-  return formatCartPayload(cart, discountMeta, { priceWarnings })
+  return formatCartPayload(cart, discountMeta, { priceWarnings, productMap })
 }
 
 export function resolveOptionMatch(requested, options) {
@@ -487,7 +492,13 @@ export async function validateCartStock(userId) {
     const lineForSnapshot = qty === plain.qty ? plain : { ...plain, qty }
     const { item: refreshed, priceWarning } = snapshotFromProduct(lineForSnapshot, product)
     if (priceWarning) warnings.push(priceWarning)
-    validItems.push(refreshed)
+    validItems.push({
+      ...refreshed,
+      qtyLeft,
+      unavailable: false,
+      adjusted: qty !== plain.qty,
+      ...(qty !== plain.qty ? { reason: `Only ${qtyLeft} left in stock` } : {}),
+    })
   }
 
   cart.items = validItems

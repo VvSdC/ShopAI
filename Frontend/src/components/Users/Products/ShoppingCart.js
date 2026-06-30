@@ -34,29 +34,36 @@ import {
 
 function QtyStepper({ value, max, onChange, disabled, compact = false }) {
   const qty = Number(value) || 1
-  const limit = Math.max(1, Number(max) || 1)
+  const parsedMax = Number(max)
+  const limit =
+    Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : Math.max(qty, 99)
   const btnClass = compact
-    ? 'flex h-8 w-8 items-center justify-center'
-    : 'flex h-9 w-9 items-center justify-center'
+    ? 'flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center'
+    : 'flex h-9 w-9 touch-manipulation items-center justify-center sm:h-10 sm:w-10 sm:min-h-[40px] sm:min-w-[40px]'
+
+  const handleChange = (nextQty) => {
+    if (disabled) return
+    onChange(nextQty)
+  }
 
   return (
     <div
-      className={`inline-flex items-center rounded-md border border-stone-300 bg-white shadow-sm ${
+      className={`relative z-10 inline-flex items-center rounded-md border border-stone-300 bg-white shadow-sm ${
         disabled ? 'opacity-50' : ''
       }`}
     >
       <button
         type="button"
         disabled={disabled || qty <= 1}
-        onClick={() => onChange(qty - 1)}
-        className={`${btnClass} rounded-l-md text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40`}
+        onClick={() => handleChange(qty - 1)}
+        className={`${btnClass} rounded-l-md text-stone-600 hover:bg-stone-50 active:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label="Decrease quantity"
       >
-        <MinusIcon className="h-3.5 w-3.5" />
+        <MinusIcon className="h-4 w-4" />
       </button>
       <span
         className={`border-x border-stone-300 bg-stone-50 text-center font-medium text-stone-900 ${
-          compact ? 'min-w-[2.25rem] px-1 text-sm' : 'min-w-[2.5rem] px-2 text-sm'
+          compact ? 'min-w-[2.5rem] px-1 text-sm' : 'min-w-[2.5rem] px-2 text-sm'
         }`}
       >
         {qty}
@@ -64,11 +71,11 @@ function QtyStepper({ value, max, onChange, disabled, compact = false }) {
       <button
         type="button"
         disabled={disabled || qty >= limit}
-        onClick={() => onChange(qty + 1)}
-        className={`${btnClass} rounded-r-md text-stone-600 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40`}
+        onClick={() => handleChange(qty + 1)}
+        className={`${btnClass} rounded-r-md text-stone-600 hover:bg-stone-50 active:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40`}
         aria-label="Increase quantity"
       >
-        <PlusIcon className="h-3.5 w-3.5" />
+        <PlusIcon className="h-4 w-4" />
       </button>
     </div>
   )
@@ -150,25 +157,27 @@ function CartLineItem({ product, onQtyChange, onRemove }) {
               productPath={productPath}
               className="mt-2 sm:hidden"
             />
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 pt-4">
+            <div className="mt-4 flex flex-col gap-4 border-t border-stone-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs text-stone-500">Price</p>
                 <p className="text-sm font-semibold text-stone-900">{formatPrice(product.price)}</p>
               </div>
-              <div>
-                <p className="mb-1 text-xs text-stone-500">Qty</p>
-                <QtyStepper
-                  value={product.qty}
-                  max={product.qtyLeft || product.qty}
-                  onChange={onQtyChange}
-                  compact
-                />
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-stone-500">Subtotal</p>
-                <p className="text-base font-bold text-stone-900">
-                  {formatPrice(product.totalPrice)}
-                </p>
+              <div className="flex items-end justify-between gap-4 sm:block">
+                <div>
+                  <p className="mb-1 text-xs text-stone-500">Qty</p>
+                  <QtyStepper
+                    value={product.qty}
+                    max={product.qtyLeft}
+                    onChange={onQtyChange}
+                    compact
+                  />
+                </div>
+                <div className="text-right sm:mt-0">
+                  <p className="text-xs text-stone-500">Subtotal</p>
+                  <p className="text-base font-bold text-stone-900">
+                    {formatPrice(product.totalPrice)}
+                  </p>
+                </div>
               </div>
             </div>
             <CartItemActions product={product} onRemove={onRemove} />
@@ -197,7 +206,7 @@ function CartLineItem({ product, onQtyChange, onRemove }) {
         <div className="col-span-2 flex justify-center">
           <QtyStepper
             value={product.qty}
-            max={product.qtyLeft || product.qty}
+            max={product.qtyLeft}
             onChange={onQtyChange}
           />
         </div>
