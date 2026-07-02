@@ -1,6 +1,8 @@
 import asyncHandler from "express-async-handler";
 import Product from "../model/Product.js";
 import Review from "../model/Review.js";
+import User from "../model/User.js";
+import { AppError } from "../utils/appError.js";
 import { moderateReviewInBackground } from "../services/moderationQueue.js";
 
 // @desc    Create new review
@@ -10,6 +12,11 @@ import { moderateReviewInBackground } from "../services/moderationQueue.js";
 export const createReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
   const { productID } = req.params;
+
+  const reviewer = await User.findById(req.userAuthId).select("isEmailVerified");
+  if (reviewer?.isEmailVerified === false) {
+    throw new AppError("Verify your email before leaving a review.", 403);
+  }
 
   const productFound = await Product.findById(productID);
   if (!productFound) {

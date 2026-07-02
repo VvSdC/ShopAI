@@ -7,6 +7,7 @@ import Review from '../model/Review.js'
 import { tagProductInBackground } from '../services/productTaggingQueue.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
 import { searchProducts } from '../services/search/searchService.js'
+import { getSimilarProducts } from '../services/similarProductsService.js'
 import { resolveCategoryId } from '../utils/categoryRef.js'
 import {
   getCachedOrFetch,
@@ -282,6 +283,15 @@ export const getProductCtrl = asyncHandler(async (req, res) => {
     status: 'success',
     message: 'Product fetched successfully',
     product,
+  })
+})
+
+export const getSimilarProductsCtrl = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit) || 8
+  const result = await getSimilarProducts(req.params.id, { limit })
+  res.json({
+    status: 'success',
+    ...result,
   })
 })
 

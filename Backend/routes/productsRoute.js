@@ -5,6 +5,7 @@ import {
   getProductsCtrl,
   getMyProductsCtrl,
   getProductCtrl,
+  getSimilarProductsCtrl,
   updateProductCtrl,
   deleteProductCtrl,
   validateCartCtrl,
@@ -25,6 +26,7 @@ productsRouter.post(
 productsRouter.post('/validate-cart', validateCartCtrl)
 productsRouter.get('/mine', isLoggedIn, isAdmin, getMyProductsCtrl)
 productsRouter.get('/', getProductsCtrl)
+productsRouter.get('/:id/similar', getSimilarProductsCtrl)
 productsRouter.get('/:id', getProductCtrl)
 productsRouter.put('/:id', isLoggedIn, isAdmin, upload.array('files'), updateProductCtrl)
 productsRouter.delete('/:id/delete', isLoggedIn, isAdmin, deleteProductCtrl)

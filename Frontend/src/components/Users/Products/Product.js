@@ -23,6 +23,8 @@ import {
   updateReviewAction,
   deleteReviewAction,
 } from '../../../redux/slices/reviews/reviewsSlice'
+import WishlistButton from './WishlistButton'
+import SimilarProductsSection from './SimilarProductsSection'
 import { getCartUnitCount } from '../../../utils/cartCount'
 import {
   displaySizeLabel,
@@ -469,10 +471,13 @@ export default function Product() {
                     {product?.name}
                   </h1>
 
-                  <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-b border-stone-100 pb-5">
-                    <p className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-                      {formatPrice(product?.price)}
-                    </p>
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-4 border-b border-stone-100 pb-5">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <p className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
+                        {formatPrice(product?.price)}
+                      </p>
+                      <WishlistButton product={product} size="md" className="mt-1" />
+                    </div>
                     <div className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
                         {[0, 1, 2, 3, 4].map((i) => (
@@ -649,6 +654,8 @@ export default function Product() {
                 </p>
               </section>
             )}
+
+            <SimilarProductsSection productId={product?._id} />
 
             {/* Reviews */}
         <section

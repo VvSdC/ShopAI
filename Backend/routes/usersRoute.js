@@ -16,6 +16,8 @@ import {
   forgotPasswordCtrl,
   verifyOTPCtrl,
   resetPasswordCtrl,
+  verifyEmailCtrl,
+  resendVerificationCtrl,
   changePasswordCtrl,
 } from "../controllers/usersCtrl.js";
 import { isLoggedIn } from "../middlewares/isLoggedin.js";
@@ -28,6 +30,8 @@ import {
   loginSchema,
   changePasswordSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
 } from "../validations/authSchemas.js";
 
 const userRoutes = express.Router();
@@ -46,6 +50,8 @@ userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.post("/forgot-password", authLimiter, forgotPasswordCtrl);
 userRoutes.post("/verify-otp", authLimiter, verifyOTPCtrl);
 userRoutes.post("/reset-password", authLimiter, validate(resetPasswordSchema), resetPasswordCtrl);
+userRoutes.post("/verify-email", authLimiter, validate(verifyEmailSchema), verifyEmailCtrl);
+userRoutes.post("/resend-verification", authLimiter, validate(resendVerificationSchema), resendVerificationCtrl);
 userRoutes.put("/change-password", isLoggedIn, validate(changePasswordSchema), changePasswordCtrl);
 userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);

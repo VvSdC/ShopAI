@@ -38,7 +38,12 @@ const RegisterForm = () => {
   }
   const { user, error, loading } = useSelector((state) => state?.users)
   useEffect(() => {
-    if (user) {
+    if (user?.requiresEmailVerification) {
+      const signupEmail = user?.data?.email
+      navigate('/verify-email', { replace: true, state: { email: signupEmail } })
+      return
+    }
+    if (user && !user?.requiresEmailVerification) {
       navigate('/login', { replace: true })
     }
   }, [user, navigate])

@@ -233,6 +233,7 @@ function OrderSummary({
   couponSuccess,
   canCheckout,
   showCheckout = true,
+  isLoggedIn = true,
   idPrefix = 'cart',
 }) {
   return (
@@ -264,18 +265,39 @@ function OrderSummary({
         </dl>
 
         {showCheckout && (
-          <Link
-            to="/order-payment"
-            state={{ sumTotalPrice: total }}
-            className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
-              canCheckout
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                : 'pointer-events-none bg-stone-300 text-stone-500'
-            }`}
-          >
-            <LockClosedIcon className="h-5 w-5" />
-            Proceed to checkout
-          </Link>
+          isLoggedIn ? (
+            <Link
+              to="/order-payment"
+              state={{ sumTotalPrice: total }}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
+                canCheckout
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'pointer-events-none bg-stone-300 text-stone-500'
+              }`}
+            >
+              <LockClosedIcon className="h-5 w-5" />
+              Proceed to checkout
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              state={{ from: { pathname: '/order-payment' }, sumTotalPrice: total }}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
+                canCheckout
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'pointer-events-none bg-stone-300 text-stone-500'
+              }`}
+            >
+              <LockClosedIcon className="h-5 w-5" />
+              Sign in to checkout
+            </Link>
+          )
+        )}
+
+        {!isLoggedIn && showCheckout && (
+          <p className="text-center text-xs text-stone-500">
+            Your cart is saved on this device. Create an account or sign in only when you are ready to pay.
+          </p>
         )}
 
         <Link
@@ -360,6 +382,7 @@ export default function ShoppingCart() {
   const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating } = useSelector(
     (state) => state?.carts
   )
+  const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
 
   const availableItems = cartItems?.filter((item) => !item.unavailable) || []
   const hasUnavailable = cartItems?.some((item) => item.unavailable)
@@ -601,6 +624,7 @@ export default function ShoppingCart() {
                   couponSuccess={couponSuccessMessage}
                   canCheckout={availableItems.length > 0}
                   showCheckout
+                  isLoggedIn={isLoggedIn}
                   idPrefix="desktop"
                 />
               </div>
@@ -626,11 +650,15 @@ export default function ShoppingCart() {
               <p className="text-xl font-bold text-stone-900">{formatPrice(total)}</p>
             </div>
             <Link
-              to="/order-payment"
-              state={{ sumTotalPrice: total }}
+              to={isLoggedIn ? '/order-payment' : '/login'}
+              state={
+                isLoggedIn
+                  ? { sumTotalPrice: total }
+                  : { from: { pathname: '/order-payment' }, sumTotalPrice: total }
+              }
               className="shrink-0 rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow hover:bg-indigo-700"
             >
-              Checkout
+              {isLoggedIn ? 'Checkout' : 'Sign in'}
             </Link>
           </div>
         </div>

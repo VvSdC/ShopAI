@@ -92,4 +92,26 @@ describe('rateLimiters', () => {
     expect(chatUserRateLimitKey({ userAuthId: 'abc123', ip: '1.2.3.4' })).toBe('user:abc123')
     expect(() => chatUserRateLimitKey({ ip: '1.2.3.4' })).toThrow(/userAuthId/)
   })
+
+  it('keys guest chat limits on client IP', async () => {
+    const { isRedisOperational } = await import('../../config/redisClient.js')
+    isRedisOperational.mockReturnValue(false)
+
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        isTest: false,
+        rateLimit: {
+          api: { windowMs: 900_000, max: 200 },
+          auth: { windowMs: 900_000, max: 15 },
+          chat: { windowMs: 60_000, max: 15 },
+          chatDaily: { windowMs: 86_400_000, max: 150 },
+        },
+      },
+    }))
+
+    const { chatGuestRateLimitKey } = await import('../../config/rateLimiters.js')
+
+    expect(chatGuestRateLimitKey({ ip: '1.2.3.4' })).toBe('guest:1.2.3.4')
+    expect(chatGuestRateLimitKey({ socket: { remoteAddress: '::1' } })).toBe('guest:::1')
+  })
 })

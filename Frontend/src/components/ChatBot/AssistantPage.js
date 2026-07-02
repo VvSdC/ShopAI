@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import {
   PlusIcon,
   TrashIcon,
@@ -15,6 +16,7 @@ import {
   TypingDots,
   SUGGESTED_PROMPTS,
   AI_CHATBOT_LABEL,
+  buildClientWelcomeMessage,
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import ChatMessageBody from './chatBlocks/ChatMessageBody'
@@ -28,9 +30,23 @@ import {
   formatSessionDate,
 } from './useShopAIChat'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
-import { keepStripeReturnSearch } from './assistantNavigation'
+import { keepStripeReturnSearch, ASSISTANT_PATH } from './assistantNavigation'
+import { useResumePendingChat } from './useResumePendingChat'
 
 const ASSISTANT_TEXTAREA_MAX_HEIGHT = 120
+const GUEST_ASSISTANT_WELCOME_SUFFIX =
+  '\n\nBrowse and add to cart without an account. Sign in when you want to checkout, view orders, or manage addresses.'
+
+function buildGuestAssistantWelcome() {
+  return buildClientWelcomeMessage('there') + GUEST_ASSISTANT_WELCOME_SUFFIX
+}
+
+function buildGuestHistory(messages) {
+  return (messages || [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content && !m.streaming)
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: m.content }))
+}
 
 function SendIcon() {
   return (
@@ -54,6 +70,7 @@ function SendIcon() {
 export default function AssistantPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -70,6 +87,7 @@ export default function AssistantPage() {
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const handleSendRef = useRef(null)
   const { sendMessage, handleClientActions } = useShopAIChatActions()
 
   const { handleCheckoutPaid, handleCheckoutExpired } = useCheckoutHandlers(setMessages)
@@ -199,6 +217,17 @@ export default function AssistantPage() {
       setLoadingSessions(true)
       setSessionsLoadError(null)
       try {
+        if (!isLoggedIn) {
+          setSessions([])
+          setActiveSessionId('guest')
+          setMessages([{ role: 'assistant', content: buildGuestAssistantWelcome() }])
+          setHasMoreOlder(false)
+          if (shouldCleanNav && !cancelled) {
+            navigate(cleanPath, { replace: true, state: null })
+          }
+          return
+        }
+
         const list = await fetchSessionList()
         if (cancelled) return
 
@@ -274,7 +303,12 @@ export default function AssistantPage() {
 
     try {
       const data = await sendMessage(
-        { text, sessionId: activeSessionId },
+        {
+          text,
+          sessionId: isLoggedIn ? activeSessionId : undefined,
+          isGuest: !isLoggedIn,
+          history: isLoggedIn ? [] : buildGuestHistory(messages),
+        },
         {
           onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
           onTextDelta: ({ delta }) => {
@@ -334,6 +368,18 @@ export default function AssistantPage() {
       setStreamStatus(null)
     }
   }
+
+  handleSendRef.current = handleSend
+
+  const resumePendingQuery = useCallback((query) => {
+    handleSendRef.current?.(query)
+  }, [])
+
+  useResumePendingChat({
+    isLoggedIn,
+    isReady: !loadingSessions && Boolean(activeSessionId),
+    onResume: resumePendingQuery,
+  })
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-slate-900 text-slate-100">
@@ -654,6 +700,7 @@ export default function AssistantPage() {
                         blocks={msg.blocks}
                         onQuickAction={handleSend}
                         disabled={isLoading}
+                        returnPath={ASSISTANT_PATH}
                       />
                     )
                   ) : (

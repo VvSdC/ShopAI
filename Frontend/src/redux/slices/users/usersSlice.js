@@ -182,7 +182,6 @@ export const logoutAction = createAsyncThunk(
     }
     resetCsrfTokenCache()
     stopProactiveTokenRefresh()
-    localStorage.removeItem('cartItems')
     return true
   }
 )

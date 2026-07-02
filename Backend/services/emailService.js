@@ -219,6 +219,28 @@ export function sendPasswordResetOTPEmail(to, name, otp) {
   })
 }
 
+export function sendEmailVerificationOTPEmail(to, name, otp) {
+  return sendEmail({
+    to,
+    subject: 'Verify your ShopAI email',
+    html: wrap(`
+      <h2 style="color:#1f2937;margin-top:0;">Confirm your email</h2>
+      <p style="color:#4b5563;line-height:1.6;">
+        Hi ${name}, welcome to ShopAI! Enter this code to verify your email and activate your account:
+      </p>
+      <div style="text-align:center;margin:24px 0;">
+        <div style="display:inline-block;background:#f3f4f6;border:2px dashed #4f46e5;border-radius:10px;padding:16px 40px;">
+          <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#4f46e5;font-family:monospace;">${otp}</span>
+        </div>
+      </div>
+      <p style="color:#6b7280;font-size:13px;line-height:1.5;">
+        This code expires in <strong>10 minutes</strong>. Verified accounts help keep reviews and orders trustworthy.
+      </p>
+    `),
+    text: `Hi ${name},\n\nYour ShopAI email verification code is: ${otp}\n\nValid for 10 minutes.`,
+  })
+}
+
 function formatInr(amount) {
   const value = Number(amount || 0)
   return `Rs. ${value.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`

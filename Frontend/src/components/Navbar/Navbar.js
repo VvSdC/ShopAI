@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Dialog, Popover, Transition } from '@headlessui/react'
 import {
   Bars3Icon,
+  HeartIcon,
   ShoppingCartIcon,
   UserIcon,
   XMarkIcon,
@@ -13,6 +14,7 @@ import ShopAILogo from './ShopAILogo'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import { syncAndLoadCartAction, clearCartAction } from '../../redux/slices/cart/cartSlices'
+import { syncAndLoadWishlistAction } from '../../redux/slices/wishlist/wishlistSlice'
 import {
   isRecentPostCheckout,
   clearPostCheckoutFlag,
@@ -22,6 +24,7 @@ import { fetchActiveCouponAction } from '../../redux/slices/coupons/couponsSlice
 import { isPromoActive, navbarPromoText } from '../../utils/promoMessaging'
 import ProductSearchBar from '../Users/Products/ProductSearchBar'
 import { getCartUnitCount } from '../../utils/cartCount'
+import { getWishlistCount } from '../../utils/wishlistCount'
 import { ASSISTANT_PATH, assistantStartNewState } from '../ChatBot/assistantNavigation'
 
 function categoryProductCount(category) {
@@ -48,6 +51,7 @@ export default function Navbar() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [cartCountReady, setCartCountReady] = useState(false)
+  const [wishlistCountReady, setWishlistCountReady] = useState(false)
   const prevSearchRef = useRef('')
 
   // Close the mobile drawer on any navigation so the destination page is visible.
@@ -57,6 +61,11 @@ export default function Navbar() {
   const { cartItems, listFetching } = useSelector((state) => state?.carts)
   const cartUnitCount = getCartUnitCount(cartItems)
   const showCartCount = cartCountReady && !listFetching
+  const { items: wishlistItems, listFetching: wishlistFetching } = useSelector(
+    (state) => state?.wishlists
+  )
+  const wishlistCount = getWishlistCount(wishlistItems)
+  const showWishlistCount = wishlistCountReady && !wishlistFetching
   const { userAuth } = useSelector((state) => state?.users)
   const user = userAuth?.userInfo
   const isLoggedIn = userAuth?.isLoggedIn
@@ -105,6 +114,18 @@ export default function Navbar() {
       cancelled = true
     }
   }, [dispatch, isLoggedIn, location.search])
+
+  useEffect(() => {
+    setWishlistCountReady(false)
+    let cancelled = false
+    dispatch(syncAndLoadWishlistAction()).finally(() => {
+      if (!cancelled) setWishlistCountReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [dispatch, isLoggedIn])
+
   //logout handler
   const logoutHandler = () => {
     dispatch(logoutAction()).then(() => {
@@ -270,16 +291,14 @@ export default function Navbar() {
                   >
                     ABOUT
                   </Link>
-                  {isLoggedIn && (
-                    <Link
-                      to={ASSISTANT_PATH}
-                      state={assistantStartNewState}
-                      className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
-                    >
-                      <SparklesIcon className="h-4 w-4" />
-                      SHOP WITH AI
-                    </Link>
-                  )}
+                  <Link
+                    to={ASSISTANT_PATH}
+                    state={assistantStartNewState}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                  >
+                    <SparklesIcon className="h-4 w-4" />
+                    SHOP WITH AI
+                  </Link>
                 </div>
 
                 {/* mobile links register/login */}
@@ -434,24 +453,14 @@ export default function Navbar() {
                   >
                     About
                   </Link>
-                  {isLoggedIn ? (
-                    <Link
-                      to={ASSISTANT_PATH}
-                      state={assistantStartNewState}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                    >
-                      <SparklesIcon className="h-4 w-4" />
-                      Shop with AI
-                    </Link>
-                  ) : (
-                    <Link
-                      to="/login"
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:text-indigo-900"
-                    >
-                      <SparklesIcon className="h-4 w-4" />
-                      Shop with AI
-                    </Link>
-                  )}
+                  <Link
+                    to={ASSISTANT_PATH}
+                    state={assistantStartNewState}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                  >
+                    <SparklesIcon className="h-4 w-4" />
+                    Shop with AI
+                  </Link>
                 </div>
 
                 {/* Desktop search */}
@@ -501,6 +510,28 @@ export default function Navbar() {
                     </div>
                   )}
                   <span className="hidden h-6 w-px bg-gray-200 sm:block" aria-hidden="true" />
+                  <Link
+                    to="/wishlist"
+                    aria-label={
+                      showWishlistCount
+                        ? `Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`
+                        : 'Wishlist'
+                    }
+                    className="group inline-flex items-center gap-2 rounded-md p-2 text-gray-700 hover:text-gray-900"
+                  >
+                    <HeartIcon
+                      className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-rose-500"
+                      aria-hidden="true"
+                    />
+                    {showWishlistCount ? (
+                      <span className="text-sm font-medium">{wishlistCount}</span>
+                    ) : (
+                      <span
+                        className="inline-block h-3.5 w-4 animate-pulse rounded bg-gray-200"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </Link>
                   <Link
                     to="/shopping-cart"
                     aria-label={

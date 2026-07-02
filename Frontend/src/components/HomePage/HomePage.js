@@ -16,6 +16,7 @@ import {
 } from '../../utils/promoMessaging'
 import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
+import HomeAiAssistantPromo from './HomeAiAssistantPromo'
 import Reveal from './Reveal'
 
 const trustItems = [
@@ -130,6 +131,8 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <HomeAiAssistantPromo />
 
       {showCoupon && (
         <section className="overflow-hidden bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600">

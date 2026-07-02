@@ -24,3 +24,12 @@ export const resetPasswordSchema = z.object({
   otp: z.string().trim().min(6).max(6),
   password: passwordSchema,
 });
+
+export const verifyEmailSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  otp: z.string().trim().min(6).max(6),
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+});

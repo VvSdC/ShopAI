@@ -228,7 +228,14 @@ const Login = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  to="/verify-email"
+                  state={{ email }}
+                  className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                >
+                  Verify email
+                </Link>
                 <Link
                   to="/forgot-password"
                   className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"

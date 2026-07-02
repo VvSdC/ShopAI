@@ -7,7 +7,7 @@ import User, { SAFE_USER_SELECT } from "../model/User.js";
 import {
   generateAccessToken,
 } from "../utils/generateToken.js";
-import { sendPasswordResetOTPEmail } from "../services/emailService.js";
+import { sendPasswordResetOTPEmail, sendEmailVerificationOTPEmail } from "../services/emailService.js";
 import { scheduleWelcomeEmail } from "../services/emailQueue.js";
 import {
   clearAuthCookies,
@@ -52,18 +52,24 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
     password: hashedPassword,
     phone,
     country,
+    isEmailVerified: false,
   });
-  scheduleWelcomeEmail(user.email, user.fullname);
+
+  const otp = await user.createEmailVerificationOTP();
+  await user.save({ validateBeforeSave: false });
+  await sendEmailVerificationOTPEmail(user.email, user.fullname, otp);
 
   res.status(201).json({
     status: "success",
-    message: "User Registered Successfully",
+    message: "Account created. Check your email for a 6-digit verification code.",
+    requiresEmailVerification: true,
     data: {
       _id: user._id,
       fullname: user.fullname,
       email: user.email,
       phone: user.phone,
       country: user.country,
+      isEmailVerified: false,
     },
   });
 });
@@ -82,6 +88,12 @@ export const loginUserCtrl = asyncHandler(async (req, res) => {
     if (userFound.isBlocked) {
       throw new AppError(
         "Your account has been blocked due to malicious activity. Please contact support.",
+        403
+      );
+    }
+    if (userFound.isEmailVerified === false) {
+      throw new AppError(
+        "Please verify your email before signing in. Check your inbox for the 6-digit code.",
         403
       );
     }
@@ -168,7 +180,7 @@ export const getCurrentUserCtrl = asyncHandler(async (req, res) => {
   const decoded = jwt.verify(token, config.auth.jwtKey);
   // Fetch latest user fields from DB to include email and createdAt
   const user = await User.findById(decoded.id).select(
-    'fullname email isAdmin hasShippingAddress createdAt'
+    'fullname email isAdmin hasShippingAddress createdAt isEmailVerified'
   );
   if (!user) {
     throw new AppError('User not found', 404);
@@ -491,5 +503,67 @@ export const resetPasswordCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: "success",
     message: "Password reset successful. Please log in with your new password.",
+  });
+});
+
+// @desc    Verify signup email with OTP — logs user in on success
+// @route   POST /api/v1/users/verify-email
+// @access  Public
+export const verifyEmailCtrl = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    throw new AppError("Email and verification code are required", 400);
+  }
+
+  const user = await User.findByEmailAndValidVerificationOtp(email, otp);
+  if (!user) {
+    throw new AppError("Invalid or expired verification code", 400);
+  }
+
+  user.isEmailVerified = true;
+  user.emailVerificationOTP = undefined;
+  user.emailVerificationExpires = undefined;
+  await user.save({ validateBeforeSave: false });
+
+  scheduleWelcomeEmail(user.email, user.fullname);
+
+  const accessToken = generateAccessToken(user);
+  const deviceId = resolveDeviceId(req);
+  const { refreshToken } = await createAuthSession(user._id, deviceId);
+  res.cookie("shopai_token", accessToken, accessCookieOptions);
+  res.cookie("shopai_refresh_token", refreshToken, refreshCookieOptions);
+  res.cookie("shopai_device_id", formatDeviceIdCookie(deviceId), deviceCookieOptions);
+
+  res.json({
+    status: "success",
+    message: "Email verified successfully",
+    user: {
+      _id: user._id,
+      fullname: user.fullname,
+      email: user.email,
+      isEmailVerified: true,
+      isAdmin: user.isAdmin,
+      hasShippingAddress: user.hasShippingAddress,
+      createdAt: user.createdAt,
+    },
+  });
+});
+
+// @desc    Resend signup verification OTP
+// @route   POST /api/v1/users/resend-verification
+// @access  Public
+export const resendVerificationCtrl = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email?.toLowerCase()?.trim() });
+
+  if (user && user.isEmailVerified === false) {
+    const otp = await user.createEmailVerificationOTP();
+    await user.save({ validateBeforeSave: false });
+    await sendEmailVerificationOTPEmail(user.email, user.fullname, otp);
+  }
+
+  res.json({
+    status: "success",
+    message: "If an unverified account exists for that email, a new code has been sent.",
   });
 });

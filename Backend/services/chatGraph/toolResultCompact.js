@@ -146,6 +146,14 @@ export function compactToolResultForLlm(toolName, result) {
       }
     case 'get_product_details':
       return compactProductDetail(result)
+    case 'get_similar_products':
+      return {
+        count: result.count,
+        message: result.message,
+        mode: result.mode,
+        grounded: result.grounded,
+        products: (result.products || []).map(compactSearchProduct),
+      }
     case 'get_categories':
       if (Array.isArray(result)) {
         return result.map(({ name, productCount }) => ({ name, productCount }))

@@ -4,6 +4,7 @@ import { listShippingAddresses } from './addressService.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'
 import { isCheckoutProceedIntent } from './chatIntentHelpers.js'
+import { isGuestChatUser } from './guestCartContext.js'
 import {
   looksLikeAddressInput,
   lastAssistantAskedForAddressFields,
@@ -145,6 +146,10 @@ function resolveAddressIndex(addr, addresses) {
  * @returns {{ toolResults: object[], reply: string|null }}
  */
 export async function runCheckoutAssist(userId, userText, messages = [], toolResults = [], options = {}) {
+  if (isGuestChatUser(userId)) {
+    return { toolResults, reply: null }
+  }
+
   if (isProductCatalogOrdinalPick(userText, messages)) {
     return { toolResults, reply: null }
   }

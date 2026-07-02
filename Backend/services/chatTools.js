@@ -24,6 +24,17 @@ import {
 } from './checkoutFromCart.js'
 import { resolveSizeForProduct } from './cartVariantMatch.js'
 import { searchProductsForChat } from './search/searchService.js'
+import { getSimilarProducts } from './similarProductsService.js'
+import { isGuestChatUser, getGuestCartState } from './guestCartContext.js'
+import {
+  guestGetCart,
+  guestAddToCart,
+  guestUpdateCartItem,
+  guestApplyCoupon,
+  guestRemoveCoupon,
+  guestCheckoutBlocked,
+} from './guestCartService.js'
+import { buildSignInRequiredToolResult } from './guestChatRestrictions.js'
 import {
   listShippingAddresses,
   addShippingAddress,
@@ -130,6 +141,28 @@ export const toolDefinitions = [
           product_id: {
             type: 'string',
             description: 'The product ID',
+          },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_similar_products',
+      description:
+        'Get grounded similar products from the catalog using stored embeddings (same index as search). Use when the customer asks for alternatives, related items, or "something like this".',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: {
+            type: 'string',
+            description: 'The source product ID to find neighbors for',
+          },
+          limit: {
+            type: 'number',
+            description: 'How many similar products to return (default 6, max 10)',
           },
         },
         required: ['product_id'],
@@ -421,11 +454,17 @@ export const toolDefinitions = [
 
 const toolExecutors = {
   async get_my_orders(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_summary' })
+    }
     const limit = Math.min(Math.max(args.limit || 5, 1), 10)
     return orderService.listForChat(userId, limit)
   },
 
   async get_order_details(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_summary' })
+    }
     return orderService.getDetailsForChat(userId, {
       order_id: args.order_id,
       order_number: args.order_number,
@@ -475,6 +514,18 @@ const toolExecutors = {
     }
   },
 
+  async get_similar_products(_userId, args) {
+    const limit = Math.min(Math.max(args.limit || 6, 1), 10)
+    const result = await getSimilarProducts(args.product_id, { limit })
+    return {
+      count: result.count,
+      products: result.products,
+      mode: result.mode,
+      grounded: result.grounded,
+      message: result.explanation,
+    }
+  },
+
   async get_categories() {
     const [categories, counts] = await Promise.all([
       Category.find().select('name image').lean(),
@@ -515,6 +566,9 @@ const toolExecutors = {
   },
 
   async get_my_addresses(userId) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
     const result = await listShippingAddresses(userId)
     if (result.message) {
       return {
@@ -542,14 +596,32 @@ const toolExecutors = {
   },
 
   async add_shipping_address(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
     return addShippingAddress(userId, args)
   },
 
   async update_shipping_address(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
     return updateShippingAddress(userId, args)
   },
 
   async get_cart(userId) {
+    if (isGuestChatUser(userId)) {
+      const state = getGuestCartState()
+      const cart = await guestGetCart(state)
+      if (cart.isEmpty) {
+        return { message: 'Your cart is empty.', cart }
+      }
+      return {
+        ...cart,
+        summary: `${cart.lineCount} product line(s), ${cart.totalUnits} unit(s) total, ₹${cart.total}`,
+      }
+    }
+
     const cart = await getCart(userId)
     if (cart.isEmpty) {
       return { message: 'Your cart is empty.', cart }
@@ -561,6 +633,10 @@ const toolExecutors = {
   },
 
   async add_to_cart(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestAddToCart(getGuestCartState(), args)
+    }
+
     const qty = Math.max(1, Number(args.qty) || 1)
     const productId = args.product_id
 
@@ -605,6 +681,10 @@ const toolExecutors = {
   },
 
   async update_cart_item(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestUpdateCartItem(getGuestCartState(), args)
+    }
+
     const cart = await updateItemQty(userId, {
       productId: args.product_id,
       color: args.color,
@@ -620,6 +700,10 @@ const toolExecutors = {
   },
 
   async apply_coupon_to_cart(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestApplyCoupon(getGuestCartState(), args.code)
+    }
+
     const cart = await applyCoupon(userId, args.code)
     return {
       success: true,
@@ -630,6 +714,10 @@ const toolExecutors = {
   },
 
   async remove_coupon_from_cart(userId) {
+    if (isGuestChatUser(userId)) {
+      return guestRemoveCoupon(getGuestCartState())
+    }
+
     const cart = await removeCoupon(userId)
     return {
       success: true,
@@ -640,6 +728,10 @@ const toolExecutors = {
   },
 
   async preview_checkout(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+
     const addressIndex = Number.isFinite(args.address_index)
       ? args.address_index
       : undefined
@@ -647,6 +739,9 @@ const toolExecutors = {
   },
 
   async get_order_cancel_return_status(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     const order = await resolveOrderForUser(userId, {
       order_id: args.order_id,
       order_number: args.order_number,
@@ -655,14 +750,24 @@ const toolExecutors = {
   },
 
   async cancel_order(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     return cancelOrderByReference(userId, args)
   },
 
   async submit_return_request(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     return submitReturnByReference(userId, args)
   },
 
   async create_checkout_session(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+
     const addressIndex = Number.isFinite(args.address_index)
       ? args.address_index
       : undefined

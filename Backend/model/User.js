@@ -70,6 +70,11 @@ const UserShema = new Schema(
     passwordResetExpires: { type: Date },
     /** Set after successful OTP verification; allows one password reset without reusing the OTP hash. */
     passwordResetVerifiedUntil: { type: Date },
+    /** False only for new signups that have not confirmed their inbox yet. */
+    isEmailVerified: { type: Boolean, default: true },
+    /** Bcrypt hash of the 6-digit signup verification OTP. */
+    emailVerificationOTP: { type: String },
+    emailVerificationExpires: { type: Date },
   },
   {
     timestamps: true,
@@ -80,6 +85,8 @@ const UserShema = new Schema(
         delete ret.passwordResetOTP
         delete ret.passwordResetExpires
         delete ret.passwordResetVerifiedUntil
+        delete ret.emailVerificationOTP
+        delete ret.emailVerificationExpires
         return ret
       },
     },
@@ -92,6 +99,23 @@ UserShema.methods.createPasswordResetOTP = async function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   this.passwordResetVerifiedUntil = undefined;
   return otp;
+};
+
+UserShema.methods.createEmailVerificationOTP = async function () {
+  const otp = String(crypto.randomInt(100000, 999999));
+  this.emailVerificationOTP = await bcrypt.hash(otp, 10);
+  this.emailVerificationExpires = Date.now() + 10 * 60 * 1000;
+  return otp;
+};
+
+UserShema.methods.verifyEmailVerificationOTP = async function (otp) {
+  if (!this.emailVerificationOTP) return false;
+
+  const expires = this.emailVerificationExpires;
+  const expiresMs = expires instanceof Date ? expires.getTime() : Number(expires);
+  if (!expiresMs || expiresMs <= Date.now()) return false;
+
+  return bcrypt.compare(String(otp), this.emailVerificationOTP);
 };
 
 UserShema.methods.verifyPasswordResetOTP = async function (otp) {
@@ -116,6 +140,19 @@ UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
   return valid ? user : null;
 };
 
+UserShema.statics.findByEmailAndValidVerificationOtp = async function (email, otp) {
+  const user = await this.findOne({
+    email: String(email || "").toLowerCase().trim(),
+    isEmailVerified: false,
+    emailVerificationOTP: { $exists: true, $ne: null },
+    emailVerificationExpires: { $gt: Date.now() },
+  });
+  if (!user) return null;
+
+  const valid = await user.verifyEmailVerificationOTP(otp);
+  return valid ? user : null;
+};
+
 UserShema.statics.findByEmailAndVerifiedReset = async function (email) {
   return this.findOne({
     email: String(email || "").toLowerCase().trim(),
@@ -130,6 +167,6 @@ const User = mongoose.model("User", UserShema);
 
 /** Mongoose select string — omit secrets from API responses. */
 export const SAFE_USER_SELECT =
-  "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil";
+  "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil -emailVerificationOTP -emailVerificationExpires";
 
 export default User;

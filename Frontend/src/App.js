@@ -6,6 +6,7 @@ import AddCoupon from "./components/Admin/Coupons/AddCoupon";
 import Login from "./components/Users/Forms/Login";
 import AddProduct from "./components/Admin/Products/AddProduct";
 import RegisterForm from "./components/Users/Forms/RegisterForm";
+import VerifyEmail from "./components/Users/Forms/VerifyEmail";
 import HomePage from "./components/HomePage/HomePage";
 import AboutPage from "./components/HomePage/AboutPage";
 import CancellationPolicyPage from "./components/HomePage/CancellationPolicyPage";
@@ -21,6 +22,7 @@ import AllCategories from "./components/HomePage/AllCategories";
 import UpdateCoupon from "./components/Admin/Coupons/UpdateCoupon";
 import Product from "./components/Users/Products/Product";
 import ShoppingCart from "./components/Users/Products/ShoppingCart";
+import WishlistPage from "./components/Users/Products/WishlistPage";
 import ProductsFilters from "./components/Users/Products/ProductsFilters";
 import CustomerProfile from "./components/Users/Profile/CustomerProfile";
 import AddReview from "./components/Users/Reviews/AddReview";
@@ -233,11 +235,7 @@ function AppShell() {
         />
         <Route
           path="/assistant"
-          element={
-            <AuthRoute>
-              <AssistantPage />
-            </AuthRoute>
-          }
+          element={<AssistantPage />}
         />
         {/* review */}
         <Route
@@ -251,6 +249,7 @@ function AppShell() {
 
         {/* shopping cart */}
         <Route path="/shopping-cart" element={<ShoppingCart />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
         <Route
           path="/order-payment"
           element={
@@ -262,6 +261,7 @@ function AppShell() {
         {/* users */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegisterForm />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/customer-profile"

@@ -1,5 +1,6 @@
 import logger from '../utils/logger.js'
 import { previewCheckout, checkoutFromCart } from './checkoutFromCart.js'
+import { isGuestChatUser } from './guestCartContext.js'
 import {
   isCheckoutProceedIntent,
   conversationMentionsCheckoutPending,
@@ -21,6 +22,12 @@ export function collectClientActions(toolResults) {
 
   for (const result of toolResults) {
     if (!result || typeof result !== 'object') continue
+    if (result.clientAction === 'sync_local_cart' && Array.isArray(result.cart?.items)) {
+      if (!seen.has('sync_local_cart')) {
+        actions.push({ type: 'sync_local_cart', items: result.cart.items })
+        seen.add('sync_local_cart')
+      }
+    }
     if (result.clientAction === 'sync_cart' || result.cart) {
       if (!seen.has('sync_cart')) {
         actions.push({ type: 'sync_cart' })
@@ -287,6 +294,7 @@ export function extractCheckoutInfo(toolResults) {
 }
 
 export async function ensureCheckoutOnConfirm(userId, userText, messages, toolResults) {
+  if (isGuestChatUser(userId)) return toolResults
   if (extractCheckoutInfo(toolResults)) return toolResults
   if (!isCheckoutConfirmation(userText)) return toolResults
   if (!conversationMentionsCheckoutPending(messages)) return toolResults

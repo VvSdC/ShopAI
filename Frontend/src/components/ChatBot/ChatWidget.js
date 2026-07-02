@@ -17,14 +17,45 @@ import {
 } from './widgetSessionStorage'
 import { ASSISTANT_PATH, assistantSessionState } from './assistantNavigation'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
+import { useResumePendingChat } from './useResumePendingChat'
 
 const WIDGET_TEXTAREA_MAX_HEIGHT = 80
+const GUEST_WIDGET_MESSAGES_KEY = 'shopai_guest_widget_messages'
 
 const WIDGET_WELCOME_SUFFIX =
   '\n\nThis quick chat resumes after a page refresh in this tab. Open **Shop with AI** in the navbar for full history and past conversations.'
 
+const GUEST_WIDGET_WELCOME_SUFFIX =
+  '\n\nBrowse, search, and add to cart without an account. **Sign in** when you want to checkout, view orders, or manage addresses.'
+
 function buildWidgetWelcome(name) {
   return buildClientWelcomeMessage(name) + WIDGET_WELCOME_SUFFIX
+}
+
+function buildGuestWidgetWelcome() {
+  return buildClientWelcomeMessage('there') + GUEST_WIDGET_WELCOME_SUFFIX
+}
+
+function buildGuestHistory(messages) {
+  return (messages || [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content && !m.streaming)
+    .slice(-20)
+    .map((m) => ({ role: m.role, content: m.content }))
+}
+
+function readGuestWidgetMessages() {
+  try {
+    const raw = localStorage.getItem(GUEST_WIDGET_MESSAGES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeGuestWidgetMessages(messages) {
+  localStorage.setItem(GUEST_WIDGET_MESSAGES_KEY, JSON.stringify(messages.slice(-40)))
 }
 
 function mapApiMessages(items) {
@@ -98,6 +129,7 @@ export default function ChatWidget() {
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const lastUserIdRef = useRef(userId)
+  const handleSendRef = useRef(null)
 
   useEffect(() => {
     if (userId) lastUserIdRef.current = userId
@@ -107,7 +139,8 @@ export default function ChatWidget() {
         lastUserIdRef.current = null
       }
       setSessionId(null)
-      setMessages([])
+      const storedGuestMessages = readGuestWidgetMessages()
+      setMessages(storedGuestMessages)
       setSessionHydrated(true)
       return
     }
@@ -189,11 +222,14 @@ export default function ChatWidget() {
   const ensureWelcomeMessage = useCallback(() => {
     setMessages((current) => {
       if (current.length > 0) return current
-      return [{ role: 'assistant', content: buildWidgetWelcome(userName) }]
+      return [
+        {
+          role: 'assistant',
+          content: isLoggedIn ? buildWidgetWelcome(userName) : buildGuestWidgetWelcome(),
+        },
+      ]
     })
-  }, [userName])
-
-  if (!isLoggedIn) return null
+  }, [isLoggedIn, userName])
 
   const handleTextareaInput = (e) => {
     setInput(e.target.value)
@@ -222,7 +258,12 @@ export default function ChatWidget() {
 
     try {
       const data = await sendMessage(
-        { text, sessionId: sessionId ?? undefined },
+        {
+          text,
+          sessionId: sessionId ?? undefined,
+          isGuest: !isLoggedIn,
+          history: isLoggedIn ? [] : buildGuestHistory(updatedMessages),
+        },
         {
           onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
           onTextDelta: ({ delta }) => {
@@ -251,8 +292,8 @@ export default function ChatWidget() {
         )
       }
 
-      setMessages((prev) =>
-        prev.map((msg) =>
+      setMessages((prev) => {
+        const next = prev.map((msg) =>
           msg.id === streamMessageId
             ? {
                 ...msg,
@@ -263,7 +304,9 @@ export default function ChatWidget() {
               }
             : msg
         )
-      )
+        if (!isLoggedIn) writeGuestWidgetMessages(next)
+        return next
+      })
     } catch (err) {
       const errorMsg =
         err.message || 'Sorry, I had trouble processing that. Please try again.'
@@ -281,6 +324,23 @@ export default function ChatWidget() {
     }
 
   }
+
+  handleSendRef.current = handleSend
+
+  const resumePendingQuery = useCallback((query) => {
+    handleSendRef.current?.(query)
+  }, [])
+
+  const chatReturnPath =
+    typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search || ''}`
+      : ASSISTANT_PATH
+
+  useResumePendingChat({
+    isLoggedIn,
+    isReady: sessionHydrated,
+    onResume: resumePendingQuery,
+  })
 
 
 
@@ -465,6 +525,7 @@ export default function ChatWidget() {
                         blocks={msg.blocks}
                         onQuickAction={handleSend}
                         disabled={isLoading}
+                        returnPath={chatReturnPath}
                       />
                     )
                   ) : (

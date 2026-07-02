@@ -41,6 +41,12 @@ export function chatUserRateLimitKey(req) {
   return `user:${req.userAuthId}`
 }
 
+/** IP-based key for guest chat (no account). */
+export function chatGuestRateLimitKey(req) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown'
+  return `guest:${ip}`
+}
+
 if (shouldUseRedisStore()) {
   console.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
@@ -82,5 +88,25 @@ export const chatUserDailyLimiter = buildLimiter('chat-user-daily', {
   validate: { keyGeneratorIpFallback: false },
   message: {
     message: 'Daily chat limit reached. Please try again tomorrow or contact support.',
+  },
+})
+
+/** Per-IP guest chat cap (no isLoggedIn). */
+export const chatGuestLimiter = buildLimiter('chat-guest', {
+  windowMs: config.rateLimit.chat.windowMs,
+  max: config.rateLimit.chat.max,
+  keyGenerator: chatGuestRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: { message: 'Chat rate limit reached. Please wait a moment.' },
+})
+
+/** Daily per-IP ceiling for guest chat. */
+export const chatGuestDailyLimiter = buildLimiter('chat-guest-daily', {
+  windowMs: config.rateLimit.chatDaily.windowMs,
+  max: config.rateLimit.chatDaily.max,
+  keyGenerator: chatGuestRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    message: 'Daily chat limit reached. Please try again tomorrow or sign in for a higher limit.',
   },
 })

@@ -25,6 +25,7 @@ import userRoutes, { loginRoute, registerRoute } from '../routes/usersRoute.js'
 import couponsRouter from '../routes/couponsRouter.js'
 import chatRouter from '../routes/chatRouter.js'
 import cartRouter from '../routes/cartRouter.js'
+import wishlistRouter from '../routes/wishlistRouter.js'
 import policyRouter from '../routes/policyRouter.js'
 import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
@@ -210,6 +211,7 @@ app.use('/shopai/reviews/', apiLimiter, reviewRouter)
 app.use('/shopai/orders/', apiLimiter, orderRouter)
 app.use('/shopai/coupons/', apiLimiter, couponsRouter)
 app.use('/shopai/cart/', apiLimiter, cartRouter)
+app.use('/shopai/wishlist/', apiLimiter, wishlistRouter)
 app.use('/shopai/policy/', apiLimiter, policyRouter)
 app.use('/shopai/returns/', apiLimiter, returnsRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)

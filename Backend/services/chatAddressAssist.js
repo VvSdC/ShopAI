@@ -2,6 +2,7 @@
 import User from '../model/User.js'
 import { executeTool } from './chatTools.js'
 import { buildAddressMissingPrompt } from './chatMissingFields.js'
+import { isGuestChatUser } from './guestCartContext.js'
 
 export function looksLikeAddressInput(text) {
   const raw = String(text || '').trim()
@@ -150,6 +151,10 @@ async function saveAddressDraft(userId, draft, user, toolResults) {
 }
 
 export async function runAddressAssist(userId, userText, toolResults = [], options = {}) {
+  if (isGuestChatUser(userId)) {
+    return { toolResults, reply: null }
+  }
+
   const { history = [], plan = null } = options
 
   if (addressAlreadySaved(toolResults)) {

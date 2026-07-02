@@ -3,6 +3,7 @@
  * instead of relying on markdown alone.
  */
 import { productRequiresSizeSelection } from '../utils/normalizeProductSizes.js'
+import { hasSignInRequiredResult } from './guestChatRestrictions.js'
 
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i
 const ORDINAL_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
@@ -21,7 +22,7 @@ const DETAIL_DESC_MAX = 180
 function findSearchInToolResults(toolResults = []) {
   for (let i = toolResults.length - 1; i >= 0; i--) {
     const row = toolResults[i]
-    if (row?.toolName !== 'search_products' && !Array.isArray(row?.products)) continue
+    if (row?.toolName !== 'search_products' && row?.toolName !== 'get_similar_products' && !Array.isArray(row?.products)) continue
     if (row.error) continue
     if (Array.isArray(row.products) && row.products.length) {
       return {
@@ -185,14 +186,24 @@ export function normalizeCartBlock(cart) {
 /**
  * @returns {object[]} UI blocks for the chat client
  */
-export function buildChatBlocks({ toolResults = [], messageKind = null } = {}) {
+export function buildChatBlocks({ toolResults = [], messageKind = null, pendingQuery = null } = {}) {
   const blocks = []
 
+  if (messageKind === 'sign_in_required' || hasSignInRequiredResult(toolResults)) {
+    blocks.push({
+      type: 'sign_in_required',
+      pendingQuery: pendingQuery || null,
+    })
+    return blocks
+  }
+
   const catalog = findSearchInToolResults(toolResults)
+  const similarListing = catalog?.products?.length &&
+    toolResults.some((row) => row?.toolName === 'get_similar_products')
   if (
-    messageKind === 'product_listing' &&
     catalog?.products?.length &&
-    catalog.products.every((p) => OBJECT_ID_RE.test(String(p.id || p._id || '')))
+    catalog.products.every((p) => OBJECT_ID_RE.test(String(p.id || p._id || ''))) &&
+    (messageKind === 'product_listing' || similarListing)
   ) {
     const products = catalog.products.map(normalizeListingProduct)
     blocks.push({ type: 'product_listing', products })

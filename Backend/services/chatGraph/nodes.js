@@ -7,6 +7,12 @@ import { buildProductDetailReply, formatAgentReply } from '../chatPostProcess.js
 import { serializeToolResultForLlm } from './toolResultCompact.js'
 import { emitChatStreamEvent } from '../chatStreamContext.js'
 import { toolStatusLabel } from '../chatStream.js'
+import { isGuestChatUser } from '../guestCartContext.js'
+import {
+  isGuestBlockedRoute,
+  buildSignInRequiredReply,
+  buildSignInRequiredToolResult,
+} from '../guestChatRestrictions.js'
 
 export async function refuseNode(state) {
   const reply =
@@ -18,12 +24,32 @@ export async function refuseNode(state) {
 
 export function makeAgentNode(route) {
   return async function agentNode(state) {
+    if (isGuestChatUser(state.userId) && isGuestBlockedRoute(route)) {
+      const reply = buildSignInRequiredReply(state.userText, { route })
+      emitChatStreamEvent({ type: 'route', route: 'sign_in_required' })
+      emitChatStreamEvent({ type: 'text_delta', delta: reply })
+      return {
+        reply,
+        messages: [
+          { role: 'system', content: buildAgentSystemPromptWithContext(route, state.userName, state.plan) },
+          ...state.history,
+          { role: 'user', content: state.userText },
+        ],
+        toolResults: [buildSignInRequiredToolResult(state.userText, { route })],
+        toolsUsed: [],
+        replyKind: 'sign_in_required',
+        replyLocked: true,
+      }
+    }
+
     const result = await runAgentWithTools(state, route)
     return {
       reply: result.reply,
       messages: result.messages,
       toolResults: result.toolResults,
       toolsUsed: result.toolsUsed,
+      replyKind: result.replyKind || null,
+      replyLocked: Boolean(result.replyLocked),
     }
   }
 }

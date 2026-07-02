@@ -4,8 +4,9 @@ import ProductDetailCard from './ProductDetailCard'
 import CartSummaryCard from './CartSummaryCard'
 import AddressPickerCards from './AddressPickerCards'
 import ChatQuickActions from './ChatQuickActions'
+import SignInRequiredCard from './SignInRequiredCard'
 
-function renderBlock(block, { onQuickAction, disabled }) {
+function renderBlock(block, { onQuickAction, disabled, returnPath }) {
   if (!block?.type) return null
 
   switch (block.type) {
@@ -34,6 +35,15 @@ function renderBlock(block, { onQuickAction, disabled }) {
           disabled={disabled}
         />
       )
+    case 'sign_in_required':
+      return (
+        <SignInRequiredCard
+          key="sign-in"
+          pendingQuery={block.pendingQuery}
+          returnPath={returnPath}
+          disabled={disabled}
+        />
+      )
     default:
       return null
   }
@@ -44,6 +54,7 @@ export default function ChatMessageBody({
   blocks = [],
   onQuickAction,
   disabled = false,
+  returnPath = '/assistant',
 }) {
   const hasBlocks = Array.isArray(blocks) && blocks.length > 0
 
@@ -54,7 +65,7 @@ export default function ChatMessageBody({
         <div className="chat-message-blocks">
           {blocks.map((block, index) => (
             <div key={`${block.type}-${index}`}>
-              {renderBlock(block, { onQuickAction, disabled })}
+              {renderBlock(block, { onQuickAction, disabled, returnPath })}
             </div>
           ))}
         </div>
