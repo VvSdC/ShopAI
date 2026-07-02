@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react'
 import { RadioGroup } from '@headlessui/react'
 import Swal from 'sweetalert2'
 import {
@@ -121,12 +121,18 @@ export default function Product() {
 
   //get id from params
   const { id } = useParams()
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [id])
+
   useEffect(() => {
     if (id) dispatch(fetchProductAction(id))
     dispatch(fetchColorsAction())
     setActiveImage(0)
     setSelectedSize('')
     setSelectedColor('')
+    setQty(1)
   }, [id, dispatch])
 
   const { product, loading, error } = useSelector((state) => state?.products)
@@ -139,14 +145,18 @@ export default function Product() {
   const currentUserId = userAuth?.userInfo?._id
 
   useEffect(() => {
-    if (!product?._id) return
+    if (!product?._id || String(product._id) !== String(id)) return
+    const colors = product.colors || []
+    if (colors.length > 0) {
+      setSelectedColor(colors[0])
+    }
     const sizes = product.sizes || []
     if (product.sizeMeasurementType === 'none') {
       setSelectedSize('One Size')
-    } else if (sizes.length === 1) {
+    } else if (sizes.length > 0) {
       setSelectedSize(sizes[0])
     }
-  }, [product?._id, product?.sizeMeasurementType, product?.sizes])
+  }, [id, product?._id, product?.sizeMeasurementType, product?.sizes, product?.colors])
 
   //get all colors from store for hex lookup
   const allColors = useSelector((state) => state?.colors?.colors?.colors) || []
