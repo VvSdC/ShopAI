@@ -1,5 +1,5 @@
 import asyncHandler from 'express-async-handler'
-import User from '../model/User.js'
+import User, { USER_CHECKOUT_SELECT } from '../model/User.js'
 import { AppError } from '../utils/appError.js'
 import { createCheckoutSession } from '../services/orderCheckout.js'
 import {
@@ -12,7 +12,7 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
   const couponCode = req?.query?.coupon
   const { orderItems, shippingAddress } = req.body
 
-  const user = await User.findById(req.userAuthId)
+  const user = await User.findById(req.userAuthId).select(USER_CHECKOUT_SELECT)
   if (!user?.hasShippingAddress && !shippingAddress) {
     throw new AppError('Please provide shipping address', 400)
   }

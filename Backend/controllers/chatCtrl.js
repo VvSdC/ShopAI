@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
+import { AppError } from '../utils/appError.js'
 import {
   getSessionForUser,
   createSession,
@@ -56,9 +57,7 @@ async function resolveChatSession(userId, userName, sessionId) {
   if (sessionId) {
     const session = await getSessionForUser(userId, sessionId)
     if (!session) {
-      const err = new Error('Conversation not found')
-      err.statusCode = 404
-      throw err
+      throw new AppError('Conversation not found', 404)
     }
     return session
   }
@@ -70,8 +69,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.userAuthId).select('fullname')
   if (!user) {
-    res.status(401)
-    throw new Error('User not found')
+    throw new AppError('User not found', 401)
   }
 
   const session = await resolveChatSession(req.userAuthId, user.fullname, sessionId)
@@ -120,8 +118,7 @@ export const chatMessageStreamCtrl = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.userAuthId).select('fullname')
   if (!user) {
-    res.status(401)
-    throw new Error('User not found')
+    throw new AppError('User not found', 401)
   }
 
   let session

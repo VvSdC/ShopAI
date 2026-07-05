@@ -45,6 +45,51 @@ export async function resolveBrandIds(inputs = []) {
   return [...new Map(ids.map((id) => [String(id), id])).values()]
 }
 
+/**
+ * Mongo filter matching products by brand ObjectId ref and/or legacy string brand names.
+ * Products migrated to refs match by id; unmigrated rows may still store a plain name string.
+ */
+export function buildProductBrandFilter(brandNames = [], brandIds = []) {
+  const conditions = []
+
+  if (brandIds.length) {
+    conditions.push(
+      brandIds.length === 1
+        ? { brand: brandIds[0] }
+        : { brand: { $in: brandIds } }
+    )
+  }
+
+  const names = [
+    ...new Set(
+      (Array.isArray(brandNames) ? brandNames : [brandNames])
+        .map((name) => String(name).trim())
+        .filter(Boolean)
+    ),
+  ]
+
+  for (const name of names) {
+    conditions.push({
+      $expr: {
+        $and: [
+          { $eq: [{ $type: '$brand' }, 'string'] },
+          {
+            $regexMatch: {
+              input: '$brand',
+              regex: `^${escapeRegex(name)}$`,
+              options: 'i',
+            },
+          },
+        ],
+      },
+    })
+  }
+
+  if (!conditions.length) return null
+  if (conditions.length === 1) return conditions[0]
+  return { $or: conditions }
+}
+
 /** Attach `{ name }` brand subdocs for lean products (ObjectIds or legacy name strings). */
 export async function enrichProductsWithBrandNames(products) {
   if (!products?.length) return products

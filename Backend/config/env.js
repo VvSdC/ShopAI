@@ -206,6 +206,11 @@ export const config = {
       windowMs: envInt('RATE_LIMIT_OTP_RESEND_WINDOW_MS', 15 * 60 * 1000),
       max: envInt('RATE_LIMIT_OTP_RESEND_MAX', 5),
     },
+    /** Public cart stock/pricing probe — tighter than generic API limit. */
+    validateCart: {
+      windowMs: envInt('RATE_LIMIT_VALIDATE_CART_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_VALIDATE_CART_MAX', 30),
+    },
   },
 
   openapi: {

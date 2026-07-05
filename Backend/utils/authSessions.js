@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import config from '../config/env.js'
 import { getAuthCookieClearOptions } from './cookieOptions.js'
-import User from '../model/User.js'
+import User, { USER_SESSIONS_SELECT } from '../model/User.js'
 import { generateRefreshToken } from './generateToken.js'
 
 export const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
@@ -99,7 +99,7 @@ export async function createAuthSession(userId, deviceId) {
   const refreshToken = generateRefreshToken(userId)
   const entry = buildSessionEntry(refreshToken, deviceId)
 
-  const user = await User.findById(userId)
+  const user = await User.findById(userId).select(USER_SESSIONS_SELECT)
   if (!user) {
     throw new Error('User not found')
   }
@@ -149,7 +149,7 @@ export async function rotateRefreshToken(presentedToken, userId, res) {
     return { user, newRefreshToken }
   }
 
-  const existing = await User.findById(userId)
+  const existing = await User.findById(userId).select(USER_SESSIONS_SELECT)
   const activeSessions = pruneExpiredSessions(existing?.sessions || [])
   if (activeSessions.length > 0) {
     await invalidateUserRefreshToken(existing)

@@ -24,6 +24,7 @@ import { isLoggedIn } from "../middlewares/isLoggedin.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import { validate } from "../middlewares/validate.js";
 import { csrfTokenHandler } from "../middlewares/csrfProtection.js";
+import { validateObjectId } from "../middlewares/validateObjectId.js";
 import { authLimiter, otpConsumeLimiter, otpResendLimiter } from "../config/rateLimiters.js";
 import {
   registerSchema,
@@ -58,8 +59,8 @@ userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);
 userRoutes.put("/update/profile", isLoggedIn, updateProfileCtrl);
 userRoutes.get("/all", isLoggedIn, isAdmin, getAllUsersCtrl);
 userRoutes.put("/update/shipping", isLoggedIn, updateShippingAddressCtrl);
-userRoutes.put("/update/shipping/:addressId", isLoggedIn, editShippingAddressCtrl);
-userRoutes.delete("/update/shipping/:addressId", isLoggedIn, deleteShippingAddressCtrl);
-userRoutes.put("/block/:id", isLoggedIn, isAdmin, toggleBlockUserCtrl);
+userRoutes.put("/update/shipping/:addressId", isLoggedIn, validateObjectId('addressId'), editShippingAddressCtrl);
+userRoutes.delete("/update/shipping/:addressId", isLoggedIn, validateObjectId('addressId'), deleteShippingAddressCtrl);
+userRoutes.put("/block/:id", isLoggedIn, isAdmin, validateObjectId('id'), toggleBlockUserCtrl);
 userRoutes.delete("/delete-account", isLoggedIn, deleteAccountCtrl);
 export default userRoutes;

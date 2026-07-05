@@ -21,7 +21,7 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
 
   const productFound = await Product.findById(productID);
   if (!productFound) {
-    throw new Error("Product Not Found");
+    throw new AppError("Product Not Found", 404);
   }
 
   const hasReviewed = await Review.findOne({
@@ -29,7 +29,7 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
     user: req.userAuthId,
   });
   if (hasReviewed) {
-    throw new Error("You have already reviewed this product");
+    throw new AppError("You have already reviewed this product", 409);
   }
 
   const verifiedPurchase = await userHasDeliveredPurchase(
@@ -64,10 +64,10 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
   const review = await Review.findById(req.params.id);
   if (!review) {
-    throw new Error("Review not found");
+    throw new AppError("Review not found", 404);
   }
   if (review.user.toString() !== req.userAuthId.toString()) {
-    throw new Error("You can only update your own review");
+    throw new AppError("You can only update your own review", 403);
   }
   review.message = message !== undefined ? message : review.message;
   review.rating = rating !== undefined ? rating : review.rating;
@@ -95,11 +95,11 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
 export const deleteReviewCtrl = asyncHandler(async (req, res) => {
   const review = await Review.findById(req.params.id);
   if (!review) {
-    throw new Error("Review not found");
+    throw new AppError("Review not found", 404);
   }
   //check ownership
   if (review.user.toString() !== req.userAuthId.toString()) {
-    throw new Error("You can only delete your own review");
+    throw new AppError("You can only delete your own review", 403);
   }
   //remove review reference from product
   await Product.findByIdAndUpdate(req.params.productID, {

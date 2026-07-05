@@ -30,6 +30,12 @@ describe('productSearch', () => {
     expect(brandFilter.$and[0].brand).toBe(brandId)
   })
 
+  it('filters by legacy brand name strings', () => {
+    const brandFilter = buildProductSearchFilter({ brandNames: ['MRF'] })
+    expect(brandFilter.$and[0].$expr.$and[1].$regexMatch.regex).toBe('^MRF$')
+    expect(brandFilter.$and[0].$expr.$and[1].$regexMatch.options).toBe('i')
+  })
+
   it('scores name matches higher than unrelated products', () => {
     const ball = { name: 'Cricket Ball Pro', description: '', tags: [], brand: '', category: '' }
     const bat = { name: 'Cricket Bat', description: 'for cricket', tags: ['cricket'], brand: '', category: '' }

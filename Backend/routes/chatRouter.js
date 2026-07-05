@@ -9,6 +9,7 @@ import {
 } from '../controllers/chatSessionCtrl.js'
 import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import { validate } from '../middlewares/validate.js'
+import { validateObjectId } from '../middlewares/validateObjectId.js'
 import { chatMessageSchema, guestChatMessageSchema } from '../validations/chatSchemas.js'
 import { chatUserLimiter, chatUserDailyLimiter, chatGuestLimiter, chatGuestDailyLimiter } from '../config/rateLimiters.js'
 
@@ -19,9 +20,9 @@ const guestChatMessageLimits = [chatGuestLimiter, chatGuestDailyLimiter]
 
 chatRouter.get('/sessions', isLoggedIn, listChatSessionsCtrl)
 chatRouter.post('/sessions', isLoggedIn, createChatSessionCtrl)
-chatRouter.get('/sessions/:id/messages', isLoggedIn, getChatSessionMessagesCtrl)
-chatRouter.get('/sessions/:id', isLoggedIn, getChatSessionCtrl)
-chatRouter.delete('/sessions/:id', isLoggedIn, deleteChatSessionCtrl)
+chatRouter.get('/sessions/:id/messages', isLoggedIn, validateObjectId('id'), getChatSessionMessagesCtrl)
+chatRouter.get('/sessions/:id', isLoggedIn, validateObjectId('id'), getChatSessionCtrl)
+chatRouter.delete('/sessions/:id', isLoggedIn, validateObjectId('id'), deleteChatSessionCtrl)
 chatRouter.post(
   '/message',
   isLoggedIn,

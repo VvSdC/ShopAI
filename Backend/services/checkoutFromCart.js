@@ -1,4 +1,4 @@
-import User from '../model/User.js'
+import User, { USER_CHECKOUT_SELECT } from '../model/User.js'
 import {
   getCart,
   getCartOrderItems,
@@ -44,9 +44,7 @@ export function resolveShippingAddress(user, addressIndex) {
 }
 
 export async function previewCheckout(userId, { addressIndex } = {}) {
-  const user = await User.findById(userId).select(
-    'hasShippingAddress shippingAddresses fullname'
-  )
+  const user = await User.findById(userId).select(USER_CHECKOUT_SELECT)
   const { address, error } = resolveShippingAddress(user, addressIndex)
 
   let orderItems = []
@@ -80,7 +78,7 @@ export async function previewCheckout(userId, { addressIndex } = {}) {
 }
 
 export async function checkoutFromCart(userId, { addressIndex } = {}) {
-  const user = await User.findById(userId)
+  const user = await User.findById(userId).select(USER_CHECKOUT_SELECT)
   if (!user) {
     throw new Error('User not found')
   }

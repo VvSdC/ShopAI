@@ -165,4 +165,13 @@ const User = mongoose.model("User", UserShema);
 export const SAFE_USER_SELECT =
   "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil -emailVerificationOTP -emailVerificationExpires";
 
+/** Field projections for common user lookups (avoid loading password / OTP hashes). */
+export const USER_PROFILE_UPDATE_SELECT = "email fullname phone country";
+export const USER_PASSWORD_SELECT = "password";
+export const USER_SHIPPING_SELECT = "shippingAddresses hasShippingAddress";
+export const USER_CHECKOUT_SELECT = "hasShippingAddress shippingAddresses";
+export const USER_STRIPE_CHECKOUT_SELECT = "_id fullname email";
+export const USER_ADMIN_BLOCK_SELECT = "isAdmin isBlocked";
+export const USER_SESSIONS_SELECT = "sessions";
+
 export default User;

@@ -1,5 +1,5 @@
 import { categoryDisplayName } from '../utils/categoryRef.js'
-import { brandDisplayName } from '../utils/brandRef.js'
+import { brandDisplayName, buildProductBrandFilter } from '../utils/brandRef.js'
 import { mongoInCondition } from '../utils/parseBrandFilter.js'
 
 function escapeRegex(value) {
@@ -37,11 +37,8 @@ export function buildProductSearchFilter(args) {
   if (args.categoryId) {
     conditions.push({ category: args.categoryId })
   }
-  if (args.brandIds?.length) {
-    const brandMatch =
-      args.brandIds.length === 1 ? args.brandIds[0] : { $in: args.brandIds }
-    conditions.push({ brand: brandMatch })
-  }
+  const brandFilter = buildProductBrandFilter(args.brandNames, args.brandIds)
+  if (brandFilter) conditions.push(brandFilter)
   if (args.colors?.length) {
     const colorMatch = mongoInCondition(args.colors)
     if (colorMatch) conditions.push({ colors: colorMatch })

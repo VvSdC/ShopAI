@@ -13,6 +13,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import MarkdownContent from '../../common/MarkdownContent'
 import {
   addOrderToCartaction,
   getCartItemsFromLocalStorageAction,
@@ -659,9 +660,9 @@ export default function Product() {
             {product?.description && (
               <section className="mt-8 animate-fade-up rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
                 <h2 className="text-lg font-semibold text-stone-900">Product description</h2>
-                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-stone-600">
-                  {product.description}
-                </p>
+                <div className="mt-4">
+                  <MarkdownContent>{product.description}</MarkdownContent>
+                </div>
               </section>
             )}
 

@@ -70,6 +70,11 @@ export function otpResendRateLimitKey(req) {
   return `otp-resend:ip:${clientIp(req)}`
 }
 
+/** Per-IP key for public guest cart validation (stock/pricing probe). */
+export function validateCartRateLimitKey(req) {
+  return `validate-cart:ip:${clientIp(req)}`
+}
+
 if (shouldUseRedisStore()) {
   console.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
@@ -107,6 +112,17 @@ export const otpResendLimiter = buildLimiter('otp-resend', {
   validate: { keyGeneratorIpFallback: false },
   message: {
     message: 'Too many OTP requests for this email. Please try again later.',
+  },
+})
+
+/** Per-IP cap on unauthenticated POST /products/validate-cart (stock scraping). */
+export const validateCartLimiter = buildLimiter('validate-cart', {
+  windowMs: config.rateLimit.validateCart.windowMs,
+  max: config.rateLimit.validateCart.max,
+  keyGenerator: validateCartRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    message: 'Too many cart validation requests. Please try again later.',
   },
 })
 

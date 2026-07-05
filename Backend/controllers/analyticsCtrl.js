@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
+import { AppError } from '../utils/appError.js'
 import {
   listInferenceProviders,
   testInferenceProvider,
@@ -28,8 +29,7 @@ export const testInferenceProviderCtrl = asyncHandler(async (req, res) => {
   const { providerId, model } = req.body || {}
 
   if (!providerId || typeof providerId !== 'string') {
-    res.status(400)
-    throw new Error('providerId is required')
+    throw new AppError('providerId is required', 400)
   }
 
   const result = await testInferenceProvider(providerId, model)
@@ -47,8 +47,7 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
   const { caseIds } = req.body || {}
   const user = await User.findById(req.userAuthId).select('fullname')
   if (!user) {
-    res.status(401)
-    throw new Error('User not found')
+    throw new AppError('User not found', 401)
   }
 
   const job = await createChatEvalJob(req.userAuthId)
@@ -91,8 +90,7 @@ export const runChatEvalCtrl = asyncHandler(async (req, res) => {
 export const getChatEvalStatusCtrl = asyncHandler(async (req, res) => {
   const job = await getChatEvalJob(req.params.jobId, req.userAuthId)
   if (!job) {
-    res.status(404)
-    throw new Error('Evaluation job not found')
+    throw new AppError('Evaluation job not found', 404)
   }
 
   res.json({

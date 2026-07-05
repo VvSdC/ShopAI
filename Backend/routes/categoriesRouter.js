@@ -9,6 +9,7 @@ import {
 } from '../controllers/categoriesCtrl.js'
 import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import isAdmin from '../middlewares/isAdmin.js'
+import { validateObjectId } from '../middlewares/validateObjectId.js'
 
 const categoriesRouter = express.Router()
 
@@ -20,12 +21,13 @@ categoriesRouter.post(
   createCategoryCtrl
 )
 categoriesRouter.get('/', getAllCategoriesCtrl)
-categoriesRouter.get('/:id', getSingleCategoryCtrl)
-categoriesRouter.delete('/:id', isLoggedIn, isAdmin, deleteCategoryCtrl)
+categoriesRouter.get('/:id', validateObjectId('id'), getSingleCategoryCtrl)
+categoriesRouter.delete('/:id', isLoggedIn, isAdmin, validateObjectId('id'), deleteCategoryCtrl)
 categoriesRouter.put(
   '/:id',
   isLoggedIn,
   isAdmin,
+  validateObjectId('id'),
   catetgoryFileUpload.single('file'),
   updateCategoryCtrl
 )

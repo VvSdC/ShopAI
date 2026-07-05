@@ -1,7 +1,11 @@
 import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { enrichProductsWithCategoryNames, resolveCategoryId } from '../../utils/categoryRef.js'
-import { enrichProductsWithBrandNames, resolveBrandIds } from '../../utils/brandRef.js'
+import {
+  enrichProductsWithBrandNames,
+  resolveBrandIds,
+  buildProductBrandFilter,
+} from '../../utils/brandRef.js'
 import { config } from '../../config/env.js'
 import {
   buildProductSearchFilter,
@@ -70,6 +74,7 @@ async function normalizeSearchArgs(args = {}) {
   }
   const brandInputs = args.brands?.length ? args.brands : args.brand ? [args.brand] : []
   if (brandInputs.length) {
+    normalized.brandNames = brandInputs
     normalized.brandIds = await resolveBrandIds(brandInputs)
   }
   return { normalized }

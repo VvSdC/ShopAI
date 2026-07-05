@@ -1,7 +1,7 @@
 import Order from '../model/Order.js'
 import { getStripeClient } from '../config/stripeClient.js'
 import Product from '../model/Product.js'
-import User from '../model/User.js'
+import User, { USER_STRIPE_CHECKOUT_SELECT } from '../model/User.js'
 import {
   isCouponExpired,
   isCouponLive,
@@ -79,7 +79,7 @@ export async function createCheckoutSession({
   couponCode,
   source = 'cart',
 }) {
-  const user = await User.findById(userId)
+  const user = await User.findById(userId).select(USER_STRIPE_CHECKOUT_SELECT)
   if (!user) {
     throw new Error('User not found')
   }

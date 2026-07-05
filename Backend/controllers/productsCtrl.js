@@ -1,5 +1,4 @@
 import asyncHandler from 'express-async-handler'
-import Category from '../model/Category.js'
 import Product from '../model/Product.js'
 import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import Review from '../model/Review.js'
@@ -9,7 +8,13 @@ import { searchProducts } from '../services/search/searchService.js'
 import { getSimilarProducts } from '../services/similarProductsService.js'
 import { mapProductsForList } from '../services/productListStats.js'
 import { resolveCategoryId, categoryDisplayName } from '../utils/categoryRef.js'
-import { resolveBrandId, resolveBrandIds, enrichProductsWithBrandNames, brandDisplayName } from '../utils/brandRef.js'
+import {
+  resolveBrandId,
+  resolveBrandIds,
+  enrichProductsWithBrandNames,
+  brandDisplayName,
+  buildProductBrandFilter,
+} from '../utils/brandRef.js'
 import {
   getCachedOrFetch,
   invalidateCategoriesCache,
@@ -42,8 +47,11 @@ async function buildCatalogFilterFromQuery(query) {
   const brandNames = parseBrandFilterQuery(query.brand)
   if (brandNames.length) {
     const brandIds = await resolveBrandIds(brandNames)
-    if (!brandIds.length) return { filter: null, unknownCategory: false, unknownBrand: true }
-    filter.brand = brandIds.length === 1 ? brandIds[0] : { $in: brandIds }
+    const brandFilter = buildProductBrandFilter(brandNames, brandIds)
+    if (!brandFilter) {
+      return { filter: null, unknownCategory: false, unknownBrand: true }
+    }
+    Object.assign(filter, brandFilter)
   }
   if (query.category) {
     const categoryId = await resolveCategoryId(query.category)
@@ -110,24 +118,24 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   })
   const convertedImgs = req.files.map((file) => file?.path)
   const productName = trimProductName(name)
-  const productExists = await findProductByNameCaseInsensitive(productName)
+  const [productExists, brandId, categoryId] = await Promise.all([
+    findProductByNameCaseInsensitive(productName),
+    resolveBrandId(brand),
+    resolveCategoryId(category),
+  ])
   if (productExists) {
-    throw new Error('Product Already Exists')
+    throw new AppError('Product Already Exists', 409)
   }
-  //find the brand
-  const brandId = await resolveBrandId(brand)
   if (!brandId) {
-    throw new Error(
-      'Brand not found, please create brand first or check brand name'
+    throw new AppError(
+      'Brand not found, please create brand first or check brand name',
+      400
     )
   }
-  //find the category
-  const categoryFound = await Category.findOne({
-    name: category,
-  })
-  if (!categoryFound) {
-    throw new Error(
-      'Category not found, please create category first or check category name'
+  if (!categoryId) {
+    throw new AppError(
+      'Category not found, please create category first or check category name',
+      400
     )
   }
   let product
@@ -135,7 +143,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
     product = await Product.create({
       name: productName,
       description,
-      category: categoryFound._id,
+      category: categoryId,
       ...normalizedSizes,
       colors,
       user: req.userAuthId,
@@ -146,7 +154,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
     })
   } catch (err) {
     if (isDuplicateKeyError(err)) {
-      throw new Error('Product Already Exists')
+      throw new AppError('Product Already Exists', 409)
     }
     throw err
   }
@@ -368,29 +376,33 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     sizes,
   })
 
-  let categoryId
-  if (category) {
-    categoryId = await resolveCategoryId(category)
-    if (!categoryId) {
-      throw new Error(
-        'Category not found, please create category first or check category name'
-      )
-    }
-  }
+  const trimmedName = name !== undefined ? trimProductName(name) : undefined
+  const [existing, categoryId, brandId, duplicate] = await Promise.all([
+    Product.findById(req.params.id).select('images'),
+    category ? resolveCategoryId(category) : Promise.resolve(null),
+    brand ? resolveBrandId(brand) : Promise.resolve(null),
+    trimmedName !== undefined
+      ? findProductByNameCaseInsensitive(trimmedName, { excludeId: req.params.id })
+      : Promise.resolve(null),
+  ])
 
-  let brandId
-  if (brand) {
-    brandId = await resolveBrandId(brand)
-    if (!brandId) {
-      throw new Error(
-        'Brand not found, please create brand first or check brand name'
-      )
-    }
+  if (category && !categoryId) {
+    throw new AppError(
+      'Category not found, please create category first or check category name',
+      400
+    )
   }
-
-  const existing = await Product.findById(req.params.id).select('images')
+  if (brand && !brandId) {
+    throw new AppError(
+      'Brand not found, please create brand first or check brand name',
+      400
+    )
+  }
   if (!existing) {
     throw new AppError('Product not found', 404)
+  }
+  if (duplicate) {
+    throw new AppError('Product Already Exists', 409)
   }
 
   const replacingImages = Boolean(req.files?.length)
@@ -398,21 +410,10 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     await destroyCloudinaryImages(existing.images)
   }
 
-  let productName
-  if (name !== undefined) {
-    productName = trimProductName(name)
-    const duplicate = await findProductByNameCaseInsensitive(productName, {
-      excludeId: req.params.id,
-    })
-    if (duplicate) {
-      throw new Error('Product Already Exists')
-    }
-  }
-
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     {
-      ...(productName !== undefined ? { name: productName } : {}),
+      ...(trimmedName !== undefined ? { name: trimmedName } : {}),
       description,
       ...(categoryId ? { category: categoryId } : {}),
       ...normalizedSizes,
@@ -448,7 +449,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
 export const deleteProductCtrl = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
   if (!product) {
-    throw new Error('Product not found')
+    throw new AppError('Product not found', 404)
   }
   await destroyCloudinaryImages(product.images)
   await Review.deleteMany({ product: product._id })
@@ -471,7 +472,7 @@ function productIdKey(id) {
 export const validateCartCtrl = asyncHandler(async (req, res) => {
   const { items } = req.body
   if (!items || !Array.isArray(items)) {
-    throw new Error('Items array is required')
+    throw new AppError('Items array is required', 400)
   }
   const productIds = [...new Set(items.map((i) => productIdKey(i._id)).filter(Boolean))]
   const products = await Product.find({ _id: { $in: productIds } })

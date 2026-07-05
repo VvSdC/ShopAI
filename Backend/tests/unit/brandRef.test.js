@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import Brand from '../../model/Brand.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
-import { brandDisplayName, resolveBrandId, enrichProductsWithBrandNames } from '../../utils/brandRef.js'
+import { brandDisplayName, resolveBrandId, enrichProductsWithBrandNames, buildProductBrandFilter } from '../../utils/brandRef.js'
 import { createTestBrand } from '../helpers/testBrand.js'
 
 describe('brandRef', () => {
@@ -69,5 +69,43 @@ describe('brandRef', () => {
     }
     const [enriched] = await enrichProductsWithBrandNames([legacyProduct])
     expect(enriched.brand.name).toBe(brand.name)
+  })
+
+  it('buildProductBrandFilter matches ObjectId refs and legacy string names', async () => {
+    const byId = buildProductBrandFilter([], [brand._id])
+    expect(byId).toEqual({ brand: brand._id })
+
+    const byName = buildProductBrandFilter([brand.name], [])
+    expect(byName.$expr.$and[1].$regexMatch.regex).toBe(`^${brand.name}$`)
+    expect(byName.$expr.$and[1].$regexMatch.options).toBe('i')
+
+    const combined = buildProductBrandFilter([brand.name], [brand._id])
+    expect(combined.$or).toHaveLength(2)
+  })
+
+  it('finds legacy string brand products via buildProductBrandFilter', async () => {
+    const category = user._id
+    const legacyName = `legacy-${Date.now()}`
+    const legacyBrand = await createTestBrand(legacyName, user)
+
+    await Product.collection.insertOne({
+      name: `Legacy Brand Product ${Date.now()}`,
+      description: 'Test',
+      brand: legacyBrand.name.toUpperCase(),
+      category,
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/img.jpg'],
+      price: 100,
+      totalQty: 5,
+      totalSold: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const filter = buildProductBrandFilter([legacyBrand.name], [])
+    const matches = await Product.find(filter).select('name').lean()
+    expect(matches.length).toBeGreaterThan(0)
   })
 })

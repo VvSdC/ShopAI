@@ -6,7 +6,13 @@ import Wishlist from "../model/Wishlist.js";
 import Review from "../model/Review.js";
 import ReturnRequest from "../model/ReturnRequest.js";
 import Product from "../model/Product.js";
-import User, { SAFE_USER_SELECT } from "../model/User.js";
+import User, {
+  SAFE_USER_SELECT,
+  USER_PROFILE_UPDATE_SELECT,
+  USER_PASSWORD_SELECT,
+  USER_SHIPPING_SELECT,
+  USER_ADMIN_BLOCK_SELECT,
+} from "../model/User.js";
 import {
   generateAccessToken,
 } from "../utils/generateToken.js";
@@ -210,7 +216,7 @@ export const getUserProfileCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 export const updateProfileCtrl = asyncHandler(async (req, res) => {
   const { fullname, phone, country } = req.body;
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.userAuthId).select(USER_PROFILE_UPDATE_SELECT);
   if (!user) {
     throw new AppError("User not found", 404);
   }
@@ -246,7 +252,7 @@ export const updateProfileCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 export const changePasswordCtrl = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.userAuthId).select(USER_PASSWORD_SELECT);
   if (!user) {
     throw new AppError("User not found", 404);
   }
@@ -290,7 +296,7 @@ export const updateShippingAddressCtrl = asyncHandler(async (req, res) => {
     phone,
     country,
   } = req.body;
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.userAuthId).select(USER_SHIPPING_SELECT);
   if (!user) {
     throw new AppError("User not found", 404);
   }
@@ -330,7 +336,10 @@ export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
     phone,
     country,
   } = req.body;
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.userAuthId).select(USER_SHIPPING_SELECT);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
   const addr = user.shippingAddresses.id(addressId);
   if (!addr) {
     throw new AppError("Address not found", 404);
@@ -358,7 +367,7 @@ export const editShippingAddressCtrl = asyncHandler(async (req, res) => {
 
 export const deleteShippingAddressCtrl = asyncHandler(async (req, res) => {
   const { addressId } = req.params;
-  const user = await User.findById(req.userAuthId);
+  const user = await User.findById(req.userAuthId).select(USER_SHIPPING_SELECT);
   if (!user) {
     throw new AppError("User not found", 404);
   }
@@ -463,7 +472,7 @@ export const getAllUsersCtrl = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 
 export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+  const user = await User.findById(req.params.id).select(USER_ADMIN_BLOCK_SELECT);
   if (!user) {
     throw new AppError("User not found", 404);
   }

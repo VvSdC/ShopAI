@@ -40,11 +40,24 @@ function shouldRedirectToLoginAfterRefreshFailure(url = '') {
 
 const ACCESS_TOKEN_TTL_MS = 14 * 60 * 1000
 let proactiveRefreshTimer = null
+/** One shared refresh for concurrent 401s (and proactive refresh). */
+let refreshInFlight = null
+
+function refreshSession() {
+  if (!refreshInFlight) {
+    refreshInFlight = axiosInstance
+      .post('/users/refresh', {})
+      .finally(() => {
+        refreshInFlight = null
+      })
+  }
+  return refreshInFlight
+}
 
 export function startProactiveTokenRefresh() {
   stopProactiveTokenRefresh()
   proactiveRefreshTimer = window.setInterval(() => {
-    axiosInstance.post('/users/refresh', {}).catch(() => {})
+    refreshSession().catch(() => {})
   }, ACCESS_TOKEN_TTL_MS)
 }
 
@@ -90,7 +103,7 @@ axiosInstance.interceptors.response.use(
     ) {
       originalRequest._retry = true
       try {
-        await axiosInstance.post('/users/refresh', {})
+        await refreshSession()
         return axiosInstance(originalRequest)
       } catch (refreshError) {
         resetCsrfTokenCache()
