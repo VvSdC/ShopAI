@@ -4,10 +4,11 @@ import Category from '../../model/Category.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
 import {
-  countProductsByBrandName,
+  countProductsByBrandId,
   countProductsByCategoryId,
   attachProductCountsToCategories,
 } from '../../services/catalogProductCounts.js'
+import { createTestBrand } from '../helpers/testBrand.js'
 
 describe('catalogProductCounts', () => {
   it('counts products by category and brand from Product collection', async () => {
@@ -23,10 +24,13 @@ describe('catalogProductCounts', () => {
       image: 'https://example.com/cat.jpg',
     })
 
+    const nike = await createTestBrand('nike', user)
+    const adidas = await createTestBrand('adidas', user)
+
     await Product.create({
       name: `Count Product A ${Date.now()}`,
       description: 'Test',
-      brand: 'nike',
+      brand: nike._id,
       category: category._id,
       sizes: ['M'],
       colors: ['Blue'],
@@ -39,7 +43,7 @@ describe('catalogProductCounts', () => {
     await Product.create({
       name: `Count Product B ${Date.now()}`,
       description: 'Test',
-      brand: 'nike',
+      brand: nike._id,
       category: category._id,
       sizes: ['L'],
       colors: ['Red'],
@@ -52,7 +56,7 @@ describe('catalogProductCounts', () => {
     await Product.create({
       name: `Count Product C ${Date.now()}`,
       description: 'Test',
-      brand: 'adidas',
+      brand: adidas._id,
       category: new mongoose.Types.ObjectId(),
       sizes: ['S'],
       colors: ['Green'],
@@ -63,11 +67,11 @@ describe('catalogProductCounts', () => {
     })
 
     const byCategory = await countProductsByCategoryId()
-    const byBrand = await countProductsByBrandName()
+    const byBrand = await countProductsByBrandId()
 
     expect(byCategory.get(String(category._id))).toBe(2)
-    expect(byBrand.get('nike')).toBe(2)
-    expect(byBrand.get('adidas')).toBe(1)
+    expect(byBrand.get(String(nike._id))).toBe(2)
+    expect(byBrand.get(String(adidas._id))).toBe(1)
   })
 
   it('attaches productCount to categories from Product.category refs', async () => {
@@ -83,10 +87,12 @@ describe('catalogProductCounts', () => {
       image: 'https://example.com/cat.jpg',
     })
 
+    const nike = await createTestBrand('nike', user)
+
     await Product.create({
       name: `Attach Count Product ${Date.now()}`,
       description: 'Test',
-      brand: 'nike',
+      brand: nike._id,
       category: category._id,
       sizes: ['M'],
       colors: ['Blue'],

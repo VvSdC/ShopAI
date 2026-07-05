@@ -11,6 +11,11 @@ vi.mock('../../services/search/vectorSearch.js', () => ({
   vectorSearch: vi.fn(),
 }))
 
+vi.mock('../../utils/brandRef.js', () => ({
+  enrichProductsWithBrandNames: vi.fn(async (products) => products),
+  brandDisplayName: (brand) => (typeof brand === 'string' ? brand : brand?.name || ''),
+}))
+
 vi.mock('../../utils/categoryRef.js', () => ({
   enrichProductsWithCategoryNames: vi.fn(async (products) => products),
   categoryDisplayName: (category) => (typeof category === 'string' ? category : category?.name || ''),

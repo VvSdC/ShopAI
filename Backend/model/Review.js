@@ -37,6 +37,11 @@ const ReviewSchema = new Schema(
       type: String,
       default: "",
     },
+    /** Buyer received this product on a delivered order. */
+    verifiedPurchase: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

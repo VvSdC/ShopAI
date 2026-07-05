@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
 import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
+import { createTestBrand } from '../helpers/testBrand.js'
 
 const processPaidOrder = vi.fn()
 const clearCart = vi.fn().mockResolvedValue({ items: [], isEmpty: true })
@@ -286,10 +287,12 @@ describe('orderService', () => {
       password: 'hashed',
     })
 
+    const brand = await createTestBrand('testbrand-restore', user)
+
     const product = await Product.create({
       name: 'Restore Lines Product',
       description: 'Test',
-      brand: 'TestBrand',
+      brand: brand._id,
       category: new mongoose.Types.ObjectId(),
       sizes: ['M'],
       colors: ['Blue'],
@@ -333,10 +336,12 @@ describe('orderService', () => {
       password: 'hashed',
     })
 
+    const brand = await createTestBrand('testbrand-cancel', user)
+
     const product = await Product.create({
       name: 'Cancel Stock Product',
       description: 'Test',
-      brand: 'TestBrand',
+      brand: brand._id,
       category: new mongoose.Types.ObjectId(),
       sizes: ['M'],
       colors: ['Blue'],

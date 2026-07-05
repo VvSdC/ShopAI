@@ -1,5 +1,4 @@
 import asyncHandler from 'express-async-handler'
-import Brand from '../model/Brand.js'
 import Category from '../model/Category.js'
 import Product from '../model/Product.js'
 import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
@@ -8,7 +7,9 @@ import { tagProductInBackground } from '../services/productTaggingQueue.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
 import { searchProducts } from '../services/search/searchService.js'
 import { getSimilarProducts } from '../services/similarProductsService.js'
-import { resolveCategoryId } from '../utils/categoryRef.js'
+import { mapProductsForList } from '../services/productListStats.js'
+import { resolveCategoryId, categoryDisplayName } from '../utils/categoryRef.js'
+import { resolveBrandId, resolveBrandIds, enrichProductsWithBrandNames, brandDisplayName } from '../utils/brandRef.js'
 import {
   getCachedOrFetch,
   invalidateCategoriesCache,
@@ -17,15 +18,36 @@ import {
 import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
 import { AppError } from '../utils/appError.js'
 import { normalizeProductSizes } from '../utils/normalizeProductSizes.js'
-import { brandMongoCondition, mongoInCondition, parseBrandFilterQuery, parseColorFilterQuery } from '../utils/parseBrandFilter.js'
+import { mongoInCondition, parseBrandFilterQuery, parseColorFilterQuery } from '../utils/parseBrandFilter.js'
+import { destroyCloudinaryImages } from '../utils/cloudinaryAssets.js'
+import {
+  findProductByNameCaseInsensitive,
+  trimProductName,
+} from '../utils/productName.js'
+
+function buildListPagination(page, limit, total) {
+  const hasMore = page * limit < total
+  const pagination = { page, limit, total, hasMore }
+  if (hasMore) {
+    pagination.next = { page: page + 1, limit }
+  }
+  if (page > 1) {
+    pagination.prev = { page: page - 1, limit }
+  }
+  return pagination
+}
 
 async function buildCatalogFilterFromQuery(query) {
   const filter = {}
-  const brandMatch = brandMongoCondition(parseBrandFilterQuery(query.brand))
-  if (brandMatch) filter.brand = brandMatch
+  const brandNames = parseBrandFilterQuery(query.brand)
+  if (brandNames.length) {
+    const brandIds = await resolveBrandIds(brandNames)
+    if (!brandIds.length) return { filter: null, unknownCategory: false, unknownBrand: true }
+    filter.brand = brandIds.length === 1 ? brandIds[0] : { $in: brandIds }
+  }
   if (query.category) {
     const categoryId = await resolveCategoryId(query.category)
-    if (!categoryId) return { filter: null, unknownCategory: true }
+    if (!categoryId) return { filter: null, unknownCategory: true, unknownBrand: false }
     filter.category = categoryId
   }
   const colorMatch = mongoInCondition(parseColorFilterQuery(query.color))
@@ -35,7 +57,10 @@ async function buildCatalogFilterFromQuery(query) {
     const [min, max] = String(query.price).split('-')
     filter.price = { $gte: Number(min), $lte: Number(max) }
   }
-  return { filter, unknownCategory: false }
+  if (query.inStock === 'true' || query.inStock === true) {
+    filter.$expr = { $gt: [{ $subtract: ['$totalQty', '$totalSold'] }, 0] }
+  }
+  return { filter, unknownCategory: false, unknownBrand: false }
 }
 
 async function invalidateProductCatalogCaches() {
@@ -43,8 +68,18 @@ async function invalidateProductCatalogCaches() {
   await invalidateCategoriesCache()
 }
 
+function flattenProductRefs(product) {
+  if (!product) return product
+  const { user: _user, ...rest } = product
+  return {
+    ...rest,
+    brand: brandDisplayName(rest.brand),
+    category: categoryDisplayName(rest.category),
+  }
+}
+
 function mapProductWithCreatedBy(product) {
-  const json = product.toJSON ? product.toJSON() : product
+  const json = product.toJSON ? product.toJSON() : flattenProductRefs(product)
   const creator = product.user
   let createdBy = null
   if (creator && typeof creator === 'object' && creator._id) {
@@ -74,16 +109,14 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
     sizes,
   })
   const convertedImgs = req.files.map((file) => file?.path)
-  //Product exists
-  const productExists = await Product.findOne({ name })
+  const productName = trimProductName(name)
+  const productExists = await findProductByNameCaseInsensitive(productName)
   if (productExists) {
     throw new Error('Product Already Exists')
   }
   //find the brand
-  const brandFound = await Brand.findOne({
-    name: brand,
-  })
-  if (!brandFound) {
+  const brandId = await resolveBrandId(brand)
+  if (!brandId) {
     throw new Error(
       'Brand not found, please create brand first or check brand name'
     )
@@ -100,7 +133,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   let product
   try {
     product = await Product.create({
-      name,
+      name: productName,
       description,
       category: categoryFound._id,
       ...normalizedSizes,
@@ -108,7 +141,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
       user: req.userAuthId,
       price,
       totalQty,
-      brand,
+      brand: brandId,
       images: convertedImgs,
     })
   } catch (err) {
@@ -122,6 +155,7 @@ export const createProductCtrl = asyncHandler(async (req, res) => {
   indexProductEmbeddingInBackground(product._id, 2500)
 
   await product.populate('category', 'name')
+  await product.populate('brand', 'name')
   await invalidateProductCatalogCaches()
 
   //send response
@@ -152,6 +186,7 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
       size: req.query.size,
       inStock: req.query.inStock === 'true',
       limit,
+      page,
     }
     if (req.query.price) {
       const priceRange = req.query.price.split('-').map((n) => Number(n.trim()))
@@ -160,24 +195,27 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     }
 
     const { products, count, message } = await searchProducts(searchArgs)
+    const total = count
     return res.json({
       status: 'success',
-      total: count,
+      total,
       results: products.length,
-      pagination: {},
+      pagination: buildListPagination(page, limit, total),
       message: message || 'Products fetched successfully',
       products,
     })
   }
 
-  const { filter: catalogFilter, unknownCategory } = await buildCatalogFilterFromQuery(req.query)
-  if (unknownCategory) {
+  const { filter: catalogFilter, unknownCategory, unknownBrand } = await buildCatalogFilterFromQuery(req.query)
+  if (unknownCategory || unknownBrand) {
     return res.json({
       status: 'success',
       total: 0,
       results: 0,
-      pagination: {},
-      message: 'No products found for this category',
+      pagination: buildListPagination(page, limit, 0),
+      message: unknownBrand
+        ? 'No products found for this brand'
+        : 'No products found for this category',
       products: [],
     })
   }
@@ -192,6 +230,7 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     color: req.query.color,
     size: req.query.size,
     price: req.query.price,
+    inStock: req.query.inStock,
   })
 
   const { data } = await getCachedOrFetch(listKey, CACHE_TTL.productsList, async () => {
@@ -199,11 +238,13 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
     const endIndex = page * limit
     const total = await Product.countDocuments(filter)
 
+    // Listing only needs rating summary — never hydrate full review documents.
     const products = await Product.find(filter)
+      .select('-embedding -embeddingProvider -embeddingModel -embeddingVersion -embeddingDimension -embeddedAt -searchDocument -user')
       .skip(startIndex)
       .limit(limit)
       .populate('category', 'name')
-      .populate('reviews')
+      .lean()
 
     const pagination = {}
     if (endIndex < total) {
@@ -213,13 +254,16 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
       pagination.prev = { page: page - 1, limit }
     }
 
+    const productsWithBrands = await enrichProductsWithBrandNames(products)
+    const listProducts = await mapProductsForList(productsWithBrands)
+
     return {
       status: 'success',
       total,
-      results: products.length,
+      results: listProducts.length,
       pagination,
       message: 'Products fetched successfully',
-      products: products.map((p) => (p.toJSON ? p.toJSON() : p)),
+      products: listProducts,
     }
   })
 
@@ -242,6 +286,9 @@ export const getMyProductsCtrl = asyncHandler(async (req, res) => {
     .limit(limit)
     .populate('category', 'name')
     .populate('user', 'fullname')
+    .lean()
+
+  const productsWithBrands = await enrichProductsWithBrandNames(products)
 
   const pagination = {}
   if (startIndex + products.length < total) {
@@ -254,10 +301,10 @@ export const getMyProductsCtrl = asyncHandler(async (req, res) => {
   res.json({
     status: 'success',
     total,
-    results: products.length,
+    results: productsWithBrands.length,
     pagination,
     message: 'Your products fetched successfully',
-    products: products.map(mapProductWithCreatedBy),
+    products: productsWithBrands.map(mapProductWithCreatedBy),
   })
 })
 
@@ -279,10 +326,11 @@ export const getProductCtrl = asyncHandler(async (req, res) => {
   if (!product) {
     throw new AppError('Product not found', 404)
   }
+  const [productWithBrand] = await enrichProductsWithBrandNames([product.toObject({ virtuals: true })])
   res.json({
     status: 'success',
     message: 'Product fetched successfully',
-    product,
+    product: flattenProductRefs(productWithBrand),
   })
 })
 
@@ -330,18 +378,49 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
     }
   }
 
+  let brandId
+  if (brand) {
+    brandId = await resolveBrandId(brand)
+    if (!brandId) {
+      throw new Error(
+        'Brand not found, please create brand first or check brand name'
+      )
+    }
+  }
+
+  const existing = await Product.findById(req.params.id).select('images')
+  if (!existing) {
+    throw new AppError('Product not found', 404)
+  }
+
+  const replacingImages = Boolean(req.files?.length)
+  if (replacingImages) {
+    await destroyCloudinaryImages(existing.images)
+  }
+
+  let productName
+  if (name !== undefined) {
+    productName = trimProductName(name)
+    const duplicate = await findProductByNameCaseInsensitive(productName, {
+      excludeId: req.params.id,
+    })
+    if (duplicate) {
+      throw new Error('Product Already Exists')
+    }
+  }
+
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     {
-      name,
+      ...(productName !== undefined ? { name: productName } : {}),
       description,
       ...(categoryId ? { category: categoryId } : {}),
       ...normalizedSizes,
       colors,
       price,
       totalQty,
-      brand,
-      ...(req.files?.length
+      ...(brandId ? { brand: brandId } : {}),
+      ...(replacingImages
         ? { images: req.files.map((file) => file?.path) }
         : {}),
     },
@@ -349,7 +428,7 @@ export const updateProductCtrl = asyncHandler(async (req, res) => {
       new: true,
       runValidators: true,
     }
-  ).populate('category', 'name')
+  ).populate('category', 'name').populate('brand', 'name')
 
   if (product) {
     tagProductInBackground(product._id)
@@ -371,6 +450,7 @@ export const deleteProductCtrl = asyncHandler(async (req, res) => {
   if (!product) {
     throw new Error('Product not found')
   }
+  await destroyCloudinaryImages(product.images)
   await Review.deleteMany({ product: product._id })
   await Product.findByIdAndDelete(req.params.id)
   await invalidateProductCatalogCaches()

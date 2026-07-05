@@ -175,6 +175,8 @@ export const config = {
     syncConcurrency: envInt('SEARCH_SYNC_CONCURRENCY', 5),
     syncStartupDelayMs: envInt('SEARCH_SYNC_STARTUP_DELAY_MS', 5000),
     syncMaxPerRun: envInt('SEARCH_SYNC_MAX_PER_RUN', 0),
+    /** Max ranked hits exposed to paginated product search (not chat). */
+    maxResults: envInt('SEARCH_MAX_RESULTS', 100),
   },
 
   rateLimit: {
@@ -193,6 +195,16 @@ export const config = {
     chatDaily: {
       windowMs: envInt('RATE_LIMIT_CHAT_DAILY_WINDOW_MS', 24 * 60 * 60 * 1000),
       max: envInt('RATE_LIMIT_CHAT_DAILY_MAX', 150),
+    },
+    /** Brute-force protection on OTP verify/reset endpoints (per email). */
+    otpConsume: {
+      windowMs: envInt('RATE_LIMIT_OTP_CONSUME_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_OTP_CONSUME_MAX', 10),
+    },
+    /** Abuse protection when issuing new OTPs (forgot-password, resend-verification). */
+    otpResend: {
+      windowMs: envInt('RATE_LIMIT_OTP_RESEND_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_OTP_RESEND_MAX', 5),
     },
   },
 

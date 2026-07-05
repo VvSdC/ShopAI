@@ -33,4 +33,17 @@ describe('User model serialization', () => {
     expect(json.emailVerificationOTP).toBeUndefined()
     expect(json.emailVerificationExpires).toBeUndefined()
   })
+
+  it('defaults isEmailVerified to false so new accounts require verification', async () => {
+    const user = await User.create({
+      fullname: 'Unverified Default User',
+      email: `unverified-default-${Date.now()}@test.com`,
+      password: 'hashed-password',
+    })
+
+    expect(user.isEmailVerified).toBe(false)
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.isEmailVerified).toBe(false)
+  })
 })

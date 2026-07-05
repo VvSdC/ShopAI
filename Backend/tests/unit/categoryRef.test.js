@@ -3,6 +3,7 @@ import Category from '../../model/Category.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
 import { categoryDisplayName, resolveCategoryId } from '../../utils/categoryRef.js'
+import { createTestBrand } from '../helpers/testBrand.js'
 
 describe('categoryRef', () => {
   let category
@@ -49,10 +50,11 @@ describe('categoryRef', () => {
   })
 
   it('populates category on Product queries', async () => {
+    const testBrand = await createTestBrand('testbrand', user)
     const product = await Product.create({
       name: `Category Populate ${Date.now()}`,
       description: 'Test',
-      brand: 'TestBrand',
+      brand: testBrand._id,
       category: category._id,
       sizes: ['M'],
       colors: ['Blue'],

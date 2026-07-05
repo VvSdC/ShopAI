@@ -18,8 +18,10 @@ describe('cacheKeys', () => {
     const base = productsListCacheKey({ page: 1, limit: 12 })
     const otherPage = productsListCacheKey({ page: 2, limit: 12 })
     const otherBrand = productsListCacheKey({ page: 1, limit: 12, brand: 'Adidas' })
+    const inStockOnly = productsListCacheKey({ page: 1, limit: 12, inStock: 'true' })
     expect(otherPage).not.toBe(base)
     expect(otherBrand).not.toBe(base)
+    expect(inStockOnly).not.toBe(base)
   })
 
   it('normalizes search queries for embedding cache keys', () => {

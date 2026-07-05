@@ -777,6 +777,11 @@ export default function Product() {
                         <p className="text-sm font-semibold text-stone-900">
                           {review.user?.fullname}
                         </p>
+                        {review.verifiedPurchase && (
+                          <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                            Verified Purchase
+                          </span>
+                        )}
                         <p className="text-xs text-stone-400">
                           {new Date(review.createdAt).toLocaleDateString('en-IN', {
                             year: 'numeric',

@@ -14,10 +14,10 @@ export async function countProductsByCategoryId() {
   return counts
 }
 
-/** @returns {Map<string, number>} brand name → product count */
-export async function countProductsByBrandName() {
+/** @returns {Map<string, number>} brandId → product count */
+export async function countProductsByBrandId() {
   const rows = await Product.aggregate([
-    { $match: { brand: { $exists: true, $ne: '' } } },
+    { $match: { brand: { $ne: null } } },
     { $group: { _id: '$brand', count: { $sum: 1 } } },
   ])
 
@@ -27,6 +27,9 @@ export async function countProductsByBrandName() {
   }
   return counts
 }
+
+/** @deprecated Use countProductsByBrandId */
+export const countProductsByBrandName = countProductsByBrandId
 
 /** @returns {Promise<Array<object>>} categories with `productCount` from Product.category refs */
 export async function attachProductCountsToCategories(categories) {

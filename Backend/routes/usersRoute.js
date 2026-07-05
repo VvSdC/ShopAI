@@ -24,7 +24,7 @@ import { isLoggedIn } from "../middlewares/isLoggedin.js";
 import isAdmin from "../middlewares/isAdmin.js";
 import { validate } from "../middlewares/validate.js";
 import { csrfTokenHandler } from "../middlewares/csrfProtection.js";
-import { authLimiter } from "../config/rateLimiters.js";
+import { authLimiter, otpConsumeLimiter, otpResendLimiter } from "../config/rateLimiters.js";
 import {
   registerSchema,
   loginSchema,
@@ -47,11 +47,11 @@ registerRoute.post("/", validate(registerSchema), registerUserCtrl);
 
 userRoutes.post("/refresh", refreshTokenCtrl);
 userRoutes.post("/logout", logoutUserCtrl);
-userRoutes.post("/forgot-password", authLimiter, forgotPasswordCtrl);
-userRoutes.post("/verify-otp", authLimiter, verifyOTPCtrl);
-userRoutes.post("/reset-password", authLimiter, validate(resetPasswordSchema), resetPasswordCtrl);
-userRoutes.post("/verify-email", authLimiter, validate(verifyEmailSchema), verifyEmailCtrl);
-userRoutes.post("/resend-verification", authLimiter, validate(resendVerificationSchema), resendVerificationCtrl);
+userRoutes.post("/forgot-password", authLimiter, otpResendLimiter, forgotPasswordCtrl);
+userRoutes.post("/verify-otp", authLimiter, otpConsumeLimiter, verifyOTPCtrl);
+userRoutes.post("/reset-password", authLimiter, otpConsumeLimiter, validate(resetPasswordSchema), resetPasswordCtrl);
+userRoutes.post("/verify-email", authLimiter, otpConsumeLimiter, validate(verifyEmailSchema), verifyEmailCtrl);
+userRoutes.post("/resend-verification", authLimiter, otpResendLimiter, validate(resendVerificationSchema), resendVerificationCtrl);
 userRoutes.put("/change-password", isLoggedIn, validate(changePasswordSchema), changePasswordCtrl);
 userRoutes.get("/me", isLoggedIn, getCurrentUserCtrl);
 userRoutes.get("/profile", isLoggedIn, getUserProfileCtrl);

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { normalizeEmail } from "../utils/normalizeEmail.js";
 const Schema = mongoose.Schema;
 
 const UserShema = new Schema(
@@ -13,17 +14,12 @@ const UserShema = new Schema(
       type: String,
       required: true,
       unique: true,
+      set: normalizeEmail,
     },
     password: {
       type: String,
       required: true,
     },
-    orders: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Order",
-      },
-    ],
     phone: {
       type: String,
       default: "",
@@ -70,8 +66,8 @@ const UserShema = new Schema(
     passwordResetExpires: { type: Date },
     /** Set after successful OTP verification; allows one password reset without reusing the OTP hash. */
     passwordResetVerifiedUntil: { type: Date },
-    /** False only for new signups that have not confirmed their inbox yet. */
-    isEmailVerified: { type: Boolean, default: true },
+    /** Safe default: unverified until signup OTP (or an explicit trusted path) confirms the inbox. */
+    isEmailVerified: { type: Boolean, default: false },
     /** Bcrypt hash of the 6-digit signup verification OTP. */
     emailVerificationOTP: { type: String },
     emailVerificationExpires: { type: Date },
@@ -130,7 +126,7 @@ UserShema.methods.verifyPasswordResetOTP = async function (otp) {
 
 UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
   const user = await this.findOne({
-    email: String(email || "").toLowerCase().trim(),
+    email: normalizeEmail(email),
     passwordResetOTP: { $exists: true, $ne: null },
     passwordResetExpires: { $gt: Date.now() },
   });
@@ -142,7 +138,7 @@ UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
 
 UserShema.statics.findByEmailAndValidVerificationOtp = async function (email, otp) {
   const user = await this.findOne({
-    email: String(email || "").toLowerCase().trim(),
+    email: normalizeEmail(email),
     isEmailVerified: false,
     emailVerificationOTP: { $exists: true, $ne: null },
     emailVerificationExpires: { $gt: Date.now() },
@@ -155,7 +151,7 @@ UserShema.statics.findByEmailAndValidVerificationOtp = async function (email, ot
 
 UserShema.statics.findByEmailAndVerifiedReset = async function (email) {
   return this.findOne({
-    email: String(email || "").toLowerCase().trim(),
+    email: normalizeEmail(email),
     passwordResetVerifiedUntil: { $gt: Date.now() },
   });
 };

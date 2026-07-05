@@ -111,9 +111,6 @@ export async function createCheckoutSession({
     ...(couponFound && { coupon: couponFound.code }),
   })
 
-  user.orders.push(order._id)
-  await user.save()
-
   const convertedOrders = validatedItems.map((item) => {
     const discountedPrice =
       discountRate > 0

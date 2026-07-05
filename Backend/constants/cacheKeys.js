@@ -47,6 +47,7 @@ export function productsListCacheKey(query) {
     color: parseColorFilterQuery(query.color).sort().join('|'),
     size: query.size || '',
     price: query.price || '',
+    inStock: query.inStock === true || query.inStock === 'true' ? '1' : '',
   }
   const hash = crypto
     .createHash('sha256')

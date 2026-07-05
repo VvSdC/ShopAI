@@ -1,6 +1,7 @@
 import Product from '../model/Product.js'
 import { AppError } from '../utils/appError.js'
 import { enrichProductsWithCategoryNames } from '../utils/categoryRef.js'
+import { enrichProductsWithBrandNames } from '../utils/brandRef.js'
 import { mapProductSearchResult } from './productSearch.js'
 import { vectorSearch } from './search/vectorSearch.js'
 
@@ -57,7 +58,9 @@ export async function getSimilarProducts(productId, { limit = 8 } = {}) {
     mode = products.length ? 'category_fallback' : 'none'
   }
 
-  const enriched = await enrichProductsWithCategoryNames(products)
+  const enriched = await enrichProductsWithBrandNames(
+    await enrichProductsWithCategoryNames(products)
+  )
   const mapped = enriched.map(mapProductSearchResult)
 
   return {

@@ -1,5 +1,6 @@
 import Wishlist from '../model/Wishlist.js'
 import Product from '../model/Product.js'
+import { brandDisplayName, enrichProductsWithBrandNames } from '../utils/brandRef.js'
 import { AppError } from '../utils/appError.js'
 
 export function productIdKey(id) {
@@ -30,11 +31,12 @@ async function loadProductMap(productIds) {
   const ids = [...new Set(productIds.map(productIdKey).filter(Boolean))]
   if (!ids.length) return {}
 
-  const products = await Product.find({ _id: { $in: ids } }).select(
-    'name price images brand totalQty totalSold'
-  )
+  const products = await Product.find({ _id: { $in: ids } })
+    .select('name price images brand totalQty totalSold')
+    .lean()
+  const enriched = await enrichProductsWithBrandNames(products)
   const map = {}
-  for (const product of products) {
+  for (const product of enriched) {
     map[productIdKey(product._id)] = product
   }
   return map
@@ -46,7 +48,7 @@ function snapshotFromProduct(product) {
     name: product.name,
     price: product.price,
     image: product.images?.[0] || '',
-    brand: product.brand || '',
+    brand: brandDisplayName(product.brand) || '',
   }
 }
 
@@ -66,7 +68,7 @@ async function refreshWishlistFromCatalog(wishlist) {
       name: product.name,
       price: product.price,
       image: product.images?.[0] || item.image || '',
-      brand: product.brand || item.brand || '',
+      brand: brandDisplayName(product.brand) || item.brand || '',
     }
     nextStored.push(stored)
     nextFormatted.push({ ...stored, qtyLeft, inStock: qtyLeft > 0 })
@@ -117,12 +119,13 @@ export async function getWishlist(userId) {
 }
 
 export async function addWishlistItem(userId, productId) {
-  const product = await Product.findById(productId).select(
-    'name price images brand totalQty totalSold'
-  )
+  const product = await Product.findById(productId)
+    .select('name price images brand totalQty totalSold')
+    .lean()
   if (!product) {
     throw new AppError('Product not found', 404)
   }
+  const [enriched] = await enrichProductsWithBrandNames([product])
 
   const wishlist = await findOrCreateWishlist(userId)
   const key = productIdKey(productId)
@@ -131,7 +134,7 @@ export async function addWishlistItem(userId, productId) {
     return getWishlist(userId)
   }
 
-  wishlist.items.push(snapshotFromProduct(product))
+  wishlist.items.push(snapshotFromProduct(enriched))
   await wishlist.save()
   return getWishlist(userId)
 }

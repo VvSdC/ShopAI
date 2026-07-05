@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   ArrowLeftIcon,
+  EyeIcon,
   HeartIcon,
-  ShoppingBagIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import {
@@ -67,8 +67,8 @@ function WishlistCard({ item, onRemove }) {
             to={productPath}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
-            <ShoppingBagIcon className="h-4 w-4" />
-            {outOfStock ? 'View product' : 'Add to cart'}
+            <EyeIcon className="h-4 w-4" />
+            View product
           </Link>
         </div>
       </div>

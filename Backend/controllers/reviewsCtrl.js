@@ -4,6 +4,7 @@ import Review from "../model/Review.js";
 import User from "../model/User.js";
 import { AppError } from "../utils/appError.js";
 import { moderateReviewInBackground } from "../services/moderationQueue.js";
+import { userHasDeliveredPurchase } from "../services/reviewPurchaseVerification.js";
 
 // @desc    Create new review
 // @route   POST /api/v1/reviews/:productID
@@ -31,11 +32,17 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
     throw new Error("You have already reviewed this product");
   }
 
+  const verifiedPurchase = await userHasDeliveredPurchase(
+    req.userAuthId,
+    productFound._id
+  );
+
   const review = await Review.create({
     message,
     rating,
     product: productFound._id,
     user: req.userAuthId,
+    verifiedPurchase,
   });
 
   await Product.findByIdAndUpdate(productID, {
@@ -67,6 +74,10 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
   review.moderationStatus = "pending";
   review.moderationReason = "";
   review.tags = [];
+  review.verifiedPurchase = await userHasDeliveredPurchase(
+    req.userAuthId,
+    review.product
+  );
   await review.save();
 
   moderateReviewInBackground(review._id);

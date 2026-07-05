@@ -2,6 +2,7 @@ import rateLimit from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
 import { config } from './env.js'
 import { getRateLimitRedisClient, isRedisOperational } from './redisClient.js'
+import { normalizeEmail } from '../utils/normalizeEmail.js'
 
 function shouldUseRedisStore() {
   return isRedisOperational()
@@ -47,6 +48,28 @@ export function chatGuestRateLimitKey(req) {
   return `guest:${ip}`
 }
 
+function clientIp(req) {
+  return req.ip || req.socket?.remoteAddress || 'unknown'
+}
+
+/** Per-email key for OTP verify/reset; falls back to IP when email is missing. */
+export function otpConsumeRateLimitKey(req) {
+  const email = normalizeEmail(req.body?.email)
+  if (email) {
+    return `otp-consume:email:${email}`
+  }
+  return `otp-consume:ip:${clientIp(req)}`
+}
+
+/** Per-email key for OTP issuance; falls back to IP when email is missing. */
+export function otpResendRateLimitKey(req) {
+  const email = normalizeEmail(req.body?.email)
+  if (email) {
+    return `otp-resend:email:${email}`
+  }
+  return `otp-resend:ip:${clientIp(req)}`
+}
+
 if (shouldUseRedisStore()) {
   console.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
@@ -63,6 +86,28 @@ export const authLimiter = buildLimiter('auth', {
   windowMs: config.rateLimit.auth.windowMs,
   max: config.rateLimit.auth.max,
   message: { message: 'Too many login attempts, please try again later.' },
+})
+
+/** Limits wrong OTP guesses per email (verify-otp, reset-password, verify-email). */
+export const otpConsumeLimiter = buildLimiter('otp-consume', {
+  windowMs: config.rateLimit.otpConsume.windowMs,
+  max: config.rateLimit.otpConsume.max,
+  keyGenerator: otpConsumeRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    message: 'Too many OTP attempts for this email. Please try again in 15 minutes.',
+  },
+})
+
+/** Limits how often new OTPs can be requested (forgot-password, resend-verification). */
+export const otpResendLimiter = buildLimiter('otp-resend', {
+  windowMs: config.rateLimit.otpResend.windowMs,
+  max: config.rateLimit.otpResend.max,
+  keyGenerator: otpResendRateLimitKey,
+  validate: { keyGeneratorIpFallback: false },
+  message: {
+    message: 'Too many OTP requests for this email. Please try again later.',
+  },
 })
 
 export const chatLimiter = buildLimiter('chat', {

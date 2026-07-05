@@ -32,11 +32,13 @@ describe('rateLimiters', () => {
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
           chatDaily: { windowMs: 86_400_000, max: 150 },
+          otpConsume: { windowMs: 900_000, max: 10 },
+          otpResend: { windowMs: 900_000, max: 5 },
         },
       },
     }))
 
-    const { apiLimiter, authLimiter, chatLimiter, chatUserLimiter, chatUserDailyLimiter } =
+    const { apiLimiter, authLimiter, chatLimiter, chatUserLimiter, chatUserDailyLimiter, otpConsumeLimiter, otpResendLimiter } =
       await import('../../config/rateLimiters.js')
 
     expect(getRateLimitRedisClient).toHaveBeenCalled()
@@ -45,6 +47,8 @@ describe('rateLimiters', () => {
     expect(chatLimiter).toBeDefined()
     expect(chatUserLimiter).toBeDefined()
     expect(chatUserDailyLimiter).toBeDefined()
+    expect(otpConsumeLimiter).toBeDefined()
+    expect(otpResendLimiter).toBeDefined()
   })
 
   it('falls back to in-memory stores when Redis is not configured', async () => {
@@ -61,6 +65,8 @@ describe('rateLimiters', () => {
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
           chatDaily: { windowMs: 86_400_000, max: 150 },
+          otpConsume: { windowMs: 900_000, max: 10 },
+          otpResend: { windowMs: 900_000, max: 5 },
         },
       },
     }))
@@ -83,6 +89,8 @@ describe('rateLimiters', () => {
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
           chatDaily: { windowMs: 86_400_000, max: 150 },
+          otpConsume: { windowMs: 900_000, max: 10 },
+          otpResend: { windowMs: 900_000, max: 5 },
         },
       },
     }))
@@ -105,6 +113,8 @@ describe('rateLimiters', () => {
           auth: { windowMs: 900_000, max: 15 },
           chat: { windowMs: 60_000, max: 15 },
           chatDaily: { windowMs: 86_400_000, max: 150 },
+          otpConsume: { windowMs: 900_000, max: 10 },
+          otpResend: { windowMs: 900_000, max: 5 },
         },
       },
     }))
@@ -113,5 +123,36 @@ describe('rateLimiters', () => {
 
     expect(chatGuestRateLimitKey({ ip: '1.2.3.4' })).toBe('guest:1.2.3.4')
     expect(chatGuestRateLimitKey({ socket: { remoteAddress: '::1' } })).toBe('guest:::1')
+  })
+
+  it('keys OTP consumption limits on normalized email', async () => {
+    const { isRedisOperational } = await import('../../config/redisClient.js')
+    isRedisOperational.mockReturnValue(false)
+
+    vi.doMock('../../config/env.js', () => ({
+      config: {
+        isTest: false,
+        rateLimit: {
+          api: { windowMs: 900_000, max: 200 },
+          auth: { windowMs: 900_000, max: 15 },
+          chat: { windowMs: 60_000, max: 15 },
+          chatDaily: { windowMs: 86_400_000, max: 150 },
+          otpConsume: { windowMs: 900_000, max: 10 },
+          otpResend: { windowMs: 900_000, max: 5 },
+        },
+      },
+    }))
+
+    const { otpConsumeRateLimitKey, otpResendRateLimitKey } = await import(
+      '../../config/rateLimiters.js'
+    )
+
+    expect(
+      otpConsumeRateLimitKey({ body: { email: '  User@Example.COM ' }, ip: '9.9.9.9' })
+    ).toBe('otp-consume:email:user@example.com')
+    expect(otpConsumeRateLimitKey({ body: {}, ip: '9.9.9.9' })).toBe('otp-consume:ip:9.9.9.9')
+    expect(
+      otpResendRateLimitKey({ body: { email: 'Resend@Test.com' }, ip: '8.8.8.8' })
+    ).toBe('otp-resend:email:resend@test.com')
   })
 })

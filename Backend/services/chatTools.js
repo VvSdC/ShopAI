@@ -2,10 +2,11 @@ import logger from '../utils/logger.js'
 import Product from '../model/Product.js'
 import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
+import { brandDisplayName, enrichProductsWithBrandNames } from '../utils/brandRef.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import {
-  countProductsByBrandName,
+  countProductsByBrandId,
   countProductsByCategoryId,
 } from './catalogProductCounts.js'
 import Coupon from '../model/Coupon.js'
@@ -494,22 +495,23 @@ const toolExecutors = {
 
     if (!product) return { error: 'Product not found.' }
 
-    const id = String(product._id)
+    const [productWithBrand] = await enrichProductsWithBrandNames([product.toObject()])
+    const id = String(productWithBrand._id)
     return {
       id,
-      name: product.name,
-      description: product.description,
-      brand: product.brand,
-      category: categoryDisplayName(product.category),
-      price: product.price,
-      inStock: product.totalQty - product.totalSold > 0,
-      qtyLeft: product.totalQty - product.totalSold,
-      colors: product.colors,
-      sizes: product.sizes,
-      sizeMeasurementType: product.sizeMeasurementType || 'apparel',
-      sizeLabel: product.sizeLabel || '',
-      images: product.images,
-      totalReviews: product.reviews?.length || 0,
+      name: productWithBrand.name,
+      description: productWithBrand.description,
+      brand: brandDisplayName(productWithBrand.brand),
+      category: categoryDisplayName(productWithBrand.category),
+      price: productWithBrand.price,
+      inStock: productWithBrand.totalQty - productWithBrand.totalSold > 0,
+      qtyLeft: productWithBrand.totalQty - productWithBrand.totalSold,
+      colors: productWithBrand.colors,
+      sizes: productWithBrand.sizes,
+      sizeMeasurementType: productWithBrand.sizeMeasurementType || 'apparel',
+      sizeLabel: productWithBrand.sizeLabel || '',
+      images: productWithBrand.images,
+      totalReviews: productWithBrand.reviews?.length || 0,
       productUrl: `/products/${id}`,
     }
   },
@@ -541,11 +543,11 @@ const toolExecutors = {
   async get_brands() {
     const [brands, counts] = await Promise.all([
       Brand.find().select('name').lean(),
-      countProductsByBrandName(),
+      countProductsByBrandId(),
     ])
     return brands.map((b) => ({
       name: b.name,
-      productCount: counts.get(b.name) || 0,
+      productCount: counts.get(String(b._id)) || 0,
     }))
   },
 

@@ -1,41 +1,37 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { SparklesIcon } from '@heroicons/react/24/outline'
-import axiosInstance from '../../../utils/axiosInstance'
+import { fetchSimilarProductsAction } from '../../../redux/slices/products/productSlices'
 import Products from './Products'
 
 export default function SimilarProductsSection({ productId }) {
-  const [products, setProducts] = useState([])
-  const [mode, setMode] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const dispatch = useDispatch()
+  const productKey = productId ? String(productId) : ''
+
+  const { similarByProductId, similarFetching, similarFetchKey } = useSelector(
+    (state) => state?.products ?? {}
+  )
+
+  const cached = productKey ? similarByProductId?.[productKey] : null
+  const products = cached?.products ?? []
+  const mode = cached?.mode ?? null
+  const loading =
+    Boolean(productKey) &&
+    !cached &&
+    similarFetching &&
+    similarFetchKey === productKey
 
   useEffect(() => {
-    if (!productId) {
-      setProducts([])
-      setLoading(false)
-      return
+    if (!productKey) return
+    dispatch(fetchSimilarProductsAction({ productId: productKey }))
+  }, [dispatch, productKey])
+
+  const subtitle = useMemo(() => {
+    if (mode === 'vector_neighbors') {
+      return 'Grounded recommendations from our product catalog — matched by meaning, not guesswork.'
     }
-
-    let cancelled = false
-    setLoading(true)
-
-    axiosInstance
-      .get(`/products/${productId}/similar`, { params: { limit: 8 } })
-      .then(({ data }) => {
-        if (cancelled) return
-        setProducts(Array.isArray(data?.products) ? data.products : [])
-        setMode(data?.mode || null)
-      })
-      .catch(() => {
-        if (!cancelled) setProducts([])
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [productId])
+    return 'More from this category while we finish indexing embeddings.'
+  }, [mode])
 
   if (loading) {
     return (
@@ -66,11 +62,7 @@ export default function SimilarProductsSection({ productId }) {
           <h2 id="similar-products-heading" className="mt-1 text-xl font-bold text-stone-900 sm:text-2xl">
             You may also like
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-stone-600">
-            {mode === 'vector_neighbors'
-              ? 'Grounded recommendations from our product catalog — matched by meaning, not guesswork.'
-              : 'More from this category while we finish indexing embeddings.'}
-          </p>
+          <p className="mt-1 max-w-2xl text-sm text-stone-600">{subtitle}</p>
         </div>
       </div>
       <Products products={products} />

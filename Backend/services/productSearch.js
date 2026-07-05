@@ -1,5 +1,6 @@
 import { categoryDisplayName } from '../utils/categoryRef.js'
-import { brandMongoCondition, mongoInCondition } from '../utils/parseBrandFilter.js'
+import { brandDisplayName } from '../utils/brandRef.js'
+import { mongoInCondition } from '../utils/parseBrandFilter.js'
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -17,7 +18,7 @@ export function buildProductSearchFilter(args) {
           $or: [
             { name: { $regex: escaped, $options: 'i' } },
             { description: { $regex: escaped, $options: 'i' } },
-            { brand: { $regex: escaped, $options: 'i' } },
+            { searchDocument: { $regex: escaped, $options: 'i' } },
             { tags: { $regex: escaped, $options: 'i' } },
           ],
         }
@@ -36,11 +37,10 @@ export function buildProductSearchFilter(args) {
   if (args.categoryId) {
     conditions.push({ category: args.categoryId })
   }
-  if (args.brands?.length) {
-    const brandMatch = brandMongoCondition(args.brands)
-    if (brandMatch) conditions.push({ brand: brandMatch })
-  } else if (args.brand) {
-    conditions.push({ brand: { $regex: escapeRegex(args.brand), $options: 'i' } })
+  if (args.brandIds?.length) {
+    const brandMatch =
+      args.brandIds.length === 1 ? args.brandIds[0] : { $in: args.brandIds }
+    conditions.push({ brand: brandMatch })
   }
   if (args.colors?.length) {
     const colorMatch = mongoInCondition(args.colors)
@@ -69,7 +69,7 @@ export function scoreProductForQuery(product, query) {
   const name = (product.name || '').toLowerCase()
   const description = (product.description || '').toLowerCase()
   const tagsText = (product.tags || []).join(' ').toLowerCase()
-  const brand = (product.brand || '').toLowerCase()
+  const brand = brandDisplayName(product.brand).toLowerCase()
   const category = categoryDisplayName(product.category).toLowerCase()
 
   let score = 0
@@ -160,7 +160,7 @@ export function mapProductSearchResult(product) {
     id,
     _id: product._id,
     name: product.name,
-    brand: product.brand,
+    brand: brandDisplayName(product.brand),
     category: categoryDisplayName(product.category),
     price: product.price,
     description: product.description,
