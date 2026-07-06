@@ -10,40 +10,41 @@ import {
   validateCartStock,
   clearCart,
 } from '../services/cartService.js'
+import { withCartIdempotency } from '../middlewares/cartIdempotency.js'
 
 export const getCartCtrl = asyncHandler(async (req, res) => {
   const cart = await getCart(req.userAuthId)
   res.json({ status: 'success', cart })
 })
 
-export const addCartItemCtrl = asyncHandler(async (req, res) => {
+export const addCartItemCtrl = withCartIdempotency(async (req) => {
   const cart = await addItem(req.userAuthId, req.body)
-  res.json({ status: 'success', message: 'Item added to cart', cart })
+  return { status: 'success', message: 'Item added to cart', cart }
 })
 
-export const updateCartItemCtrl = asyncHandler(async (req, res) => {
+export const updateCartItemCtrl = withCartIdempotency(async (req) => {
   const cart = await updateItemQty(req.userAuthId, req.body)
-  res.json({ status: 'success', message: 'Cart updated', cart })
+  return { status: 'success', message: 'Cart updated', cart }
 })
 
-export const removeCartItemCtrl = asyncHandler(async (req, res) => {
+export const removeCartItemCtrl = withCartIdempotency(async (req) => {
   const cart = await removeItem(req.userAuthId, req.body)
-  res.json({ status: 'success', message: 'Item removed from cart', cart })
+  return { status: 'success', message: 'Item removed from cart', cart }
 })
 
-export const applyCartCouponCtrl = asyncHandler(async (req, res) => {
+export const applyCartCouponCtrl = withCartIdempotency(async (req) => {
   const cart = await applyCoupon(req.userAuthId, req.body.code)
-  res.json({ status: 'success', message: 'Coupon applied', cart })
+  return { status: 'success', message: 'Coupon applied', cart }
 })
 
-export const removeCartCouponCtrl = asyncHandler(async (req, res) => {
+export const removeCartCouponCtrl = withCartIdempotency(async (req) => {
   const cart = await removeCoupon(req.userAuthId)
-  res.json({ status: 'success', message: 'Coupon removed', cart })
+  return { status: 'success', message: 'Coupon removed', cart }
 })
 
-export const syncCartCtrl = asyncHandler(async (req, res) => {
+export const syncCartCtrl = withCartIdempotency(async (req) => {
   const cart = await syncLocalItems(req.userAuthId, req.body.items || [])
-  res.json({ status: 'success', message: 'Cart synced', cart })
+  return { status: 'success', message: 'Cart synced', cart }
 })
 
 export const validateServerCartCtrl = asyncHandler(async (req, res) => {
@@ -51,7 +52,7 @@ export const validateServerCartCtrl = asyncHandler(async (req, res) => {
   res.json({ status: 'success', ...result })
 })
 
-export const clearCartCtrl = asyncHandler(async (req, res) => {
+export const clearCartCtrl = withCartIdempotency(async (req) => {
   const cart = await clearCart(req.userAuthId)
-  res.json({ status: 'success', message: 'Cart cleared', cart })
+  return { status: 'success', message: 'Cart cleared', cart }
 })

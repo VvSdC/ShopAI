@@ -1,6 +1,8 @@
 import EvalJob from '../model/EvalJob.js'
 
 const MAX_JOBS = 20
+/** No heartbeat while queued/running for this long → mark failed (process crash / lost worker). */
+export const STALE_EVAL_JOB_MS = 15 * 60 * 1000
 
 function mapEvalJob(doc) {
   if (!doc) return null
@@ -17,7 +19,39 @@ function mapEvalJob(doc) {
     error: row.error ?? null,
     startedAt: row.startedAt?.toISOString?.() || row.startedAt,
     finishedAt: row.finishedAt?.toISOString?.() || row.finishedAt || null,
+    lastHeartbeatAt: row.lastHeartbeatAt?.toISOString?.() || row.lastHeartbeatAt || null,
   }
+}
+
+function heartbeatAt(job) {
+  return job?.lastHeartbeatAt || job?.updatedAt || job?.startedAt
+}
+
+export async function reconcileStaleEvalJob(doc) {
+  if (!doc) return null
+  const row = doc.toObject ? doc.toObject() : doc
+  if (!['queued', 'running'].includes(row.status)) return doc
+
+  const lastSeen = heartbeatAt(row)
+  if (!lastSeen) return doc
+
+  const staleForMs = Date.now() - new Date(lastSeen).getTime()
+  if (staleForMs <= STALE_EVAL_JOB_MS) return doc
+
+  const updated = await EvalJob.findOneAndUpdate(
+    { jobId: row.jobId, status: { $in: ['queued', 'running'] } },
+    {
+      $set: {
+        status: 'failed',
+        error: 'Evaluation job timed out or was interrupted before completion',
+        finishedAt: new Date(),
+        lastHeartbeatAt: new Date(),
+      },
+    },
+    { new: true }
+  )
+
+  return updated || doc
 }
 
 async function trimOldJobs() {
@@ -38,6 +72,7 @@ async function trimOldJobs() {
 export async function createChatEvalJob(userId) {
   await trimOldJobs()
 
+  const now = new Date()
   const doc = await EvalJob.create({
     user: userId,
     status: 'queued',
@@ -47,8 +82,9 @@ export async function createChatEvalJob(userId) {
     results: [],
     summary: null,
     error: null,
-    startedAt: new Date(),
+    startedAt: now,
     finishedAt: null,
+    lastHeartbeatAt: now,
   })
 
   return mapEvalJob(doc)
@@ -56,13 +92,20 @@ export async function createChatEvalJob(userId) {
 
 export async function getChatEvalJob(jobId, userId) {
   const doc = await EvalJob.findOne({ jobId, user: userId })
-  return mapEvalJob(doc)
+  const reconciled = await reconcileStaleEvalJob(doc)
+  return mapEvalJob(reconciled)
 }
 
 export async function patchChatEvalJob(jobId, patch) {
   const update = { ...patch }
   if (patch.finishedAt && typeof patch.finishedAt === 'string') {
     update.finishedAt = new Date(patch.finishedAt)
+  }
+  if (patch.lastHeartbeatAt && typeof patch.lastHeartbeatAt === 'string') {
+    update.lastHeartbeatAt = new Date(patch.lastHeartbeatAt)
+  }
+  if (update.lastHeartbeatAt == null && ['queued', 'running'].includes(update.status)) {
+    update.lastHeartbeatAt = new Date()
   }
 
   const doc = await EvalJob.findOneAndUpdate({ jobId }, { $set: update }, { new: true })

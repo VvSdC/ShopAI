@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
-import ErrorMsg from "../../ErrorMsg/ErrorMsg";
+import { getOrderDisplayStatus, getOrderDisplayStatusColor } from "../../../utils/orderDisplay";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
 import OrdersStats from "./OrdersStatistics";
@@ -101,7 +101,14 @@ export default function OrdersList() {
                     </td>
                     <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{order.paymentStatus}</td>
                     <td className="hidden px-3 py-4 text-sm text-stone-500 lg:table-cell">{new Date(order?.createdAt).toLocaleDateString()}</td>
-                    <td className="hidden px-3 py-4 text-sm text-stone-500 sm:table-cell">{order?.status}</td>
+                    <td className="hidden px-3 py-4 text-sm text-stone-500 sm:table-cell">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getOrderDisplayStatusColor(order)}`}
+                        title={`Fulfillment: ${getOrderDisplayStatus(order).fulfillmentStatus}`}
+                      >
+                        {getOrderDisplayStatus(order).displayStatusLabel}
+                      </span>
+                    </td>
                     <td className="px-3 py-4 text-sm text-stone-500">{order?.totalPrice}</td>
                     <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                       <Link to={`/admin/orders/${order?._id}`} className="text-indigo-600 hover:text-indigo-900">Edit</Link>

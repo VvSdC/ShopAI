@@ -73,7 +73,7 @@ export async function getSimilarProducts(productId, { limit = 8 } = {}) {
       mode === 'vector_neighbors'
         ? 'Matched using stored product embeddings — same semantic index as ShopAI search.'
         : mode === 'category_fallback'
-          ? 'Matched from the same category while embeddings are still indexing.'
+          ? 'Matched from the same category.'
           : 'No similar products found yet.',
   }
 }

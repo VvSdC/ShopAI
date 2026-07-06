@@ -29,6 +29,8 @@ const EvalJobSchema = new mongoose.Schema(
     error: { type: String, default: null },
     startedAt: { type: Date, default: Date.now },
     finishedAt: { type: Date, default: null },
+    /** Updated on each progress patch while running — used to detect stale jobs. */
+    lastHeartbeatAt: { type: Date, default: null },
   },
   { timestamps: true }
 )

@@ -14,6 +14,7 @@ import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
 import { AppError } from '../utils/appError.js'
 import logger from '../utils/logger.js'
+import { enrichOrderForResponse, enrichOrdersForResponse } from './orderEnrichment.js'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
 
@@ -72,7 +73,7 @@ export class OrderService {
     }
     const user = await User.findById(userId).select('isAdmin')
     this.assertUserCanAccess(order, userId, { isAdmin: user?.isAdmin })
-    return order
+    return enrichOrderForResponse(order)
   }
 
   async findForUser(userId, orderId) {
@@ -110,7 +111,7 @@ export class OrderService {
     ])
 
     return {
-      orders,
+      orders: await enrichOrdersForResponse(orders),
       pagination: {
         page: safePage,
         limit: safeLimit,
@@ -146,7 +147,7 @@ export class OrderService {
       hasMore && orders.length ? encodeOrderCursor(orders[orders.length - 1]) : null
 
     return {
-      orders,
+      orders: await enrichOrdersForResponse(orders),
       pagination: {
         limit: safeLimit,
         total,
@@ -209,7 +210,9 @@ export class OrderService {
       update.deliveredAt = order.deliveredAt || new Date()
     }
 
-    return Order.findByIdAndUpdate(orderId, update, { new: true })
+    return enrichOrderForResponse(
+      await Order.findByIdAndUpdate(orderId, update, { new: true })
+    )
   }
 
   async restoreStockForCancelledItems(items) {
@@ -270,7 +273,7 @@ export class OrderService {
     await order.save()
 
     return {
-      order,
+      order: await enrichOrderForResponse(order),
       refundAmount,
       stripeRefundId,
       message:

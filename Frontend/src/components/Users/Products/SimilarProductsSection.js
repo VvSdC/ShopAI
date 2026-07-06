@@ -30,7 +30,10 @@ export default function SimilarProductsSection({ productId }) {
     if (mode === 'vector_neighbors') {
       return 'Grounded recommendations from our product catalog — matched by meaning, not guesswork.'
     }
-    return 'More from this category while we finish indexing embeddings.'
+    if (mode === 'category_fallback') {
+      return 'Popular picks in this category.'
+    }
+    return null
   }, [mode])
 
   if (loading) {
@@ -62,7 +65,9 @@ export default function SimilarProductsSection({ productId }) {
           <h2 id="similar-products-heading" className="mt-1 text-xl font-bold text-stone-900 sm:text-2xl">
             You may also like
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-stone-600">{subtitle}</p>
+          {subtitle ? (
+            <p className="mt-1 max-w-2xl text-sm text-stone-600">{subtitle}</p>
+          ) : null}
         </div>
       </div>
       <Products products={products} />

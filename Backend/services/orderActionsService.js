@@ -6,6 +6,8 @@ import {
   createReturnRequest,
 } from './returnService.js'
 import { normalizeOrderItems } from './orderLineItems.js'
+import { resolveOrderDisplayStatus } from '../utils/orderDisplayStatus.js'
+import { enrichOrderForResponse } from './orderEnrichment.js'
 
 export async function resolveOrderForUser(userId, { order_id, order_number }) {
   return orderService.findByReference(userId, { order_id, order_number })
@@ -24,6 +26,10 @@ export function getOrderCancelReturnStatus(order) {
     paymentStatus: order.paymentStatus,
     totalPrice: order.totalPrice,
     deliveredAt: order.deliveredAt || null,
+    refundStatus: order.refundStatus || 'none',
+    ...resolveOrderDisplayStatus(order, {
+      returnRequestStatus: order.returnRequestStatus || null,
+    }),
     items: normalizeOrderItems(order.orderItems).map((item) => ({
       name: item.name,
       qty: item.qty,

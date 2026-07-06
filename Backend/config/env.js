@@ -89,6 +89,7 @@ export const config = {
     moderationQueueConcurrency: envInt('MODERATION_QUEUE_CONCURRENCY', 5),
     productTaggingQueueEnabled: envBool('ENABLE_PRODUCT_TAGGING_QUEUE', false),
     emailQueueEnabled: envBool('ENABLE_EMAIL_QUEUE', false),
+    chatEvalQueueEnabled: envBool('ENABLE_CHAT_EVAL_QUEUE', false),
     // Default false in production — run `node worker.js` as a separate process.
     runQueueWorkersInApi: envBool(
       'RUN_QUEUE_WORKERS_IN_API',
