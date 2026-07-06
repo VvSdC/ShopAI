@@ -1,12 +1,11 @@
 import asyncHandler from 'express-async-handler'
 import Product from '../model/Product.js'
-import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
-import Review from '../model/Review.js'
+import { loadPublicReviewsForProduct } from '../services/productReviews.js'
 import { tagProductInBackground } from '../services/productTaggingQueue.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
-import { searchProducts } from '../services/search/searchService.js'
+import { searchProducts, searchProductSuggestions } from '../services/search/searchService.js'
 import { getSimilarProducts } from '../services/similarProductsService.js'
-import { mapProductsForList } from '../services/productListStats.js'
+import { mapProductsForList, reviewStatsByProductIds } from '../services/productListStats.js'
 import { resolveCategoryId, categoryDisplayName } from '../utils/categoryRef.js'
 import {
   resolveBrandId,
@@ -278,6 +277,40 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
   res.json(data)
 })
 
+// @desc    Product search typeahead suggestions (keyword-only)
+// @route   GET /shopai/products/suggestions
+// @access  Public
+export const getProductSuggestionsCtrl = asyncHandler(async (req, res) => {
+  const query = req.query.q?.trim() || ''
+  const limit = parseInt(req.query.limit, 10) || 6
+  const selectedBrands = parseBrandFilterQuery(req.query.brand)
+  const selectedColors = parseColorFilterQuery(req.query.color)
+
+  const searchArgs = {
+    query,
+    category: req.query.category,
+    brands: selectedBrands,
+    colors: selectedColors,
+    size: req.query.size,
+    inStock: req.query.inStock === 'true',
+    limit,
+  }
+
+  if (req.query.price) {
+    const priceRange = req.query.price.split('-').map((n) => Number(n.trim()))
+    if (priceRange[0] >= 0) searchArgs.min_price = priceRange[0]
+    if (priceRange[1] >= 0) searchArgs.max_price = priceRange[1]
+  }
+
+  const { suggestions } = await searchProductSuggestions(searchArgs)
+
+  res.json({
+    status: 'success',
+    query,
+    suggestions,
+  })
+})
+
 // @desc    Products created by the current admin (audit field)
 // @route   GET /shopai/products/mine
 // @access  Private/Admin
@@ -321,24 +354,30 @@ export const getMyProductsCtrl = asyncHandler(async (req, res) => {
 // @access  Public
 
 export const getProductCtrl = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id)
-    .populate('category', 'name')
-    .populate({
-      path: 'reviews',
-      match: PUBLIC_REVIEW_MATCH,
-      populate: {
-        path: 'user',
-        select: 'fullname',
-      },
-    })
+  const product = await Product.findById(req.params.id).populate('category', 'name')
   if (!product) {
     throw new AppError('Product not found', 404)
   }
-  const [productWithBrand] = await enrichProductsWithBrandNames([product.toObject({ virtuals: true })])
+
+  const [reviews, statsMap, [productWithBrand]] = await Promise.all([
+    loadPublicReviewsForProduct(product._id),
+    reviewStatsByProductIds([product._id]),
+    enrichProductsWithBrandNames([product.toObject({ virtuals: true })]),
+  ])
+  const reviewStats = statsMap.get(String(product._id)) || {
+    totalReviews: 0,
+    averageRating: 0,
+  }
+
   res.json({
     status: 'success',
     message: 'Product fetched successfully',
-    product: flattenProductRefs(productWithBrand),
+    product: flattenProductRefs({
+      ...productWithBrand,
+      reviews,
+      totalReviews: reviewStats.totalReviews,
+      averageRating: reviewStats.averageRating,
+    }),
   })
 })
 

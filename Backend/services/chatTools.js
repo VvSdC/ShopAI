@@ -1,8 +1,8 @@
 import logger from '../utils/logger.js'
 import Product from '../model/Product.js'
-import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
 import { brandDisplayName, enrichProductsWithBrandNames } from '../utils/brandRef.js'
+import { reviewStatsByProductIds } from './productListStats.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import {
@@ -491,11 +491,12 @@ const toolExecutors = {
         'name description brand category price totalQty totalSold colors sizes sizeMeasurementType sizeLabel images'
       )
       .populate('category', 'name')
-      .populate({ path: 'reviews', match: PUBLIC_REVIEW_MATCH })
 
     if (!product) return { error: 'Product not found.' }
 
     const [productWithBrand] = await enrichProductsWithBrandNames([product.toObject()])
+    const statsMap = await reviewStatsByProductIds([product._id])
+    const reviewStats = statsMap.get(String(product._id)) || { totalReviews: 0 }
     const id = String(productWithBrand._id)
     return {
       id,
@@ -511,7 +512,7 @@ const toolExecutors = {
       sizeMeasurementType: productWithBrand.sizeMeasurementType || 'apparel',
       sizeLabel: productWithBrand.sizeLabel || '',
       images: productWithBrand.images,
-      totalReviews: productWithBrand.reviews?.length || 0,
+      totalReviews: reviewStats.totalReviews,
       productUrl: `/products/${id}`,
     }
   },

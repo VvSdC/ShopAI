@@ -57,8 +57,6 @@ describe('DELETE /shopai/users/delete-account', () => {
       rating: 4,
       moderationStatus: 'approved',
     })
-    product.reviews = [review._id, otherReview._id]
-    await product.save()
 
     await Cart.create({
       user: user._id,
@@ -125,9 +123,6 @@ describe('DELETE /shopai/users/delete-account', () => {
     expect(await Review.findById(review._id)).toBeNull()
     expect(await Review.findById(otherReview._id)).toBeTruthy()
     expect(await ReturnRequest.findOne({ user: user._id })).toBeNull()
-
-    const reloadedProduct = await Product.findById(product._id)
-    expect(reloadedProduct.reviews.map(String)).toEqual([String(otherReview._id)])
 
     const reloadedOrder = await Order.findById(order._id)
     expect(reloadedOrder).toBeTruthy()

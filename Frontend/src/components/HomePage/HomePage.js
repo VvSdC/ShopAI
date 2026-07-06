@@ -18,6 +18,7 @@ import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
 import HomeAiAssistantPromo from './HomeAiAssistantPromo'
 import Reveal from './Reveal'
+import PageSeo from '../common/PageSeo'
 
 const trustItems = [
   { name: 'Easy returns', icon: ArrowPathIcon },
@@ -49,6 +50,11 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-full flex-col bg-stone-50">
+      <PageSeo
+        title="AI-powered shopping across India"
+        description="Discover products, personalized recommendations, and secure checkout on ShopAI."
+        path="/"
+      />
       {/* Hero */}
       <section className="relative shrink-0 overflow-hidden bg-stone-900">
         <div className="absolute inset-0">

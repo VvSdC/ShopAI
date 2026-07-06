@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url'
 import mongoose from 'mongoose'
 import { config } from '../config/env.js'
 import { runLlmUsageSummaryAggregation } from '../services/llmUsageSummaryService.js'
+import logger from '../utils/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
@@ -20,9 +21,9 @@ const backfillDays = Number.isNaN(daysArg)
   : Math.min(Math.max(daysArg, 1), 90)
 
 await mongoose.connect(config.db.mongoUrl)
-console.log(`Backfilling LLM usage summaries for the last ${backfillDays} day(s)...`)
+logger.log(`Backfilling LLM usage summaries for the last ${backfillDays} day(s)...`)
 
 const result = await runLlmUsageSummaryAggregation({ backfillDays })
-console.log(`Done: ${result.updated} non-empty day/source rows across ${result.days} day(s)`)
+logger.log(`Done: ${result.updated} non-empty day/source rows across ${result.days} day(s)`)
 
 await mongoose.disconnect()

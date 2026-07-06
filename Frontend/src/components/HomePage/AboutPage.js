@@ -9,6 +9,7 @@ import {
   MagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline'
+import PageSeo from '../common/PageSeo'
 
 const pillars = [
   {
@@ -87,6 +88,11 @@ const stats = [
 export default function AboutPage() {
   return (
     <div className="bg-stone-50">
+      <PageSeo
+        title="About ShopAI"
+        description="Learn how ShopAI combines curated products, secure checkout, and an AI shopping assistant."
+        path="/about"
+      />
       {/* Hero — matches homepage tone */}
       <section className="relative overflow-hidden bg-stone-900">
         <div className="absolute inset-0">

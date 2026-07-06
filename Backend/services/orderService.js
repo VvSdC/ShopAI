@@ -240,6 +240,18 @@ export class OrderService {
 
     if (order.postPaymentProcessed) {
       await this.restoreStockForCancelledItems(order.orderItems)
+    } else if (
+      order.stockReservedAtCheckout &&
+      !order.stockReservationReleasedAt &&
+      !order.stockReservationSettledAt
+    ) {
+      for (const item of normalizeOrderItems(order.orderItems)) {
+        const productId = productIdKey(item._id)
+        const qty = Number(item.qty) || 0
+        if (!productId || qty <= 0) continue
+        await releaseStock(productId, qty)
+      }
+      order.stockReservationReleasedAt = new Date()
     }
 
     let stripeRefundId = null

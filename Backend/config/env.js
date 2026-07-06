@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import logger from '../utils/logger.js'
 
 dotenv.config()
 
@@ -250,7 +251,7 @@ export function validateConfig(options = {}) {
     throw new Error(message)
   }
 
-  console.warn(`[config] ${message}`)
+  logger.warn(`[config] ${message}`)
   return { ok: false, missing }
 }
 

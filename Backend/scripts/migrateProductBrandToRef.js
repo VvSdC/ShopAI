@@ -9,6 +9,7 @@ import { config } from '../config/env.js'
 import Brand from '../model/Brand.js'
 import Product from '../model/Product.js'
 import User from '../model/User.js'
+import logger from '../utils/logger.js'
 
 function isObjectId(value) {
   return mongoose.Types.ObjectId.isValid(value) && String(value).length === 24
@@ -21,14 +22,14 @@ async function ensureBrandForName(name, fallbackUserId) {
   let brand = await Brand.findOne({ name: normalized })
   if (!brand) {
     brand = await Brand.create({ name: normalized, user: fallbackUserId })
-    console.log(`[migrate] created brand "${normalized}"`)
+    logger.log(`[migrate] created brand "${normalized}"`)
   }
   return brand._id
 }
 
 async function main() {
   await mongoose.connect(config.db.mongoUrl)
-  console.log('[migrate] connected')
+  logger.log('[migrate] connected')
 
   const fallbackUser =
     (await User.findOne({ isAdmin: true }).select('_id')) ||
@@ -39,7 +40,7 @@ async function main() {
   }
 
   const products = await Product.find({ brand: { $type: 'string' } }).select('_id brand')
-  console.log(`[migrate] found ${products.length} product(s) with string brand`)
+  logger.log(`[migrate] found ${products.length} product(s) with string brand`)
 
   let updated = 0
   for (const product of products) {
@@ -49,11 +50,11 @@ async function main() {
     updated += 1
   }
 
-  console.log(`[migrate] updated ${updated} product(s)`)
+  logger.log(`[migrate] updated ${updated} product(s)`)
   await mongoose.disconnect()
 }
 
 main().catch((err) => {
-  console.error('[migrate] failed:', err)
+  logger.error('[migrate] failed:', err)
   process.exit(1)
 })

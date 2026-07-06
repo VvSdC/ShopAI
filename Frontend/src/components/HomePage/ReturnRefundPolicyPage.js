@@ -39,6 +39,7 @@ export default function ReturnRefundPolicyPage() {
       title="Return & Refund Policy"
       subtitle="Return delivered items within our window — we'll review your request and refund after approval."
       accent="amber"
+      seoPath="/return-refund-policy"
     >
       <PolicySection icon={ClockIcon} title={`${returnDays}-day return window`}>
         <p>

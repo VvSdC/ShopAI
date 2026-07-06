@@ -13,6 +13,7 @@ import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 import { enqueueCheckoutExpiry } from './checkoutQueue.js'
 import config from '../config/env.js'
+import { atomicallyReserveStockForOrderItems, releaseStock } from './stockService.js'
 
 export async function resolveOrderCoupon(couponCode) {
   if (!couponCode) {
@@ -72,6 +73,13 @@ export async function validateAndPriceOrderItems(orderItems) {
   return { validatedItems, recalculatedTotal }
 }
 
+async function releaseReservedCheckoutStock(orderItems = []) {
+  for (const item of orderItems) {
+    if (!item?._id) continue
+    await releaseStock(item._id, item.qty)
+  }
+}
+
 export async function createCheckoutSession({
   userId,
   orderItems,
@@ -93,23 +101,14 @@ export async function createCheckoutSession({
   const { couponFound, discountRate } = await resolveOrderCoupon(couponCode)
   const { validatedItems, recalculatedTotal } =
     await validateAndPriceOrderItems(orderItems)
+  await atomicallyReserveStockForOrderItems(validatedItems)
 
   const finalTotal =
     discountRate > 0
       ? Math.round(recalculatedTotal * (1 - discountRate) * 100) / 100
       : recalculatedTotal
 
-  const order = await Order.create({
-    user: user._id,
-    orderItems: validatedItems.map(enrichNewOrderItem),
-    shippingAddress,
-    totalPrice: finalTotal,
-    subtotalBeforeDiscount: recalculatedTotal,
-    discountAmount:
-      discountRate > 0 ? Math.round((recalculatedTotal - finalTotal) * 100) / 100 : 0,
-    discountRate,
-    ...(couponFound && { coupon: couponFound.code }),
-  })
+  let order = null
 
   const convertedOrders = validatedItems.map((item) => {
     const discountedPrice =
@@ -138,18 +137,34 @@ export async function createCheckoutSession({
     country: addr.country || 'IN',
   }
 
-  const stripe = getStripeClient()
-  const stripeCustomer = await stripe.customers.create({
-    name: user.fullname,
-    email: user.email,
-    address: stripeAddress,
-    shipping: {
-      name:
-        `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
-      phone: addr.phone || '',
+  try {
+    order = await Order.create({
+      user: user._id,
+      orderItems: validatedItems.map(enrichNewOrderItem),
+      shippingAddress,
+      totalPrice: finalTotal,
+      subtotalBeforeDiscount: recalculatedTotal,
+      discountAmount:
+        discountRate > 0 ? Math.round((recalculatedTotal - finalTotal) * 100) / 100 : 0,
+      discountRate,
+      stockReservedAtCheckout: true,
+      stockReservationSettledAt: null,
+      stockReservationReleasedAt: null,
+      ...(couponFound && { coupon: couponFound.code }),
+    })
+
+    const stripe = getStripeClient()
+    const stripeCustomer = await stripe.customers.create({
+      name: user.fullname,
+      email: user.email,
       address: stripeAddress,
-    },
-  })
+      shipping: {
+        name:
+          `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
+        phone: addr.phone || '',
+        address: stripeAddress,
+      },
+    })
 
   const baseUrl = config.cors.origin
   const checkoutSource = source === 'chat' ? 'chat' : 'cart'
@@ -162,31 +177,38 @@ export async function createCheckoutSession({
       ? `${baseUrl}/assistant?payment=cancelled`
       : `${baseUrl}/shopping-cart?payment=cancelled`
 
-  const session = await stripe.checkout.sessions.create({
-    line_items: convertedOrders,
-    customer: stripeCustomer.id,
-    metadata: {
-      orderId: order._id.toString(),
+    const session = await stripe.checkout.sessions.create({
+      line_items: convertedOrders,
+      customer: stripeCustomer.id,
+      metadata: {
+        orderId: order._id.toString(),
+        checkoutSource,
+      },
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    })
+
+    order.stripeSessionId = session.id
+    order.checkoutSource = checkoutSource
+    order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
+    await order.save()
+
+    await enqueueCheckoutExpiry(order._id, CHECKOUT_LINK_TTL_MS)
+
+    return {
+      url: session.url,
+      orderId: String(order._id),
+      orderNumber: order.orderNumber,
+      totalPrice: finalTotal,
       checkoutSource,
-    },
-    mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-  })
-
-  order.stripeSessionId = session.id
-  order.checkoutSource = checkoutSource
-  order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
-  await order.save()
-
-  await enqueueCheckoutExpiry(order._id, CHECKOUT_LINK_TTL_MS)
-
-  return {
-    url: session.url,
-    orderId: String(order._id),
-    orderNumber: order.orderNumber,
-    totalPrice: finalTotal,
-    checkoutSource,
-    expiresAt: order.checkoutExpiresAt,
+      expiresAt: order.checkoutExpiresAt,
+    }
+  } catch (err) {
+    await releaseReservedCheckoutStock(validatedItems)
+    if (order?._id) {
+      await Order.findByIdAndDelete(order._id).catch(() => {})
+    }
+    throw err
   }
 }

@@ -6,13 +6,14 @@ import mongoose from 'mongoose'
 import { v2 as cloudinary } from 'cloudinary'
 import config from '../config/env.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
+import logger from '../utils/logger.js'
 
 const results = []
 
 function record(name, status, detail = '') {
   results.push({ name, status, detail })
   const icon = status === 'ok' ? 'OK' : status === 'skip' ? 'SKIP' : 'FAIL'
-  console.log(`[${icon}] ${name}${detail ? ` — ${detail}` : ''}`)
+  logger.log(`[${icon}] ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
 function hasValue(value) {
@@ -356,7 +357,7 @@ function testJwt() {
   record('JWT secrets', ok ? 'ok' : 'fail', ok ? 'both set' : 'JWT_KEY or JWT_REFRESH_KEY missing')
 }
 
-console.log('\nShopAI — API key validation\n')
+logger.log('\nShopAI — API key validation\n')
 
 testJwt()
 await testMongo()
@@ -381,5 +382,5 @@ await testCohereRerank()
 
 const failed = results.filter((r) => r.status === 'fail')
 const passed = results.filter((r) => r.status === 'ok')
-console.log(`\nSummary: ${passed.length} ok, ${results.filter((r) => r.status === 'skip').length} skipped, ${failed.length} failed`)
+logger.log(`\nSummary: ${passed.length} ok, ${results.filter((r) => r.status === 'skip').length} skipped, ${failed.length} failed`)
 process.exit(failed.length > 0 ? 1 : 0)

@@ -112,7 +112,10 @@ export default function OrderPayment() {
   const { coupon: appliedCoupon } = useSelector((state) => state?.coupons)
   const { loading: orderLoading, error: orderErr } = useSelector((state) => state?.orders)
 
-  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const availableItems = useMemo(
+    () => cartItems?.filter((item) => !item.unavailable) || [],
+    [cartItems]
+  )
   const unavailableCount = (cartItems?.length || 0) - availableItems.length
 
   const subtotal = useMemo(

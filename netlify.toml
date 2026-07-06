@@ -1,12 +1,10 @@
 # Netlify — React frontend (monorepo: base is Frontend/)
 # Docs: https://docs.netlify.com/configure-builds/file-based-configuration/
 #
-# REQUIRED: Set REACT_APP_API_URL in Netlify UI before deploy:
-#   Site settings → Environment variables → Add variable
-#   Key: REACT_APP_API_URL
-#   Value: https://your-actual-api.onrender.com/shopai
-#   Scopes: Production (and Deploy previews if needed)
-# Then trigger Deploy → Clear cache and deploy site (env is baked at build time).
+# REQUIRED Netlify environment variables (Site settings → Environment variables):
+#   REACT_APP_API_URL — backend base ending in /shopai (baked at build time)
+#   REACT_APP_SITE_URL — canonical storefront origin, e.g. https://shopai.example.com
+#     Used for sitemap.xml absolute URLs and social-preview redirects at build time.
 
 [build]
   base    = "Frontend"

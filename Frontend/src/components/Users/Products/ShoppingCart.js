@@ -384,7 +384,10 @@ export default function ShoppingCart() {
   )
   const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
 
-  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const availableItems = useMemo(
+    () => cartItems?.filter((item) => !item.unavailable) || [],
+    [cartItems]
+  )
   const hasUnavailable = cartItems?.some((item) => item.unavailable)
   const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
   const lineCount = cartItems?.length || 0

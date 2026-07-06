@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
 import { getOrderDisplayStatus, getOrderDisplayStatusColor } from "../../../utils/orderDisplay";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
+import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import NoDataFound from "../../NoDataFound/NoDataFound";
 import OrdersStats from "./OrdersStatistics";
 

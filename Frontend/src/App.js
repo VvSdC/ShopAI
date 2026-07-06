@@ -48,6 +48,8 @@ import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnal
 import InferencePanel from "./components/Admin/Analytics/InferencePanel";
 import ChatbotEvalPanel from "./components/Admin/Analytics/ChatbotEvalPanel";
 import NotFoundPage from "./components/NotFound/NotFoundPage";
+import RouteErrorBoundary from "./components/common/RouteErrorBoundary";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 function AppShell() {
   const location = useLocation();
@@ -64,8 +66,21 @@ function AppShell() {
   return (
     <div className="flex min-h-screen flex-col">
       <AuthTokenRefresh />
-      {!hideGlobalChrome && <Navbar />}
+      {!hideGlobalChrome && (
+        <ErrorBoundary
+          compact
+          title="Navigation is temporarily unavailable"
+          fallback={
+            <header className="border-b border-stone-200 bg-white px-4 py-3 text-sm font-semibold text-indigo-600">
+              ShopAI
+            </header>
+          }
+        >
+          <Navbar />
+        </ErrorBoundary>
+      )}
       <main className="flex-1">
+        <RouteErrorBoundary>
         <Routes>
         {/* admin route */}
         <Route
@@ -273,9 +288,18 @@ function AppShell() {
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+        </RouteErrorBoundary>
       </main>
       {!hideGlobalChrome && <SiteFooter />}
-      {!hideFloatingChat && <ChatWidget />}
+      {!hideFloatingChat && (
+        <ErrorBoundary
+          compact
+          title="Chat is temporarily unavailable"
+          fallback={null}
+        >
+          <ChatWidget />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

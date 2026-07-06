@@ -29,6 +29,7 @@ import wishlistRouter from '../routes/wishlistRouter.js'
 import policyRouter from '../routes/policyRouter.js'
 import returnsRouter from '../routes/returnsRouter.js'
 import analyticsRouter from '../routes/analyticsRouter.js'
+import seoRouter from '../routes/seoRouter.js'
 import { orderService } from '../services/orderService.js'
 import { parseOrderId } from '../services/orderFulfillment.js'
 
@@ -216,6 +217,7 @@ app.use('/shopai/policy/', apiLimiter, policyRouter)
 app.use('/shopai/returns/', apiLimiter, returnsRouter)
 app.use('/shopai/chat/', chatLimiter, chatRouter)
 app.use('/shopai/analytics/', apiLimiter, analyticsRouter)
+app.use('/shopai/seo', seoRouter)
 
 app.use(notFound)
 app.use(globalErrhandler)

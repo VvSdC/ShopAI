@@ -3,6 +3,7 @@ import { RedisStore } from 'rate-limit-redis'
 import { config } from './env.js'
 import { getRateLimitRedisClient, isRedisOperational } from './redisClient.js'
 import { normalizeEmail } from '../utils/normalizeEmail.js'
+import logger from '../utils/logger.js'
 
 function shouldUseRedisStore() {
   return isRedisOperational()
@@ -76,9 +77,9 @@ export function validateCartRateLimitKey(req) {
 }
 
 if (shouldUseRedisStore()) {
-  console.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
+  logger.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
-  console.log('[rate-limit] Using in-memory stores (set REDIS_URL for multi-process deployments)')
+  logger.log('[rate-limit] Using in-memory stores (set REDIS_URL for multi-process deployments)')
 }
 
 export const apiLimiter = buildLimiter('api', {

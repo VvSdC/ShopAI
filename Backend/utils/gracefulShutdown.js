@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import { stopAllQueueWorkers } from '../services/queueWorkers.js'
 import { shutdownLlmUsageLogger } from '../services/llmUsageLogger.js'
 import { shutdownCache } from '../services/cacheService.js'
+import logger from './logger.js'
 
 const SHUTDOWN_TIMEOUT_MS = 30_000
 
@@ -24,10 +25,10 @@ export function registerGracefulShutdown({ server = null, label = 'app' } = {}) 
   async function shutdown(signal) {
     if (shuttingDown) return
     shuttingDown = true
-    console.log(`[${label}] ${signal} received — graceful shutdown`)
+    logger.log(`[${label}] ${signal} received — graceful shutdown`)
 
     const forceTimer = setTimeout(() => {
-      console.error(
+      logger.error(
         `[${label}] shutdown timed out after ${SHUTDOWN_TIMEOUT_MS}ms — forcing exit`
       )
       process.exit(1)
@@ -37,11 +38,11 @@ export function registerGracefulShutdown({ server = null, label = 'app' } = {}) 
     }
 
     try {
-      console.log(`[${label}] draining BullMQ workers (worker.close — finish active jobs)…`)
+      logger.log(`[${label}] draining BullMQ workers (worker.close — finish active jobs)…`)
       await stopAllQueueWorkers()
 
       if (server) {
-        console.log(`[${label}] closing HTTP server…`)
+        logger.log(`[${label}] closing HTTP server…`)
         await closeHttpServer(server)
       }
 
@@ -53,11 +54,11 @@ export function registerGracefulShutdown({ server = null, label = 'app' } = {}) 
       }
 
       clearTimeout(forceTimer)
-      console.log(`[${label}] shutdown complete`)
+      logger.log(`[${label}] shutdown complete`)
       process.exit(0)
     } catch (err) {
       clearTimeout(forceTimer)
-      console.error(`[${label}] shutdown error:`, err.message)
+      logger.error(`[${label}] shutdown error:`, err.message)
       process.exit(1)
     }
   }

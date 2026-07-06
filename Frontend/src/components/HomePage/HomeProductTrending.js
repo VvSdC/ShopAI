@@ -180,11 +180,14 @@ export default function HomeProductTrending() {
 
   useEffect(() => {
     dispatch(fetchProductsAction({ url: productUrl }))
-  }, [dispatch])
+  }, [dispatch, productUrl])
 
   const productsState = useSelector((state) => state?.products)
   const loading = productsState?.loading
-  const productList = productsState?.products?.products ?? []
+  const productList = useMemo(
+    () => productsState?.products?.products ?? [],
+    [productsState?.products?.products]
+  )
 
   const sorted = useMemo(() => {
     return [...productList].sort(

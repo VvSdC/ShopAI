@@ -6,6 +6,7 @@ import { probeRedisHealth, installRedisProcessErrorGuard } from './config/redisC
 import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncQueue.js'
 import { startAllQueueWorkers } from './services/queueWorkers.js'
 import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
+import logger from './utils/logger.js'
 
 async function startServer() {
   validateConfig({ strict: config.isProduction })
@@ -13,7 +14,7 @@ async function startServer() {
   await dbConnect()
 
   const server = app.listen(config.server.port, config.server.host, () => {
-    console.log(
+    logger.log(
       `Server is up on ${config.server.host}:${config.server.port} (${config.nodeEnv})`
     )
   })
@@ -22,18 +23,18 @@ async function startServer() {
 
   const redisOk = await probeRedisHealth()
   if (!redisOk && config.redis.url) {
-    console.warn('[redis] Unavailable at startup — API will run without Redis cache/queues')
+    logger.warn('[redis] Unavailable at startup — API will run without Redis cache/queues')
   }
 
   if (config.redis.runQueueWorkersInApi) {
     if (config.isProduction) {
-      console.warn(
+      logger.warn(
         '[queues] RUN_QUEUE_WORKERS_IN_API=true in production — BullMQ workers share the API event loop. Prefer false + npm run start:worker'
       )
     }
     await startAllQueueWorkers()
   } else {
-    console.log(
+    logger.log(
       '[queues] Workers disabled in API — run `npm run start:worker` (or node worker.js) as a separate process'
     )
   }
@@ -44,6 +45,6 @@ async function startServer() {
 }
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err.message)
+  logger.error('Failed to start server:', err.message)
   process.exit(1)
 })

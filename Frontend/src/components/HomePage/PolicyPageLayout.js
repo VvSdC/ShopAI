@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import PageSeo from '../common/PageSeo'
 
 export function PolicyHero({ badge, title, subtitle, accent = 'indigo' }) {
   const badgeClass =
@@ -124,9 +125,17 @@ export function PolicyCta({ title, description, links }) {
   )
 }
 
-export default function PolicyPageLayout({ badge, title, subtitle, accent, children }) {
+export default function PolicyPageLayout({
+  badge,
+  title,
+  subtitle,
+  accent,
+  seoPath = '/',
+  children,
+}) {
   return (
     <div className="min-h-full bg-stone-50">
+      <PageSeo title={title} description={subtitle} path={seoPath} />
       <PolicyHero badge={badge} title={title} subtitle={subtitle} accent={accent} />
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="space-y-6">{children}</div>

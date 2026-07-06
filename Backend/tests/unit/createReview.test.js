@@ -73,5 +73,8 @@ describe('POST /shopai/reviews/:productID', () => {
 
     expect(buyerReview.verifiedPurchase).toBe(true)
     expect(guestReview.verifiedPurchase).toBe(false)
+
+    const reloadedProduct = await Product.findById(product._id).lean()
+    expect(reloadedProduct.reviews).toBeUndefined()
   })
 })

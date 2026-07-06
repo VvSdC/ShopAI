@@ -4,6 +4,7 @@ import {
   createProductCtrl,
   getProductsCtrl,
   getMyProductsCtrl,
+  getProductSuggestionsCtrl,
   getProductCtrl,
   getSimilarProductsCtrl,
   updateProductCtrl,
@@ -27,6 +28,7 @@ productsRouter.post(
 
 productsRouter.post('/validate-cart', validateCartLimiter, validateCartCtrl)
 productsRouter.get('/mine', isLoggedIn, isAdmin, getMyProductsCtrl)
+productsRouter.get('/suggestions', getProductSuggestionsCtrl)
 productsRouter.get('/', getProductsCtrl)
 productsRouter.get('/:id/similar', validateObjectId('id'), getSimilarProductsCtrl)
 productsRouter.get('/:id', validateObjectId('id'), getProductCtrl)

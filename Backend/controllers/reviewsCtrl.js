@@ -45,10 +45,6 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
     verifiedPurchase,
   });
 
-  await Product.findByIdAndUpdate(productID, {
-    $push: { reviews: review._id },
-  });
-
   moderateReviewInBackground(review._id);
 
   res.status(201).json({
@@ -101,10 +97,6 @@ export const deleteReviewCtrl = asyncHandler(async (req, res) => {
   if (review.user.toString() !== req.userAuthId.toString()) {
     throw new AppError("You can only delete your own review", 403);
   }
-  //remove review reference from product
-  await Product.findByIdAndUpdate(req.params.productID, {
-    $pull: { reviews: review._id },
-  });
   await Review.findByIdAndDelete(req.params.id);
 
   res.json({

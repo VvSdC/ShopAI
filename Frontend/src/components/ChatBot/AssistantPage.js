@@ -12,7 +12,6 @@ import {
 } from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
 import {
-  formatMessage,
   TypingDots,
   SUGGESTED_PROMPTS,
   AI_CHATBOT_LABEL,

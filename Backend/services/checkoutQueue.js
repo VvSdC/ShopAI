@@ -5,12 +5,26 @@ import { config } from '../config/env.js'
 import { getStripeClient, hasStripeConfigured } from '../config/stripeClient.js'
 import { createRedisConnection, isRedisOperational, attachBullMqWorkerErrorHandler } from '../config/redisClient.js'
 import { safeTeardownBullMq } from './bullMqTeardown.js'
+import { releaseStock } from './stockService.js'
 
 const QUEUE_NAME = 'checkout-expiry'
 const JOB_NAME = 'expire-checkout'
 
 function isPaidStatus(status) {
   return status === 'paid'
+}
+
+async function releaseCheckoutStockHold(order) {
+  if (!order?.stockReservedAtCheckout) return false
+  if (order.stockReservationReleasedAt || order.stockReservationSettledAt) return false
+  if (isPaidStatus(order.paymentStatus)) return false
+
+  for (const item of order.orderItems || []) {
+    if (!item?._id) continue
+    await releaseStock(item._id, item.qty)
+  }
+  order.stockReservationReleasedAt = new Date()
+  return true
 }
 
 /**
@@ -43,10 +57,15 @@ export async function expireCheckoutJob(orderId) {
   }
 
   const now = new Date()
+  try {
+    await releaseCheckoutStockHold(order)
+  } catch (err) {
+    logger.error(`[checkoutQueue] stock hold release failed for ${orderId}:`, err.message)
+  }
   if (!order.checkoutExpiresAt || order.checkoutExpiresAt > now) {
     order.checkoutExpiresAt = now
-    await order.save()
   }
+  await order.save()
 
   return { ok: true, expired: true }
 }

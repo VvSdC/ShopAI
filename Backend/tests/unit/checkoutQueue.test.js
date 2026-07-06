@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import bcrypt from 'bcryptjs'
 import Order from '../../model/Order.js'
 import User from '../../model/User.js'
+import Product from '../../model/Product.js'
+import mongoose from 'mongoose'
 import { expireCheckoutJob } from '../../services/checkoutQueue.js'
 import { testOrderItem, testShippingAddress } from '../helpers/orderFixtures.js'
 
@@ -51,5 +53,46 @@ describe('expireCheckoutJob', () => {
 
     const reloaded = await Order.findById(order._id)
     expect(reloaded.checkoutExpiresAt.getTime()).toBeLessThanOrEqual(Date.now())
+  })
+
+  it('releases pre-reserved stock when an unpaid checkout expires', async () => {
+    const user = await User.create({
+      fullname: 'Reserved Stock User',
+      email: `reserved-stock-${Date.now()}@test.com`,
+      password: await bcrypt.hash('secret', 10),
+    })
+
+    const product = await Product.create({
+      name: `Reserved Product ${Date.now()}`,
+      description: 'Test',
+      brand: new mongoose.Types.ObjectId(),
+      category: new mongoose.Types.ObjectId(),
+      sizes: ['M'],
+      colors: ['Blue'],
+      user: user._id,
+      images: ['https://example.com/img.jpg'],
+      price: 100,
+      totalQty: 5,
+      totalSold: 3,
+    })
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ _id: product._id, name: product.name, qty: 2, price: 100 })],
+      shippingAddress: testShippingAddress({ address: '3 Test St' }),
+      totalPrice: 200,
+      paymentStatus: 'Not paid',
+      stockReservedAtCheckout: true,
+      checkoutExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    })
+
+    const result = await expireCheckoutJob(order._id)
+    expect(result.expired).toBe(true)
+
+    const updatedProduct = await Product.findById(product._id)
+    expect(updatedProduct.totalSold).toBe(1)
+
+    const updatedOrder = await Order.findById(order._id)
+    expect(updatedOrder.stockReservationReleasedAt).toBeTruthy()
   })
 })

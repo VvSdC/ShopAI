@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   getUserProfileAction,
@@ -29,7 +29,10 @@ const AddShippingAddress = ({ onAddressSelect }) => {
 
   const { loading, error, profile } = useSelector((state) => state?.users)
   const user = profile?.user
-  const addresses = user?.shippingAddresses || []
+  const addresses = useMemo(
+    () => user?.shippingAddresses || [],
+    [user?.shippingAddresses]
+  )
 
   // Which address is selected for the order
   const [selectedId, setSelectedId] = useState(null)

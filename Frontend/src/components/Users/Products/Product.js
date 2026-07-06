@@ -26,6 +26,7 @@ import {
 } from '../../../redux/slices/reviews/reviewsSlice'
 import WishlistButton from './WishlistButton'
 import SimilarProductsSection from './SimilarProductsSection'
+import PageSeo from '../../common/PageSeo'
 import { getCartUnitCount } from '../../../utils/cartCount'
 import {
   displaySizeLabel,
@@ -359,6 +360,15 @@ export default function Product() {
 
   return (
     <div className="min-h-screen bg-stone-100">
+      {product?._id && String(product._id) === String(id) && (
+        <PageSeo
+          title={product.name}
+          description={product.description}
+          path={`/products/${id}`}
+          image={product.images?.[0]}
+          type="product"
+        />
+      )}
       <main className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
         {loading && !product?._id ? (
           <ProductDetailSkeleton />

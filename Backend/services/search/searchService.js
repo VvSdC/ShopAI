@@ -169,6 +169,24 @@ export async function searchProducts(args = {}) {
   return { products: final, count: total, mode: 'hybrid', page, limit }
 }
 
+/** Fast typeahead — keyword index only (no embed/rerank). */
+export async function searchProductSuggestions(args = {}) {
+  const query = args.query?.trim() || ''
+  const limit = Math.min(Math.max(args.limit || 6, 1), 10)
+
+  if (query.length < 2) {
+    return { suggestions: [], query }
+  }
+
+  const { normalized } = await normalizeSearchArgs(args)
+  const products = await keywordSearch(normalized, limit)
+
+  return {
+    query,
+    suggestions: products.map(mapProductSearchResult),
+  }
+}
+
 export async function searchProductsForChat(userId, args) {
   const result = await searchProducts(args)
   if (!result.products.length) {

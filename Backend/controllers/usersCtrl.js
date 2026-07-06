@@ -510,10 +510,6 @@ export const deleteAccountCtrl = asyncHandler(async (req, res) => {
   const reviewIds = await Review.find({ user: userId }).distinct("_id");
   if (reviewIds.length) {
     await Review.deleteMany({ _id: { $in: reviewIds } });
-    await Product.updateMany(
-      { reviews: { $in: reviewIds } },
-      { $pull: { reviews: { $in: reviewIds } } }
-    );
   }
 
   await User.findByIdAndDelete(userId);
