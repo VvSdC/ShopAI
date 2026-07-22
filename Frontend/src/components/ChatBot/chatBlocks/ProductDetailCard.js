@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { formatInr, stockBadge } from '../chatFormattingUtils'
+import MarkdownContent from '../../common/MarkdownContent'
 
 export default function ProductDetailCard({ product }) {
   if (!product) return null
@@ -36,9 +37,9 @@ export default function ProductDetailCard({ product }) {
           </div>
 
           {product.description && (
-            <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-stone-600">
-              {product.description}
-            </p>
+            <div className="mt-2 max-h-24 overflow-hidden text-sm leading-relaxed text-stone-600 [&>div>*:first-child]:!mt-0 [&_p]:!mt-1 [&_p]:!text-sm [&_p]:!text-stone-600 [&_ul]:!mt-1 [&_ol]:!mt-1 [&_h3]:!mt-2 [&_h4]:!mt-2 [&_h5]:!mt-2 [&_h3]:!text-sm [&_h4]:!text-sm [&_h5]:!text-sm">
+              <MarkdownContent>{product.description}</MarkdownContent>
+            </div>
           )}
 
           <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-stone-600">

@@ -76,9 +76,9 @@ describe('scoreAudienceFit', () => {
     expect(scoreAudienceFit(untagged, 'women')).toBe(0)
   })
 
-  it('keeps unisex items regardless of audience', () => {
-    expect(scoreAudienceFit(unisexTee, 'men')).toBe(0)
-    expect(scoreAudienceFit(unisexTee, 'women')).toBe(0)
+  it('treats unisex items as matches for any audience', () => {
+    expect(scoreAudienceFit(unisexTee, 'men')).toBe(1)
+    expect(scoreAudienceFit(unisexTee, 'women')).toBe(1)
   })
 })
 
@@ -111,10 +111,25 @@ describe('applyAudienceFilter', () => {
     expect(names).not.toContain("Men's Shirt")
   })
 
-  it('keeps unisex and unknown items regardless of audience', () => {
+  it('keeps unisex items but drops unknown items in strict mode', () => {
     const men = applyAudienceFilter(products, 'men')
     const names = men.map((p) => p.name)
     expect(names).toContain('Unisex Tee')
+    expect(names).not.toContain('Cricket Bat')
+  })
+
+  it('keeps unknown items when strict is false (backwards-compat)', () => {
+    const men = applyAudienceFilter(products, 'men', { strict: false })
+    const names = men.map((p) => p.name)
     expect(names).toContain('Cricket Bat')
+    expect(names).not.toContain('Womens Kurti')
+  })
+
+  it('returns [] when strict audience has no matches in the pool', () => {
+    const cricketOnly = [
+      { name: 'Cricket Bat', tags: [], category: 'Sports', description: 'wooden bat' },
+      { name: 'Cricket Kit', tags: [], category: 'Sports', description: 'complete cricket kit' },
+    ]
+    expect(applyAudienceFilter(cricketOnly, 'women')).toEqual([])
   })
 })
