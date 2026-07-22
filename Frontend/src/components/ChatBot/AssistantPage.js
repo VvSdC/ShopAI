@@ -316,7 +316,7 @@ export default function AssistantPage() {
     setMessages((prev) => [
       ...prev,
       { id: streamMessageId, role: 'assistant', content: '', streaming: true },
-    ]))
+    ])
     setStreamStatus(null)
     setIsLoading(true)
 
