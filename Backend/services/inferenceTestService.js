@@ -1,5 +1,7 @@
 import { config } from '../config/env.js'
 import { testGeminiInference } from './geminiClient.js'
+import { recordLlmUsage } from './llmUsageLogger.js'
+import { runWithLlmUsageContext } from './llmUsageContext.js'
 
 const PROVIDER_DEFINITIONS = [
   {
@@ -117,27 +119,15 @@ export function listInferenceProviders() {
   }))
 }
 
-export async function testInferenceProvider(providerId, model) {
-  const provider = findProvider(providerId)
-  if (!provider) {
-    return { ok: false, status: 'error', error: 'Unknown provider' }
-  }
-
-  if (!providerConfigured(provider)) {
-    return { ok: false, status: 'not_configured', error: 'API key not configured' }
-  }
-
-  const useModel = String(model || provider.getDefaultModel()).trim()
-  if (!useModel) {
-    return { ok: false, status: 'error', error: 'Model is required' }
-  }
-
+async function runProviderSmokeTest(provider, useModel) {
   if (provider.id === 'gemini') {
+    // Gemini smoke test lives in geminiClient — it already records usage internally.
     return testGeminiInference(useModel)
   }
 
   const apiKey = provider.getApiKey()
   const extraHeaders = provider.extraHeaders ? provider.extraHeaders() : {}
+  const startedAt = Date.now()
 
   try {
     const response = await fetch(providerUrl(provider), {
@@ -156,14 +146,33 @@ export async function testInferenceProvider(providerId, model) {
     })
 
     const data = await response.json().catch(() => ({}))
+    const latencyMs = Date.now() - startedAt
 
     if (!response.ok) {
       const failure = failureFromResponse(response.status, data)
+      recordLlmUsage({
+        provider: provider.name,
+        model: useModel,
+        responseData: null,
+        latencyMs,
+        success: false,
+        errorType: response.status === 429 ? 'rate_limit' : `http_${response.status}`,
+        errorMessage: String(failure.error || '').slice(0, 500),
+      })
       return { ok: false, ...failure, model: useModel }
     }
 
     const content = data?.choices?.[0]?.message?.content?.trim() || ''
     if (!content) {
+      recordLlmUsage({
+        provider: provider.name,
+        model: useModel,
+        responseData: data,
+        latencyMs,
+        success: false,
+        errorType: 'invalid_response',
+        errorMessage: 'Empty response from provider',
+      })
       return {
         ok: false,
         status: 'not_working',
@@ -172,6 +181,14 @@ export async function testInferenceProvider(providerId, model) {
       }
     }
 
+    recordLlmUsage({
+      provider: provider.name,
+      model: useModel,
+      responseData: data,
+      latencyMs,
+      success: true,
+    })
+
     return {
       ok: true,
       status: 'working',
@@ -179,6 +196,15 @@ export async function testInferenceProvider(providerId, model) {
       response: content.slice(0, 160),
     }
   } catch (err) {
+    recordLlmUsage({
+      provider: provider.name,
+      model: useModel,
+      responseData: null,
+      latencyMs: Date.now() - startedAt,
+      success: false,
+      errorType: 'network',
+      errorMessage: String(err.message || err).slice(0, 500),
+    })
     return {
       ok: false,
       status: 'not_working',
@@ -186,4 +212,27 @@ export async function testInferenceProvider(providerId, model) {
       model: useModel,
     }
   }
+}
+
+export async function testInferenceProvider(providerId, model) {
+  const provider = findProvider(providerId)
+  if (!provider) {
+    return { ok: false, status: 'error', error: 'Unknown provider' }
+  }
+
+  if (!providerConfigured(provider)) {
+    return { ok: false, status: 'not_configured', error: 'API key not configured' }
+  }
+
+  const useModel = String(model || provider.getDefaultModel()).trim()
+  if (!useModel) {
+    return { ok: false, status: 'error', error: 'Model is required' }
+  }
+
+  // Tag every smoke-test call with source='inference_test' so Chat Usage
+  // dashboards can filter them out (they're diagnostics, not real traffic).
+  return runWithLlmUsageContext(
+    { source: 'inference_test', span: 'inference-test' },
+    () => runProviderSmokeTest(provider, useModel)
+  )
 }

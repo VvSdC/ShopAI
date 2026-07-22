@@ -1,14 +1,18 @@
 import logger from '../../utils/logger.js'
 import { config } from '../../config/env.js'
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout.js'
+
+const RERANK_TIMEOUT_MS = 10_000
 
 async function rerankVoyage(query, documents, topN, model) {
-  const res = await fetch('https://api.voyageai.com/v1/rerank', {
+  const res = await fetchWithTimeout('https://api.voyageai.com/v1/rerank', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.search.voyageApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query, documents, model, top_k: topN }),
+    timeoutMs: RERANK_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`Voyage rerank HTTP ${res.status}`)
   const data = await res.json()
@@ -16,13 +20,14 @@ async function rerankVoyage(query, documents, topN, model) {
 }
 
 async function rerankJina(query, documents, topN, model) {
-  const res = await fetch('https://api.jina.ai/v1/rerank', {
+  const res = await fetchWithTimeout('https://api.jina.ai/v1/rerank', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.search.jinaApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query, documents, model, top_n: topN }),
+    timeoutMs: RERANK_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`Jina rerank HTTP ${res.status}`)
   const data = await res.json()
@@ -30,7 +35,7 @@ async function rerankJina(query, documents, topN, model) {
 }
 
 async function rerankCohere(query, documents, topN, model) {
-  const res = await fetch('https://api.cohere.com/v2/rerank', {
+  const res = await fetchWithTimeout('https://api.cohere.com/v2/rerank', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.search.cohereApiKey}`,
@@ -42,6 +47,7 @@ async function rerankCohere(query, documents, topN, model) {
       documents: documents.map((text) => ({ text })),
       top_n: topN,
     }),
+    timeoutMs: RERANK_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`Cohere rerank HTTP ${res.status}`)
   const data = await res.json()
@@ -49,7 +55,7 @@ async function rerankCohere(query, documents, topN, model) {
 }
 
 async function rerankOpenRouter(query, documents, topN, model) {
-  const res = await fetch('https://openrouter.ai/api/v1/rerank', {
+  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/rerank', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.llm.openRouter.apiKey}`,
@@ -58,6 +64,7 @@ async function rerankOpenRouter(query, documents, topN, model) {
       'X-Title': 'ShopAI',
     },
     body: JSON.stringify({ model, query, documents, top_n: topN }),
+    timeoutMs: RERANK_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`OpenRouter rerank HTTP ${res.status}`)
   const data = await res.json()

@@ -2,6 +2,9 @@ import logger from '../../utils/logger.js'
 import { config } from '../../config/env.js'
 import * as cache from '../cacheService.js'
 import { queryEmbeddingCacheKey } from '../../constants/cacheKeys.js'
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout.js'
+
+const EMBED_TIMEOUT_MS = 10_000
 
 function meanPool(tokenEmbeddings) {
   if (!Array.isArray(tokenEmbeddings) || tokenEmbeddings.length === 0) return []
@@ -17,13 +20,14 @@ function meanPool(tokenEmbeddings) {
 async function embedHuggingFace(text, model) {
   // Legacy api-inference.huggingface.co is retired (ENOTFOUND). Use Inference Providers router.
   const url = `https://router.huggingface.co/hf-inference/models/${model}/pipeline/feature-extraction`
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.llm.huggingFace.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ inputs: text }),
+    timeoutMs: EMBED_TIMEOUT_MS,
   })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
@@ -34,13 +38,14 @@ async function embedHuggingFace(text, model) {
 }
 
 async function embedVoyage(text, model) {
-  const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+  const res = await fetchWithTimeout('https://api.voyageai.com/v1/embeddings', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.search.voyageApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ input: [text], model }),
+    timeoutMs: EMBED_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`Voyage embed HTTP ${res.status}`)
   const data = await res.json()
@@ -48,13 +53,14 @@ async function embedVoyage(text, model) {
 }
 
 async function embedJina(text, model) {
-  const res = await fetch('https://api.jina.ai/v1/embeddings', {
+  const res = await fetchWithTimeout('https://api.jina.ai/v1/embeddings', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.search.jinaApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ model, input: [text] }),
+    timeoutMs: EMBED_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`Jina embed HTTP ${res.status}`)
   const data = await res.json()
@@ -63,12 +69,13 @@ async function embedJina(text, model) {
 
 async function embedGemini(text, model) {
   const key = config.llm.gemini.apiKey
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: { parts: [{ text }] } }),
+      timeoutMs: EMBED_TIMEOUT_MS,
     }
   )
   if (!res.ok) throw new Error(`Gemini embed HTTP ${res.status}`)
@@ -77,7 +84,7 @@ async function embedGemini(text, model) {
 }
 
 async function embedOpenRouter(text, model) {
-  const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
+  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/embeddings', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.llm.openRouter.apiKey}`,
@@ -86,6 +93,7 @@ async function embedOpenRouter(text, model) {
       'X-Title': 'ShopAI',
     },
     body: JSON.stringify({ model, input: text }),
+    timeoutMs: EMBED_TIMEOUT_MS,
   })
   if (!res.ok) throw new Error(`OpenRouter embed HTTP ${res.status}`)
   const data = await res.json()

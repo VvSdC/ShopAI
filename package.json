@@ -2,6 +2,7 @@
   "name": "shopai",
   "private": true,
   "description": "ShopAI monorepo scripts — Backend + Frontend",
+  "license": "MIT",
   "scripts": {
     "install:all": "npm ci --prefix Backend && npm ci --prefix Frontend",
     "dev:backend": "npm run dev --prefix Backend",

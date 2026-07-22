@@ -142,6 +142,13 @@
 | AUD-073 | done | No low-stock admin alerts | `ManageStocks.js` | Banner + amber badge ≤5 units |
 | AUD-074 | done | No PWA / offline support | `service-worker.js`, `index.js` | Shell cache + manifest already present |
 | AUD-075 | done | OpenAPI disabled in production by default | `config/env.js`, `.env.example` | Documented `OPENAPI_ENABLED=true` |
+| AUD-076 | done | Similar-products PDP paid Atlas `$vectorSearch` unnecessary | `similarProductsService.js` | Simple category-scoped local cosine + Redis cache; `SIMILAR_PRODUCTS_MODE=simple\|atlas` |
+| AUD-077 | done | No LLM cost estimate, error detail, tool telemetry in analytics | `llmPricing.js`, `llmUsageLogger.js`, `llmUsageAnalytics.js`, `llmUsageSummaryService.js`, `LlmUsageLog.js`, `LlmUsageSummary.js`, `agentRunner.js`, `llmService.js`, `inferenceTestService.js` | `costUsd`, `errorType`, `errorMessage`, `tool` + `chat_tool` source; per-span/tool/error breakdowns in dashboards |
+| AUD-078 | done | No system health surface for admins | `systemHealthService.js`, `analyticsCtrl.js`, `analyticsRouter.js`, `SystemHealthPanel.js` | Live mongo/redis/providers/queues/embeddings/traffic snapshot |
+| AUD-079 | done | Chat Usage panel missed degraded flag + cost/error/tool/span views | `ChatUsagePanel.js`, `ToolUsagePanel.js` | Added banner, cost cards, span/tool tables, top error types |
+| AUD-080 | done | Repository missing LICENSE for others to fork | root `LICENSE`, `package.json`, `Backend/package.json`, `Frontend/package.json` | MIT license across the monorepo |
+| AUD-081 | done | No architectural rationale doc for forkers | `docs/TECHNICAL_FAQ.md` | 15-question FAQ with mermaid diagrams; linked from root README + docs README |
+| AUD-082 | done | docs/README stale (Analytics path, `/api/v1` prefix, no-streaming note) | `docs/README.md`, `Backend/docs/Chatbot.md` | Fixed prefix, mentioned streaming endpoint, updated Analytics tabs |
 
 ---
 
@@ -156,6 +163,7 @@
 | AUD-006–018 | 2026-07-07 | Backend + Frontend test suites (see below) | — |
 | AUD-019–055 (excl. coupons) | 2026-07-07 | Partial — see backlog statuses; coupon items skipped | — |
 | AUD-034–075 | 2026-07-07 | Backend + Frontend full suite (see verification run) | — |
+| AUD-076–082 | 2026-07-22 | `npm test` (Backend: 531/531 pass); `npm run build` (Frontend: compiled successfully) | — |
 
 ---
 

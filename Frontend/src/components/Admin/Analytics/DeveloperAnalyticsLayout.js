@@ -8,12 +8,16 @@ import {
   ArrowLeftIcon,
   ChatBubbleLeftRightIcon,
   ChartBarIcon,
+  HeartIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 
 const sidebarLinks = [
+  { name: 'System health', href: 'system-health', icon: HeartIcon },
+  { name: 'Chat usage', href: 'chat-usage', icon: ChartBarIcon },
+  { name: 'Chat tools', href: 'tool-usage', icon: WrenchScrewdriverIcon },
   { name: 'Inference', href: 'inference', icon: CpuChipIcon },
   { name: 'Evaluate Chatbot', href: 'chat-eval', icon: ChatBubbleLeftRightIcon },
-  { name: 'Chat usage', href: 'chat-usage', icon: ChartBarIcon },
 ]
 
 const adminSidebarScrollClass =

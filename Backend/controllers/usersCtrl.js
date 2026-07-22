@@ -5,7 +5,6 @@ import Cart from "../model/Cart.js";
 import Wishlist from "../model/Wishlist.js";
 import Review from "../model/Review.js";
 import ReturnRequest from "../model/ReturnRequest.js";
-import Product from "../model/Product.js";
 import User, {
   SAFE_USER_SELECT,
   USER_PROFILE_UPDATE_SELECT,

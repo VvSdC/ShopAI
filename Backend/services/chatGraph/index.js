@@ -8,6 +8,7 @@ export { ROUTE_TOOL_NAMES } from './toolSets.js'
 export async function runChatGraph({
   userId,
   userName,
+  userPhone = null,
   userText,
   history = [],
   historyPrepared = false,
@@ -18,6 +19,7 @@ export async function runChatGraph({
   const result = await graph.invoke({
     userId,
     userName,
+    userPhone,
     userText: String(userText || '').trim(),
     history: trimmedHistory,
     toolResults: [],

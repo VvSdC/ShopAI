@@ -67,7 +67,10 @@ flowchart TB
 4. **Tools** run real shop logic (search, cart, orders, checkout).  
 5. **Response** goes back as JSON: reply text + optional cart/checkout hints.
 
-There is **no live streaming** today: the server waits until the full answer is ready, then sends one JSON response.
+Two endpoints are exposed:
+
+- `POST /shopai/chat/message` — waits until the full answer is ready, then sends one JSON response.
+- `POST /shopai/chat/message/stream` — Server-Sent Events (SSE) that emit `route`, `tool_start`, `tool_end`, `text_delta`, `done`, and `error` events for a live typing experience. The final `done` event carries the same JSON payload the non-streaming endpoint would return.
 
 ---
 

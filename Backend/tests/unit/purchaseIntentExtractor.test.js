@@ -63,10 +63,6 @@ describe('getPurchaseIntent', () => {
   beforeEach(async () => {
     const { chatCompletion } = await import('../../services/llmService.js')
     chatCompletion.mockReset()
-    const { purchaseIntentStorage } = await import('../../services/purchaseIntentContext.js')
-    await import('../../services/purchaseIntentExtractor.js').then(async (mod) => {
-      // reset cache between tests via fresh storage run
-    })
   })
 
   it('extracts mens shirt selection via LLM', async () => {
@@ -140,7 +136,6 @@ describe('getPurchaseIntent', () => {
     })
 
     const { runWithPurchaseIntentCache } = await import('../../services/purchaseIntentContext.js')
-    const { getPurchaseIntent } = await import('../../services/purchaseIntentExtractor.js')
     const { resolveProductIdFromContext } = await import('../../services/chatGraph/productContext.js')
 
     const id = await runWithPurchaseIntentCache(() =>

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   buildChatBlocks,
   normalizeListingProduct,
-  buildListingQuickActions,
 } from '../../services/chatBlocks.js'
 
 describe('chatBlocks', () => {

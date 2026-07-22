@@ -172,9 +172,12 @@ End by asking which size, color, and quantity they want if they might buy.`
     case 'comparison':
       return `${base}
 
-Your role: compare products from the catalog.
-Search with search_products first, then get_product_details for specifics.
-Compare only real catalog items from tool results — never invent alternatives.`
+Your role: compare 2–4 specific products from the catalog side-by-side.
+Data source rule (STRICT):
+- If the conversation history already contains products (from a prior listing or details), call get_product_details for EACH product being compared BEFORE writing the comparison. Do not skip this step.
+- If no products are in context yet, call search_products with the correct audience/category first, then get_product_details for the top 2–3 results.
+- Only compare products that came from tool results. Never invent specs, prices, or stock.
+Output format: a short intro (1 sentence) then a compact markdown table or bullet list comparing name, price, key features, sizes/colors, and stock. Include [View product](/products/ID) links for each item. End with a one-line recommendation ("If you want X, pick A. If you want Y, pick B.").`
 
     case 'payment':
       return `${base}
@@ -207,6 +210,7 @@ Never ask for a product ID — extract it from [View product](/products/ID) link
 If no product has been discussed yet, tell them to search or pick from options shown earlier — you cannot add without a known product.
 If size or color is missing: call get_product_details first, list available sizes and colors, and ask the customer to choose — map casual color words to catalog colors (e.g. "pink" → closest match).
 Only call add_to_cart after you have product_id, size, color, and qty. Never guess invalid variants.
+If add_to_cart returns stockAdjustment.adjusted=true, TELL THE CUSTOMER exactly: "Only N in stock, so I added N instead of M" using the numbers from stockAdjustment. Never silently reduce the requested quantity.
 NEVER tell the user to visit the product page or cart page manually — always use add_to_cart yourself.
 add_to_cart once per variant per purchase flow. On checkout confirmation, use preview_checkout then create_checkout_session — do not add_to_cart again.
 When user says proceed/checkout/pay: call get_my_addresses first, then preview_checkout, then create_checkout_session on confirmation.

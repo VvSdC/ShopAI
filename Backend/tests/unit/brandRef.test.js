@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import Brand from '../../model/Brand.js'
 import User from '../../model/User.js'
 import Product from '../../model/Product.js'
 import { brandDisplayName, resolveBrandId, enrichProductsWithBrandNames, buildProductBrandFilter } from '../../utils/brandRef.js'

@@ -36,12 +36,11 @@ import {
   applySignInRequiredToPayload,
 } from '../services/guestChatRestrictions.js'
 
-function deriveMessageKind({ replyKind, toolResults = [], payload = {} }) {
+function deriveMessageKind({ replyKind, toolResults = [], payload = {}, route = null }) {
   if (replyKind) return replyKind
   if (payload?.checkout?.checkoutUrl) return 'checkout_link'
   const names = (toolResults || []).map((r) => r?.toolName)
   if (names.includes('product_disambiguation')) return 'product_listing'
-  if (names.includes('get_product_details')) return 'product_detail'
   if (names.includes('add_to_cart')) return 'cart_confirm'
   if (names.includes('get_cart')) return 'cart_summary'
   if (names.includes('get_my_addresses')) return 'address_picker'
@@ -49,7 +48,15 @@ function deriveMessageKind({ replyKind, toolResults = [], payload = {} }) {
   if (names.some((r) => r?.signInRequired || r?.error === 'sign_in_required')) {
     return 'sign_in_required'
   }
-  if (names.includes('search_products')) return 'product_listing'
+  // Comparison uses get_product_details (often multiple times) — the route is
+  // the source of truth for what to render, so check it before falling back to
+  // product_detail / product_listing.
+  const detailCalls = names.filter((n) => n === 'get_product_details').length
+  if (route === 'comparison' && detailCalls >= 2) return 'product_comparison'
+  if (names.includes('get_product_details')) return 'product_detail'
+  if (names.includes('search_products')) {
+    return route === 'comparison' ? 'product_comparison' : 'product_listing'
+  }
   if (names.some((n) => /order/i.test(n || ''))) return 'order_summary'
   return null
 }
@@ -80,7 +87,7 @@ async function resolveChatSession(userId, userName, sessionId) {
 export const chatMessageCtrl = asyncHandler(async (req, res) => {
   const { message, sessionId } = req.body
 
-  const user = await User.findById(req.userAuthId).select('fullname')
+  const user = await User.findById(req.userAuthId).select('fullname phone')
   if (!user) {
     throw new AppError('User not found', 401)
   }
@@ -100,6 +107,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
         const graphResult = await runChatGraph({
           userId: req.userAuthId,
           userName: user.fullname,
+          userPhone: user.phone || null,
           userText,
           history: trimmedHistory,
           historyPrepared: true,
@@ -129,7 +137,7 @@ export const chatMessageCtrl = asyncHandler(async (req, res) => {
 export const chatMessageStreamCtrl = asyncHandler(async (req, res) => {
   const { message, sessionId } = req.body
 
-  const user = await User.findById(req.userAuthId).select('fullname')
+  const user = await User.findById(req.userAuthId).select('fullname phone')
   if (!user) {
     throw new AppError('User not found', 401)
   }
@@ -162,6 +170,7 @@ export const chatMessageStreamCtrl = asyncHandler(async (req, res) => {
             const graphResult = await runChatGraph({
               userId: req.userAuthId,
               userName: user.fullname,
+              userPhone: user.phone || null,
               userText,
               history: trimmedHistory,
               historyPrepared: true,
@@ -286,7 +295,10 @@ async function buildChatPayloadFromGraph({
   const replyLocked = Boolean(assisted.replyLocked || graphResult.replyLocked)
   const assistedReply = assisted.reply
 
-  const baseReply = replyLocked
+  // Comparison replies must keep the LLM's structured prose. Only run the
+  // catalog-listing safety net for genuine discovery / retrieval routes.
+  const skipListingRewrite = replyLocked || graphResult.route === 'comparison'
+  const baseReply = skipListingRewrite
     ? assistedReply
     : ensureSearchCatalogReply(assistedReply, toolResults, userText)
 
@@ -299,7 +311,12 @@ async function buildChatPayloadFromGraph({
     { plan: graphResult.plan || null, replyKind, replyLocked }
   )
   let reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
-  const messageKind = deriveMessageKind({ replyKind, toolResults, payload: {} })
+  const messageKind = deriveMessageKind({
+    replyKind,
+    toolResults,
+    payload: {},
+    route: graphResult.route || null,
+  })
   const blocks = buildChatBlocks({
     toolResults,
     messageKind,
@@ -360,6 +377,7 @@ async function persistAndRespond(
     replyKind,
     toolResults: assistResult.toolResults,
     payload,
+    route: graphResult.route || null,
   })
   await appendMessages(
     session,

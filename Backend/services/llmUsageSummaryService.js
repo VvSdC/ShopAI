@@ -7,6 +7,7 @@ export const LLM_USAGE_SOURCES = [
   'eval',
   'inference_test',
   'background',
+  'chat_tool',
   'unknown',
 ]
 
@@ -40,6 +41,7 @@ function mapRouteRows(rows) {
     calls: row.calls,
     totalTokens: row.totalTokens,
     latencySum: row.latencySum,
+    costUsd: row.costUsd || 0,
   }))
 }
 
@@ -49,7 +51,36 @@ function mapProviderRows(rows) {
     calls: row.calls,
     totalTokens: row.totalTokens,
     latencySum: row.latencySum,
+    costUsd: row.costUsd || 0,
+    errorCount: row.errorCount || 0,
   }))
+}
+
+function mapSpanRows(rows) {
+  return rows.map((row) => ({
+    span: row._id || 'unknown',
+    calls: row.calls,
+    totalTokens: row.totalTokens,
+    latencySum: row.latencySum,
+    costUsd: row.costUsd || 0,
+  }))
+}
+
+function mapToolRows(rows) {
+  return rows
+    .filter((row) => row._id)
+    .map((row) => ({
+      tool: row._id,
+      calls: row.calls,
+      latencySum: row.latencySum,
+      errorCount: row.errorCount || 0,
+    }))
+}
+
+function mapErrorRows(rows) {
+  return rows
+    .filter((row) => row._id)
+    .map((row) => ({ errorType: row._id, count: row.count }))
 }
 
 /** Aggregate one UTC day + source from raw logs into LlmUsageSummary. */
@@ -71,6 +102,8 @@ export async function aggregateLlmUsageForDay(dayKey, source) {
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
         successCount: { $sum: { $cond: ['$success', 1, 0] } },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+        costUsd: { $sum: '$costUsd' },
       },
     },
   ])
@@ -83,6 +116,7 @@ export async function aggregateLlmUsageForDay(dayKey, source) {
         calls: { $sum: 1 },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
       },
     },
   ])
@@ -95,6 +129,43 @@ export async function aggregateLlmUsageForDay(dayKey, source) {
         calls: { $sum: 1 },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+      },
+    },
+  ])
+
+  const bySpan = await LlmUsageLog.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: '$span',
+        calls: { $sum: 1 },
+        totalTokens: { $sum: '$totalTokens' },
+        latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
+      },
+    },
+  ])
+
+  const byTool = await LlmUsageLog.aggregate([
+    { $match: { ...match, tool: { $ne: null } } },
+    {
+      $group: {
+        _id: '$tool',
+        calls: { $sum: 1 },
+        latencySum: { $sum: '$latencyMs' },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+      },
+    },
+  ])
+
+  const byError = await LlmUsageLog.aggregate([
+    { $match: { ...match, success: false, errorType: { $ne: null } } },
+    {
+      $group: {
+        _id: '$errorType',
+        count: { $sum: 1 },
       },
     },
   ])
@@ -106,6 +177,8 @@ export async function aggregateLlmUsageForDay(dayKey, source) {
     totalTokens: 0,
     latencySum: 0,
     successCount: 0,
+    errorCount: 0,
+    costUsd: 0,
   }
 
   await LlmUsageSummary.findOneAndUpdate(
@@ -119,8 +192,13 @@ export async function aggregateLlmUsageForDay(dayKey, source) {
       totalTokens: totals.totalTokens,
       latencySum: totals.latencySum,
       successCount: totals.successCount,
+      errorCount: totals.errorCount || 0,
+      costUsd: totals.costUsd || 0,
       byRoute: mapRouteRows(byRoute),
       byProvider: mapProviderRows(byProvider),
+      bySpan: mapSpanRows(bySpan),
+      byTool: mapToolRows(byTool),
+      byError: mapErrorRows(byError),
       aggregatedAt: new Date(),
     },
     { upsert: true, new: true }
@@ -164,6 +242,8 @@ function emptyTotals() {
     totalTokens: 0,
     latencySum: 0,
     successCount: 0,
+    errorCount: 0,
+    costUsd: 0,
   }
 }
 
@@ -174,6 +254,8 @@ function addTotals(target, row) {
   target.totalTokens += row.totalTokens || 0
   target.latencySum += row.latencySum || 0
   target.successCount += row.successCount || 0
+  target.errorCount += row.errorCount || 0
+  target.costUsd += row.costUsd || 0
 }
 
 export function mergeDailySummaries(rows) {
@@ -199,22 +281,66 @@ export function mergeBreakdown(rows, field) {
         calls: 0,
         totalTokens: 0,
         latencySum: 0,
+        costUsd: 0,
+        errorCount: 0,
       }
       prev.calls += item.calls || 0
       prev.totalTokens += item.totalTokens || 0
       prev.latencySum += item.latencySum || 0
+      prev.costUsd += item.costUsd || 0
+      prev.errorCount += item.errorCount || 0
       map.set(key, prev)
     }
   }
 
   return [...map.values()]
-    .sort((a, b) => b.totalTokens - a.totalTokens)
+    .sort((a, b) => b.totalTokens - a.totalTokens || b.calls - a.calls)
     .map((row) => ({
       [field]: row[field],
       calls: row.calls,
       totalTokens: row.totalTokens,
+      costUsd: Number(row.costUsd.toFixed(6)),
+      errorCount: row.errorCount,
       avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
     }))
+}
+
+/** Merge tool breakdowns across dates (tools have no tokens/cost). */
+export function mergeToolBreakdown(rows) {
+  const map = new Map()
+  for (const row of rows) {
+    for (const item of row || []) {
+      const key = item.tool || 'unknown'
+      const prev = map.get(key) || { tool: key, calls: 0, latencySum: 0, errorCount: 0 }
+      prev.calls += item.calls || 0
+      prev.latencySum += item.latencySum || 0
+      prev.errorCount += item.errorCount || 0
+      map.set(key, prev)
+    }
+  }
+  return [...map.values()]
+    .sort((a, b) => b.calls - a.calls)
+    .map((row) => ({
+      tool: row.tool,
+      calls: row.calls,
+      errorCount: row.errorCount,
+      avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
+      errorRate: row.calls > 0 ? Math.round((row.errorCount / row.calls) * 100) : 0,
+    }))
+}
+
+/** Merge error-type breakdowns across dates. */
+export function mergeErrorBreakdown(rows) {
+  const map = new Map()
+  for (const row of rows) {
+    for (const item of row || []) {
+      const key = item.errorType || 'unknown'
+      map.set(key, (map.get(key) || 0) + (item.count || 0))
+    }
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([errorType, count]) => ({ errorType, count }))
 }
 
 export async function loadSummariesForRange({ startKey, endKey, source }) {

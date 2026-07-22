@@ -12,7 +12,12 @@ import {
   publicChatEvalJob,
 } from '../services/chatEvalJobStore.js'
 import { scheduleChatEvalJob } from '../services/chatEvalQueue.js'
-import { getChatUsageAnalytics } from '../services/llmUsageAnalytics.js'
+import {
+  getChatUsageAnalytics,
+  getRecentLlmErrors,
+} from '../services/llmUsageAnalytics.js'
+import { getSystemHealthSnapshot } from '../services/systemHealthService.js'
+import { listKnownPricing } from '../services/llmPricing.js'
 
 export const listInferenceProvidersCtrl = asyncHandler(async (req, res) => {
   res.json({
@@ -75,4 +80,21 @@ export const getChatUsageCtrl = asyncHandler(async (req, res) => {
 
   const analytics = await getChatUsageAnalytics({ days, source })
   res.json({ success: true, ...analytics })
+})
+
+export const getSystemHealthCtrl = asyncHandler(async (req, res) => {
+  const snapshot = await getSystemHealthSnapshot()
+  res.json({ success: true, ...snapshot })
+})
+
+export const getRecentErrorsCtrl = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 25
+  const days = parseInt(req.query.days, 10) || 7
+  const source = typeof req.query.source === 'string' ? req.query.source : 'chat'
+  const errors = await getRecentLlmErrors({ limit, days, source })
+  res.json({ success: true, errors })
+})
+
+export const getPricingCtrl = asyncHandler(async (_req, res) => {
+  res.json({ success: true, pricing: listKnownPricing() })
 })

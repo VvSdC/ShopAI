@@ -82,12 +82,14 @@ describe('llmUsageSummaryService helpers', () => {
       'route'
     )
 
-    expect(merged[0]).toEqual({
+    expect(merged[0]).toMatchObject({
       route: 'checkout',
       calls: 3,
       totalTokens: 150,
       avgLatencyMs: 117,
     })
+    expect(merged[0]).toHaveProperty('costUsd')
+    expect(merged[0]).toHaveProperty('errorCount')
   })
 })
 
@@ -130,24 +132,24 @@ describe('getChatUsageAnalytics', () => {
 
   it('falls back to raw logs when summaries are empty', async () => {
     countSummaryCoverage.mockResolvedValue({ expectedDays: 7, coveredDays: 0, ratio: 0 })
-    LlmUsageLog.aggregate
-      .mockResolvedValueOnce([
-        {
-          calls: 1,
-          promptTokens: 1,
-          completionTokens: 2,
-          totalTokens: 3,
-          latencySum: 10,
-          successCount: 1,
-        },
-      ])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
+    // raw path aggregates: totals, daily, byRoute, byProvider, bySpan, byTool, byError, priorRow
+    LlmUsageLog.aggregate.mockResolvedValue([])
+    LlmUsageLog.aggregate.mockResolvedValueOnce([
+      {
+        calls: 1,
+        promptTokens: 1,
+        completionTokens: 2,
+        totalTokens: 3,
+        latencySum: 10,
+        successCount: 1,
+        errorCount: 0,
+        costUsd: 0,
+      },
+    ])
 
     const result = await getChatUsageAnalytics({ days: 7, source: 'chat' })
     expect(result.dataSource).toBe('raw')
     expect(result.summary.calls).toBe(1)
+    expect(result.degraded).toBe(true)
   })
 })

@@ -77,6 +77,22 @@ function findDetailInToolResults(toolResults = []) {
   return null
 }
 
+function collectDetailToolResults(toolResults = []) {
+  const rows = []
+  const seen = new Set()
+  for (const row of toolResults) {
+    if (row?.error) continue
+    if (row?.toolName !== 'get_product_details' && !(row?.id && row?.name && row?.description != null)) {
+      continue
+    }
+    const id = String(row?.id || row?._id || '')
+    if (!OBJECT_ID_RE.test(id) || seen.has(id)) continue
+    seen.add(id)
+    rows.push(row)
+  }
+  return rows
+}
+
 function pickImage(images) {
   if (!Array.isArray(images)) return null
   const url = images.find(Boolean)
@@ -261,6 +277,14 @@ export function buildChatBlocks({
     blocks.push({ type: 'product_detail', product })
     const qa = buildDetailQuickActions(detail)
     if (qa) blocks.push(qa)
+  }
+
+  if (messageKind === 'product_comparison') {
+    const detailRows = collectDetailToolResults(toolResults)
+    if (detailRows.length >= 2) {
+      const products = detailRows.slice(0, 4).map(normalizeDetailProduct)
+      blocks.push({ type: 'product_comparison', products })
+    }
   }
 
   const cart = findLastCartInToolResults(toolResults)

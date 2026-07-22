@@ -5,6 +5,7 @@ import { runAddressAssist } from './chatAddressAssist.js'
 import { runCheckoutAssist } from './chatCheckoutAssist.js'
 import { runRetrievalAssist } from './chatRetrievalAssist.js'
 import { runProductDetailAssist } from './chatProductDetailAssist.js'
+import { runComparisonAssist } from './chatComparisonAssist.js'
 import { ensureCheckoutOnConfirm } from './chatPostProcess.js'
 
 /**
@@ -81,6 +82,14 @@ export async function runDeterministicChatAssist({
   if (retrievalAssist.suggestPrompts) suggestPrompts = true
   if (retrievalAssist.reply && !replyLocked) {
     reply = retrievalAssist.reply
+  }
+
+  if (graphResult.route === 'comparison') {
+    emitAssistStatus('Comparing products…')
+    const comparisonAssist = await runComparisonAssist(userId, userText, history, toolResults, {
+      route: graphResult.route,
+    })
+    toolResults = comparisonAssist.toolResults
   }
 
   emitAssistStatus('Loading product details…')

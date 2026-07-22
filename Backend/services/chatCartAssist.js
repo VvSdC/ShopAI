@@ -70,6 +70,25 @@ function cartFromToolResults(toolResults) {
   return null
 }
 
+export function collectStockAdjustments(toolResults = []) {
+  const notes = []
+  const seen = new Set()
+  for (const row of toolResults) {
+    const adj = row?.stockAdjustment
+    if (!adj?.adjusted) continue
+    const key = `${adj.productId}|${adj.requestedQty}|${adj.finalQty}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    notes.push(adj)
+  }
+  return notes
+}
+
+export function formatStockAdjustmentNote(adj) {
+  const name = adj.productName || 'that item'
+  return `Only **${adj.qtyLeft}** of ${name} left in stock — I added **${adj.finalQty}** instead of ${adj.requestedQty}.`
+}
+
 async function buildCartConfirmationReply(userId, toolResults) {
   let cart = null
   const cartResult = await executeTool('get_cart', userId, {})
@@ -88,6 +107,11 @@ async function buildCartConfirmationReply(userId, toolResults) {
       `• **${item.qty} × ${item.name}** (${item.size}, ${item.color}) — ${formatInr(item.totalPrice)}`
   )
 
+  const stockNotes = collectStockAdjustments(toolResults)
+  const stockBlock = stockNotes.length
+    ? `\n\n${stockNotes.map(formatStockAdjustmentNote).join('\n')}`
+    : ''
+
   const addedCount = cartAddsInResults(toolResults).length
   const intro =
     addedCount > 1
@@ -96,7 +120,7 @@ async function buildCartConfirmationReply(userId, toolResults) {
         ? "I've added this to your cart:"
         : 'Your cart:'
 
-  return `${intro}\n\n${lines.join('\n')}\n\n**Cart total:** ${formatInr(cart.total)} (${cart.itemCount} unit${cart.itemCount === 1 ? '' : 's'})\n\nWould you like to apply a coupon, update quantities, or **proceed to checkout**?`
+  return `${intro}\n\n${lines.join('\n')}${stockBlock}\n\n**Cart total:** ${formatInr(cart.total)} (${cart.itemCount} unit${cart.itemCount === 1 ? '' : 's'})\n\nWould you like to apply a coupon, update quantities, or **proceed to checkout**?`
 }
 
 async function tryAddProduct(userId, product, { qty, size, color, userText }) {

@@ -1,7 +1,3 @@
-import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchOrdersAction } from "../../../redux/slices/orders/ordersSlices";
-
 const people = [
   {
     name: "Lindsay Walton",
@@ -13,18 +9,6 @@ const people = [
 ];
 
 export default function Customers() {
-  //dispatch
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(fetchOrdersAction());
-  }, [dispatch]);
-  //get data from store
-  const {
-    error,
-    loading,
-    orders: ordersData,
-  } = useSelector((state) => state?.orders);
-  const orders = ordersData?.orders ?? [];
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -90,11 +74,11 @@ export default function Customers() {
                         {person.role}
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 lg:pr-8">
-                        <a
-                          href="#"
+                        <button
+                          type="button"
                           className="text-indigo-600 hover:text-indigo-900">
                           Edit<span className="sr-only">, {person.name}</span>
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))}

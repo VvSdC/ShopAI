@@ -8,6 +8,9 @@ import {
   runChatEvalCtrl,
   getChatEvalStatusCtrl,
   getChatUsageCtrl,
+  getSystemHealthCtrl,
+  getRecentErrorsCtrl,
+  getPricingCtrl,
 } from '../controllers/analyticsCtrl.js'
 
 const analyticsRouter = express.Router()
@@ -38,5 +41,8 @@ analyticsRouter.get(
   getChatEvalStatusCtrl
 )
 analyticsRouter.get('/chat-usage', isLoggedIn, isAdmin, getChatUsageCtrl)
+analyticsRouter.get('/system-health', isLoggedIn, isAdmin, getSystemHealthCtrl)
+analyticsRouter.get('/errors', isLoggedIn, isAdmin, getRecentErrorsCtrl)
+analyticsRouter.get('/pricing', isLoggedIn, isAdmin, getPricingCtrl)
 
 export default analyticsRouter
