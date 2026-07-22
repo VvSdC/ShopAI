@@ -16,12 +16,15 @@
     "react-carousel-minimal": "^1.4.1",
     "react-datepicker": "^4.8.0",
     "react-dom": "^18.2.0",
+    "react-helmet-async": "^3.0.0",
     "react-loading": "^2.0.3",
+    "react-markdown": "^10.1.0",
     "react-redux": "^8.0.5",
     "react-responsive-carousel": "^3.2.23",
     "react-router-dom": "^6.4.4",
     "react-scripts": "5.0.1",
     "react-select": "^5.7.0",
+    "remark-gfm": "^4.0.1",
     "stripe": "^11.18.0",
     "sweetalert2": "^11.6.16",
     "sweetalert2-react-content": "^5.0.7",
@@ -29,8 +32,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "node scripts/generate-seo-assets.js && react-scripts build",
+    "generate-seo": "node scripts/generate-seo-assets.js",
     "test": "react-scripts test",
+    "lint": "eslint src --ext .js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

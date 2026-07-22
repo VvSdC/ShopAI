@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { StarIcon } from '@heroicons/react/20/solid'
+import WishlistButton from './WishlistButton'
 
 const DESCRIPTION_PREVIEW_LENGTH = 110
 
@@ -68,21 +69,23 @@ export default function Products({ products }) {
             style={{ animationDelay: `${Math.min(index, 11) * 45}ms` }}
             className="group flex animate-fade-up flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100"
           >
-            <Link
-              to={productPath}
-              className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-b from-stone-50 to-white p-4 sm:aspect-[4/5] sm:p-5"
-            >
-              {image ? (
-                <img
-                  src={productThumbUrl(image)}
-                  alt={product?.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="max-h-full max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-110"
-                />
-              ) : (
-                <span className="text-sm text-stone-400">No image</span>
-              )}
+            <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-b from-stone-50 to-white p-4 sm:aspect-[4/5] sm:p-5">
+              <div className="absolute right-3 top-3 z-10">
+                <WishlistButton product={product} />
+              </div>
+              <Link to={productPath} className="flex h-full w-full items-center justify-center">
+                {image ? (
+                  <img
+                    src={productThumbUrl(image)}
+                    alt={product?.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="max-h-full max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-110"
+                  />
+                ) : (
+                  <span className="text-sm text-stone-400">No image</span>
+                )}
+              </Link>
               {outOfStock && (
                 <span className="absolute left-3 top-3 rounded-md bg-stone-900/80 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur">
                   Sold out
@@ -93,7 +96,7 @@ export default function Products({ products }) {
                   {product.qtyLeft} left
                 </span>
               )}
-            </Link>
+            </div>
 
             <div className="flex flex-1 flex-col p-3 pt-2.5 sm:p-4 sm:pt-3">
               <p className="min-h-[1rem] text-[11px] font-semibold uppercase tracking-wider text-indigo-600">

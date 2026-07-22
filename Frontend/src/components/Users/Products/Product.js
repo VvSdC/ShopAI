@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react'
 import { RadioGroup } from '@headlessui/react'
 import Swal from 'sweetalert2'
 import {
@@ -12,7 +12,7 @@ import { StarIcon } from '@heroicons/react/20/solid'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
-import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import MarkdownContent from '../../common/MarkdownContent'
 import {
   addOrderToCartaction,
   getCartItemsFromLocalStorageAction,
@@ -23,6 +23,11 @@ import {
   updateReviewAction,
   deleteReviewAction,
 } from '../../../redux/slices/reviews/reviewsSlice'
+import WishlistButton from './WishlistButton'
+import SimilarProductsSection from './SimilarProductsSection'
+import PageSeo from '../../common/PageSeo'
+import { truncateMeta, absoluteUrl } from '../../../utils/seo'
+import { recordRecentlyViewed } from '../../../utils/recentlyViewed'
 import { getCartUnitCount } from '../../../utils/cartCount'
 import {
   displaySizeLabel,
@@ -119,12 +124,18 @@ export default function Product() {
 
   //get id from params
   const { id } = useParams()
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [id])
+
   useEffect(() => {
     if (id) dispatch(fetchProductAction(id))
     dispatch(fetchColorsAction())
     setActiveImage(0)
     setSelectedSize('')
     setSelectedColor('')
+    setQty(1)
   }, [id, dispatch])
 
   const { product, loading, error } = useSelector((state) => state?.products)
@@ -137,14 +148,23 @@ export default function Product() {
   const currentUserId = userAuth?.userInfo?._id
 
   useEffect(() => {
-    if (!product?._id) return
+    if (!product?._id || String(product._id) !== String(id)) return
+    const colors = product.colors || []
+    if (colors.length > 0) {
+      setSelectedColor(colors[0])
+    }
     const sizes = product.sizes || []
     if (product.sizeMeasurementType === 'none') {
       setSelectedSize('One Size')
-    } else if (sizes.length === 1) {
+    } else if (sizes.length > 0) {
       setSelectedSize(sizes[0])
     }
-  }, [product?._id, product?.sizeMeasurementType, product?.sizes])
+  }, [id, product?._id, product?.sizeMeasurementType, product?.sizes, product?.colors])
+
+  useEffect(() => {
+    if (!product?._id || String(product._id) !== String(id)) return
+    recordRecentlyViewed(product)
+  }, [id, product])
 
   //get all colors from store for hex lookup
   const allColors = useSelector((state) => state?.colors?.colors?.colors) || []
@@ -344,13 +364,64 @@ export default function Product() {
 
   const stickyTop = 'calc(var(--shopai-navbar-height, 5rem) + 1.25rem)'
 
+  const productJsonLd =
+    product?._id && String(product._id) === String(id)
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.name,
+          description: truncateMeta(product.description, 500),
+          image: (product.images || []).map((img) => absoluteUrl(img)).filter(Boolean),
+          sku: String(product._id),
+          offers: {
+            '@type': 'Offer',
+            price: product.price,
+            priceCurrency: 'INR',
+            availability: inStock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+            url: absoluteUrl(`/products/${id}`),
+          },
+          ...(visibleReviews.length > 0
+            ? {
+                aggregateRating: {
+                  '@type': 'AggregateRating',
+                  ratingValue: Number(displayRating),
+                  reviewCount: visibleReviews.length,
+                },
+              }
+            : {}),
+        }
+      : null
+
   return (
     <div className="min-h-screen bg-stone-100">
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
+      {product?._id && String(product._id) === String(id) && (
+        <PageSeo
+          title={product.name}
+          description={product.description}
+          path={`/products/${id}`}
+          image={product.images?.[0]}
+          type="product"
+          jsonLd={productJsonLd}
+        />
+      )}
+      <section aria-label="Product details" className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
         {loading && !product?._id ? (
           <ProductDetailSkeleton />
         ) : error ? (
-          <ErrorMsg message={error?.message || 'Failed to load product'} />
+          <div className="rounded-xl border border-red-200 bg-white p-8 text-center">
+            <h1 className="text-xl font-bold text-stone-900">Product unavailable</h1>
+            <p className="mt-2 text-sm text-stone-600">
+              {error?.message || 'This product could not be loaded. It may have been removed.'}
+            </p>
+            <Link
+              to="/products-filters"
+              className="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Browse products
+            </Link>
+          </div>
         ) : (
           <>
             <nav
@@ -388,6 +459,8 @@ export default function Product() {
                             key={index}
                             type="button"
                             onClick={() => setActiveImage(index)}
+                            aria-label={`Show image ${index + 1} of ${images.length}`}
+                            aria-current={activeImage === index ? 'true' : undefined}
                             className={classNames(
                               'h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl border-2 bg-stone-50 transition lg:h-[4.5rem] lg:w-full',
                               activeImage === index
@@ -397,7 +470,7 @@ export default function Product() {
                           >
                             <img
                               src={productImageUrl(image, 'thumb')}
-                              alt=""
+                              alt={`${product?.name || 'Product'} thumbnail ${index + 1}`}
                               width={112}
                               height={112}
                               loading="lazy"
@@ -469,10 +542,13 @@ export default function Product() {
                     {product?.name}
                   </h1>
 
-                  <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-b border-stone-100 pb-5">
-                    <p className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-                      {formatPrice(product?.price)}
-                    </p>
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-4 border-b border-stone-100 pb-5">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <p className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
+                        {formatPrice(product?.price)}
+                      </p>
+                      <WishlistButton product={product} size="md" className="mt-1" />
+                    </div>
                     <div className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
                         {[0, 1, 2, 3, 4].map((i) => (
@@ -644,11 +720,13 @@ export default function Product() {
             {product?.description && (
               <section className="mt-8 animate-fade-up rounded-2xl border border-stone-200/80 bg-white p-6 shadow-sm sm:p-8">
                 <h2 className="text-lg font-semibold text-stone-900">Product description</h2>
-                <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-stone-600">
-                  {product.description}
-                </p>
+                <div className="mt-4">
+                  <MarkdownContent>{product.description}</MarkdownContent>
+                </div>
               </section>
             )}
+
+            <SimilarProductsSection productId={product?._id} />
 
             {/* Reviews */}
         <section
@@ -760,6 +838,11 @@ export default function Product() {
                         <p className="text-sm font-semibold text-stone-900">
                           {review.user?.fullname}
                         </p>
+                        {review.verifiedPurchase && (
+                          <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                            Verified Purchase
+                          </span>
+                        )}
                         <p className="text-xs text-stone-400">
                           {new Date(review.createdAt).toLocaleDateString('en-IN', {
                             year: 'numeric',
@@ -840,7 +923,7 @@ export default function Product() {
         </section>
           </>
         )}
-      </main>
+      </section>
 
       {/* Review Modal — used for both Create and Edit */}
       {showReviewModal && (

@@ -38,6 +38,27 @@ export function queryEmbeddingCacheKey(text, embeddingVersion) {
   return `${CACHE_KEYS.queryEmbeddingPrefix}v${embeddingVersion}:${hash}`
 }
 
+export function productsSearchCacheKey(args) {
+  const normalized = {
+    q: normalizeSearchQueryForCache(args.query),
+    category: args.category || '',
+    brands: (args.brands || []).slice().sort().join('|'),
+    colors: (args.colors || []).slice().sort().join('|'),
+    size: args.size || '',
+    min_price: args.min_price ?? '',
+    max_price: args.max_price ?? '',
+    inStock: args.inStock ? '1' : '',
+    page: args.page || 1,
+    limit: args.limit || 12,
+  }
+  const hash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(normalized))
+    .digest('hex')
+    .slice(0, 16)
+  return `${CACHE_KEYS.productsListPrefix}search:${hash}`
+}
+
 export function productsListCacheKey(query) {
   const normalized = {
     page: query.page || 1,
@@ -47,6 +68,7 @@ export function productsListCacheKey(query) {
     color: parseColorFilterQuery(query.color).sort().join('|'),
     size: query.size || '',
     price: query.price || '',
+    inStock: query.inStock === true || query.inStock === 'true' ? '1' : '',
   }
   const hash = crypto
     .createHash('sha256')

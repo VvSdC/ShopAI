@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import Order from '../model/Order.js'
+import { AppError } from '../utils/appError.js'
 import { RETURN_REASONS } from '../constants/returnReasons.js'
 import {
   getReturnEligibility,
@@ -22,10 +23,9 @@ export const getMyReturnsCtrl = asyncHandler(async (req, res) => {
 
 export const getOrderReturnEligibilityCtrl = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.orderId)
-  if (!order) throw new Error('Order not found')
+  if (!order) throw new AppError('Order not found', 404)
   if (order.user.toString() !== req.userAuthId.toString()) {
-    res.status(403)
-    throw new Error('Not authorised')
+    throw new AppError('Not authorised', 403)
   }
   const eligibility = getReturnEligibility(order)
   res.json({ success: true, ...eligibility })

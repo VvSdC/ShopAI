@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   ExclamationTriangleIcon,
@@ -11,6 +11,7 @@ import { validateCartAction } from '../../../redux/slices/cart/cartSlices'
 import { placeOrderAction } from '../../../redux/slices/orders/ordersSlices'
 import { getUserProfileAction } from '../../../redux/slices/users/usersSlice'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import AddShippingAddress from '../Forms/AddShippingAddress'
 import {
@@ -20,6 +21,8 @@ import {
   CheckoutTableHeader,
   CheckoutProductMeta,
 } from './cartDisplay'
+import { resolveCheckoutCouponCode } from '../../../utils/checkoutCoupon'
+import { useCheckoutPaymentPoll } from '../../../utils/useCheckoutPaymentPoll'
 
 function CheckoutLineItem({ product }) {
   const productPath = `/products/${product._id}`
@@ -102,17 +105,23 @@ function CheckoutLineItem({ product }) {
 
 export default function OrderPayment() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
 
   useEffect(() => {
     dispatch(validateCartAction())
     dispatch(getUserProfileAction())
   }, [dispatch])
 
-  const { cartItems, stockWarnings, validating } = useSelector((state) => state?.carts)
+  const { cartItems, stockWarnings, validating, serverCouponCode } = useSelector(
+    (state) => state?.carts
+  )
   const { coupon: appliedCoupon } = useSelector((state) => state?.coupons)
   const { loading: orderLoading, error: orderErr } = useSelector((state) => state?.orders)
 
-  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const availableItems = useMemo(
+    () => cartItems?.filter((item) => !item.unavailable) || [],
+    [cartItems]
+  )
   const unavailableCount = (cartItems?.length || 0) - availableItems.length
 
   const subtotal = useMemo(
@@ -123,12 +132,42 @@ export default function OrderPayment() {
   const discountPercent = appliedCoupon?.coupon?.discount || 0
   const discountAmount = discountPercent > 0 ? (subtotal * discountPercent) / 100 : 0
   const total = subtotal - discountAmount
+  const checkoutCouponCode = resolveCheckoutCouponCode(
+    appliedCoupon,
+    serverCouponCode,
+    discountPercent
+  )
   const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
 
   const [selectedAddress, setSelectedAddress] = useState(null)
   const [addressError, setAddressError] = useState('')
   const [checkoutBlocked, setCheckoutBlocked] = useState(false)
   const [checkoutUrl, setCheckoutUrl] = useState('')
+  const [checkoutExpired, setCheckoutExpired] = useState(false)
+
+  const [checkoutAttemptKey] = useState(
+    () => `checkout-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`
+  )
+  const [pendingOrderId, setPendingOrderId] = useState('')
+
+  const handleCheckoutPaid = useCallback(
+    (status) => {
+      const target = status?.redirectTo || '/customer-profile'
+      navigate(`${target}?payment=success`)
+    },
+    [navigate]
+  )
+
+  const handleCheckoutExpired = useCallback(() => {
+    setCheckoutExpired(true)
+    setPendingOrderId('')
+    setCheckoutUrl('')
+  }, [])
+
+  const { polling: paymentPolling, secondsRemaining } = useCheckoutPaymentPoll(pendingOrderId, {
+    onPaid: handleCheckoutPaid,
+    onExpired: handleCheckoutExpired,
+  })
 
   const handleAddressSelect = useCallback((addr) => {
     setSelectedAddress(addr)
@@ -147,6 +186,8 @@ export default function OrderPayment() {
     setAddressError('')
     setCheckoutBlocked(false)
     setCheckoutUrl('')
+    setCheckoutExpired(false)
+    setPendingOrderId('')
 
     try {
       const result = await dispatch(
@@ -154,13 +195,18 @@ export default function OrderPayment() {
           shippingAddress: selectedAddress,
           orderItems: availableItems,
           totalPrice: total,
+          idempotencyKey: checkoutAttemptKey,
+          ...(checkoutCouponCode ? { couponCode: checkoutCouponCode } : {}),
         })
       ).unwrap()
 
       if (result?.url) {
+        if (result.orderId) {
+          setPendingOrderId(result.orderId)
+        }
+        setCheckoutUrl(result.url)
         const checkoutWindow = window.open(result.url, '_blank', 'noopener,noreferrer')
         if (!checkoutWindow) {
-          setCheckoutUrl(result.url)
           setCheckoutBlocked(true)
         }
       }
@@ -171,7 +217,8 @@ export default function OrderPayment() {
 
   return (
     <>
-      {orderErr && <ErrorMsg message={orderErr} />}
+      <PrivatePageSeo title="Checkout" path="/order-payment" />
+      {orderErr && <ErrorMsg variant="inline" message={orderErr} />}
 
       {addressError && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -213,6 +260,44 @@ export default function OrderPayment() {
               >
                 Open checkout in a new tab
               </a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {(paymentPolling || pendingOrderId) && !checkoutExpired && (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+            <p className="font-medium">Waiting for payment</p>
+            <p className="mt-1">
+              Complete checkout in the Stripe tab. This page will update when payment is confirmed.
+              {typeof secondsRemaining === 'number' && secondsRemaining > 0 && (
+                <span className="block mt-1 text-indigo-700">
+                  Checkout link expires in {Math.ceil(secondsRemaining / 60)} min.
+                </span>
+              )}
+            </p>
+            {checkoutUrl && (
+              <a
+                href={checkoutUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block font-semibold text-indigo-700 underline hover:text-indigo-900"
+              >
+                Re-open checkout
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {checkoutExpired && (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <p className="font-medium">Checkout expired</p>
+            <p className="mt-1">
+              Your payment window timed out. Reserved stock has been released — place the order again
+              to continue.
             </p>
           </div>
         </div>

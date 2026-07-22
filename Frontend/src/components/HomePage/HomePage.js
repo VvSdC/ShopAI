@@ -16,7 +16,10 @@ import {
 } from '../../utils/promoMessaging'
 import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
+import HomeAiAssistantPromo from './HomeAiAssistantPromo'
+import HomeRecentlyViewed from './HomeRecentlyViewed'
 import Reveal from './Reveal'
+import PageSeo from '../common/PageSeo'
 
 const trustItems = [
   { name: 'Easy returns', icon: ArrowPathIcon },
@@ -48,6 +51,11 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-full flex-col bg-stone-50">
+      <PageSeo
+        title="AI-powered shopping across India"
+        description="Discover products, personalized recommendations, and secure checkout on ShopAI."
+        path="/"
+      />
       {/* Hero */}
       <section className="relative shrink-0 overflow-hidden bg-stone-900">
         <div className="absolute inset-0">
@@ -131,6 +139,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <HomeAiAssistantPromo />
+
       {showCoupon && (
         <section className="overflow-hidden bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600">
           <div className="mx-auto flex max-w-7xl animate-fade-up flex-col items-center justify-between gap-5 px-4 py-7 sm:flex-row sm:px-6 sm:text-left lg:px-8">
@@ -198,6 +208,8 @@ export default function HomePage() {
 
       {/* Trending products */}
       <HomeProductTrending />
+
+      <HomeRecentlyViewed />
 
       {/* Bottom CTA */}
       <section className="relative mt-auto shrink-0 overflow-hidden bg-stone-900">

@@ -9,6 +9,8 @@ const { createAsyncThunk, createSlice } = require("@reduxjs/toolkit");
 const initialState = {
   reviews: [],
   review: {},
+  adminReviews: [],
+  adminLoading: false,
   loading: false,
   error: null,
   isAdded: false,
@@ -66,6 +68,34 @@ export const deleteReviewAction = createAsyncThunk(
   }
 );
 
+export const fetchAdminReviewsAction = createAsyncThunk(
+  "review/admin-list",
+  async (status = "pending", { rejectWithValue }) => {
+    try {
+      const query = status && status !== "all" ? `?status=${status}` : "?status=all";
+      const { data } = await axiosInstance.get(`/reviews/admin/all${query}`);
+      return data.reviews;
+    } catch (error) {
+      return rejectWithValue(error?.response?.data);
+    }
+  }
+);
+
+export const moderateReviewAction = createAsyncThunk(
+  "review/admin-moderate",
+  async ({ id, status, reason }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put(`/reviews/admin/${id}/moderate`, {
+        status,
+        reason,
+      });
+      return data.review;
+    } catch (error) {
+      return rejectWithValue(error?.response?.data);
+    }
+  }
+);
+
 //slice
 const reviewsSlice = createSlice({
   name: "reviews",
@@ -113,6 +143,29 @@ const reviewsSlice = createSlice({
     builder.addCase(deleteReviewAction.rejected, (state, action) => {
       state.loading = false;
       state.isDelete = false;
+      state.error = action.payload;
+    });
+
+    builder.addCase(fetchAdminReviewsAction.pending, (state) => {
+      state.adminLoading = true;
+    });
+    builder.addCase(fetchAdminReviewsAction.fulfilled, (state, action) => {
+      state.adminLoading = false;
+      state.adminReviews = action.payload;
+    });
+    builder.addCase(fetchAdminReviewsAction.rejected, (state, action) => {
+      state.adminLoading = false;
+      state.error = action.payload;
+    });
+
+    builder.addCase(moderateReviewAction.pending, (state) => {
+      state.adminLoading = true;
+    });
+    builder.addCase(moderateReviewAction.fulfilled, (state) => {
+      state.adminLoading = false;
+    });
+    builder.addCase(moderateReviewAction.rejected, (state, action) => {
+      state.adminLoading = false;
       state.error = action.payload;
     });
 

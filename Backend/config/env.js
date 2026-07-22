@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import logger from '../utils/logger.js'
 
 dotenv.config()
 
@@ -89,6 +90,7 @@ export const config = {
     moderationQueueConcurrency: envInt('MODERATION_QUEUE_CONCURRENCY', 5),
     productTaggingQueueEnabled: envBool('ENABLE_PRODUCT_TAGGING_QUEUE', false),
     emailQueueEnabled: envBool('ENABLE_EMAIL_QUEUE', false),
+    chatEvalQueueEnabled: envBool('ENABLE_CHAT_EVAL_QUEUE', false),
     // Default false in production — run `node worker.js` as a separate process.
     runQueueWorkersInApi: envBool(
       'RUN_QUEUE_WORKERS_IN_API',
@@ -175,6 +177,8 @@ export const config = {
     syncConcurrency: envInt('SEARCH_SYNC_CONCURRENCY', 5),
     syncStartupDelayMs: envInt('SEARCH_SYNC_STARTUP_DELAY_MS', 5000),
     syncMaxPerRun: envInt('SEARCH_SYNC_MAX_PER_RUN', 0),
+    /** Max ranked hits exposed to paginated product search (not chat). */
+    maxResults: envInt('SEARCH_MAX_RESULTS', 100),
   },
 
   rateLimit: {
@@ -194,6 +198,23 @@ export const config = {
       windowMs: envInt('RATE_LIMIT_CHAT_DAILY_WINDOW_MS', 24 * 60 * 60 * 1000),
       max: envInt('RATE_LIMIT_CHAT_DAILY_MAX', 150),
     },
+    /** Brute-force protection on OTP verify/reset endpoints (per email). */
+    otpConsume: {
+      windowMs: envInt('RATE_LIMIT_OTP_CONSUME_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_OTP_CONSUME_MAX', 10),
+    },
+    /** Abuse protection when issuing new OTPs (forgot-password, resend-verification). */
+    otpResend: {
+      windowMs: envInt('RATE_LIMIT_OTP_RESEND_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_OTP_RESEND_MAX', 5),
+    },
+    /** Public cart stock/pricing probe — tighter than generic API limit. */
+    validateCart: {
+      windowMs: envInt('RATE_LIMIT_VALIDATE_CART_WINDOW_MS', 15 * 60 * 1000),
+      max: envInt('RATE_LIMIT_VALIDATE_CART_MAX', 30),
+    },
+    /** Divide in-memory limits when API runs on multiple replicas without Redis. */
+    instanceCount: envInt('RATE_LIMIT_INSTANCE_COUNT', 1),
   },
 
   openapi: {
@@ -224,6 +245,12 @@ export function validateConfig(options = {}) {
 
   if (strict && !config.stripe.secretKey) missing.push('STRIPE_KEY')
 
+  if (strict && config.stripe.secretKey && !config.stripe.webhookSecret) {
+    logger.warn(
+      '[config] STRIPE_KEY is set but STRIPE_WEBHOOK_SECRET is missing — webhooks will be rejected; payment still works via verify-payment and checkout polling'
+    )
+  }
+
   if (missing.length === 0) return { ok: true, missing: [] }
 
   const message = `Missing required configuration: ${missing.join(', ')}`
@@ -232,7 +259,7 @@ export function validateConfig(options = {}) {
     throw new Error(message)
   }
 
-  console.warn(`[config] ${message}`)
+  logger.warn(`[config] ${message}`)
   return { ok: false, missing }
 }
 

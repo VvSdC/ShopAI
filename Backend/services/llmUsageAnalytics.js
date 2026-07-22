@@ -279,10 +279,12 @@ export async function getChatUsageAnalytics({ days = 7, source = 'chat' } = {}) 
   })
 
   if (coverage.coveredDays > 0) {
-    return getChatUsageAnalyticsFromSummary({ days, source })
+    const result = await getChatUsageAnalyticsFromSummary({ days, source })
+    return { ...result, degraded: false }
   }
 
-  return getChatUsageAnalyticsFromRaw({ days, source })
+  const result = await getChatUsageAnalyticsFromRaw({ days, source })
+  return { ...result, degraded: true, degradedReason: 'summary_worker_unavailable' }
 }
 
 export { listDateKeysBetween, dateKey, startDateForRange }

@@ -22,6 +22,7 @@ import {
 import { applyCartCouponAction } from '../../../redux/slices/cart/cartSlices'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import SuccessMsg from '../../SuccessMsg/SuccessMsg'
 import {
   formatPrice,
@@ -233,6 +234,7 @@ function OrderSummary({
   couponSuccess,
   canCheckout,
   showCheckout = true,
+  isLoggedIn = true,
   idPrefix = 'cart',
 }) {
   return (
@@ -264,18 +266,39 @@ function OrderSummary({
         </dl>
 
         {showCheckout && (
-          <Link
-            to="/order-payment"
-            state={{ sumTotalPrice: total }}
-            className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
-              canCheckout
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                : 'pointer-events-none bg-stone-300 text-stone-500'
-            }`}
-          >
-            <LockClosedIcon className="h-5 w-5" />
-            Proceed to checkout
-          </Link>
+          isLoggedIn ? (
+            <Link
+              to="/order-payment"
+              state={{ sumTotalPrice: total }}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
+                canCheckout
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'pointer-events-none bg-stone-300 text-stone-500'
+              }`}
+            >
+              <LockClosedIcon className="h-5 w-5" />
+              Proceed to checkout
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              state={{ from: { pathname: '/order-payment' }, sumTotalPrice: total }}
+              className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-base font-bold shadow-sm transition ${
+                canCheckout
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'pointer-events-none bg-stone-300 text-stone-500'
+              }`}
+            >
+              <LockClosedIcon className="h-5 w-5" />
+              Sign in to checkout
+            </Link>
+          )
+        )}
+
+        {!isLoggedIn && showCheckout && (
+          <p className="text-center text-xs text-stone-500">
+            Your cart is saved on this device. Create an account or sign in only when you are ready to pay.
+          </p>
         )}
 
         <Link
@@ -357,11 +380,14 @@ export default function ShoppingCart() {
   const { coupon, loading: couponLoading, error: couponError, isAdded } = useSelector(
     (state) => state?.coupons
   )
-  const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating } = useSelector(
-    (state) => state?.carts
-  )
+  const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating, error: cartError } =
+    useSelector((state) => state?.carts)
+  const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
 
-  const availableItems = cartItems?.filter((item) => !item.unavailable) || []
+  const availableItems = useMemo(
+    () => cartItems?.filter((item) => !item.unavailable) || [],
+    [cartItems]
+  )
   const hasUnavailable = cartItems?.some((item) => item.unavailable)
   const itemCount = availableItems.reduce((acc, item) => acc + (item.qty || 0), 0)
   const lineCount = cartItems?.length || 0
@@ -422,6 +448,18 @@ export default function ShoppingCart() {
 
   return (
     <div className="bg-white pb-28 lg:pb-10">
+      <PrivatePageSeo title="Shopping cart" path="/shopping-cart" />
+      {cartError && (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <ErrorMsg
+            variant="inline"
+            message={
+              cartError?.message ||
+              (typeof cartError === 'string' ? cartError : 'Could not validate your cart.')
+            }
+          />
+        </div>
+      )}
       {/* Top bar — breadcrumb + title */}
       <div className="border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
@@ -601,6 +639,7 @@ export default function ShoppingCart() {
                   couponSuccess={couponSuccessMessage}
                   canCheckout={availableItems.length > 0}
                   showCheckout
+                  isLoggedIn={isLoggedIn}
                   idPrefix="desktop"
                 />
               </div>
@@ -626,11 +665,15 @@ export default function ShoppingCart() {
               <p className="text-xl font-bold text-stone-900">{formatPrice(total)}</p>
             </div>
             <Link
-              to="/order-payment"
-              state={{ sumTotalPrice: total }}
+              to={isLoggedIn ? '/order-payment' : '/login'}
+              state={
+                isLoggedIn
+                  ? { sumTotalPrice: total }
+                  : { from: { pathname: '/order-payment' }, sumTotalPrice: total }
+              }
               className="shrink-0 rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow hover:bg-indigo-700"
             >
-              Checkout
+              {isLoggedIn ? 'Checkout' : 'Sign in'}
             </Link>
           </div>
         </div>

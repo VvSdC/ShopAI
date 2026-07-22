@@ -27,3 +27,9 @@ export const createOrderSchema = z.object({
   orderItems: z.array(orderItemSchema).min(1),
   shippingAddress: shippingAddressSchema,
 })
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(['pending', 'processing', 'shipped', 'delivered']),
+  trackingCarrier: z.string().trim().max(80).optional(),
+  trackingNumber: z.string().trim().max(120).optional(),
+})

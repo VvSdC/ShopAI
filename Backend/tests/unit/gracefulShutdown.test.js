@@ -12,6 +12,10 @@ const {
   mongooseClose: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('../../services/checkoutQueue.js', () => ({
+  stopCheckoutExpiryFallback: vi.fn(),
+}))
+
 vi.mock('../../services/queueWorkers.js', () => ({
   stopAllQueueWorkers,
 }))

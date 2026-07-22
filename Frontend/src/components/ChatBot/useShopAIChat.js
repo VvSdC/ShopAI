@@ -1,8 +1,20 @@
 import { useCallback } from 'react'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../utils/axiosInstance'
-import { getCartFromServerAction } from '../../redux/slices/cart/cartSlices'
-import { postChatMessageStream } from './chatStreamClient'
+import {
+  getCartFromServerAction,
+  getCartItemsFromLocalStorageAction,
+} from '../../redux/slices/cart/cartSlices'
+import { parseLocalCart } from '../../utils/localCart'
+import { postChatMessageStream, postGuestChatMessageStream } from './chatStreamClient'
+
+function readLocalCartItems() {
+  return parseLocalCart(localStorage.getItem('cartItems'))
+}
+
+function persistLocalCartItems(items) {
+  localStorage.setItem('cartItems', JSON.stringify(items || []))
+}
 
 export function useShopAIChatActions() {
   const dispatch = useDispatch()
@@ -14,7 +26,17 @@ export function useShopAIChatActions() {
         if (action.type === 'sync_cart') {
           dispatch(getCartFromServerAction())
         }
+        if (action.type === 'sync_local_cart' && Array.isArray(action.items)) {
+          persistLocalCartItems(action.items)
+          dispatch(getCartItemsFromLocalStorageAction())
+        }
       }
+
+      if (Array.isArray(data?.localCart)) {
+        persistLocalCartItems(data.localCart)
+        dispatch(getCartItemsFromLocalStorageAction())
+      }
+
       return {
         cartSummary: data?.cartSummary || null,
         checkout: data?.checkout || null,
@@ -23,9 +45,22 @@ export function useShopAIChatActions() {
     [dispatch]
   )
 
-  const sendMessage = useCallback(async ({ text, sessionId }, handlers = {}) => {
-    return postChatMessageStream({ message: text, sessionId }, handlers)
-  }, [])
+  const sendMessage = useCallback(
+    async ({ text, sessionId, isGuest = false, history = [] }, handlers = {}) => {
+      if (isGuest) {
+        return postGuestChatMessageStream(
+          {
+            message: text,
+            history,
+            localCart: readLocalCartItems(),
+          },
+          handlers
+        )
+      }
+      return postChatMessageStream({ message: text, sessionId }, handlers)
+    },
+    []
+  )
 
   return { sendMessage, handleClientActions }
 }
@@ -41,7 +76,6 @@ export function formatSessionDate(value) {
   return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
 }
 
-// Legacy JSON endpoint kept for callers that still import axiosInstance directly.
 export async function sendChatMessageJson({ text, sessionId }) {
   const payload = { message: text }
   if (sessionId) {

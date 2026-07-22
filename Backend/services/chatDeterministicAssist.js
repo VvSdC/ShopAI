@@ -1,4 +1,5 @@
 import { config } from '../config/env.js'
+import { emitChatStreamEvent } from './chatStreamContext.js'
 import { runCartAssist } from './chatCartAssist.js'
 import { runAddressAssist } from './chatAddressAssist.js'
 import { runCheckoutAssist } from './chatCheckoutAssist.js'
@@ -18,6 +19,14 @@ import { ensureCheckoutOnConfirm } from './chatPostProcess.js'
 
 export function isDeterministicAssistEnabled() {
   return config.chat.deterministicAssist
+}
+
+function emitAssistStatus(label) {
+  emitChatStreamEvent({
+    type: 'tool_start',
+    toolName: 'assist',
+    label: label || 'Working…',
+  })
 }
 
 /**
@@ -40,6 +49,7 @@ export async function runDeterministicChatAssist({
   let toolResults = graphResult.toolResults || []
   const messages = graphResult.messages || []
   let cartQueue
+  let suggestPrompts = false
 
   // If LangGraph already produced a typed/locked reply (product detail,
   // refuse, etc.), do NOT let downstream assists overwrite it. Only run
@@ -59,6 +69,7 @@ export async function runDeterministicChatAssist({
 
   const plan = graphResult.plan || null
 
+  emitAssistStatus('Understanding your request…')
   const retrievalAssist = await runRetrievalAssist(
     userId,
     userText,
@@ -67,10 +78,12 @@ export async function runDeterministicChatAssist({
     graphResult
   )
   toolResults = retrievalAssist.toolResults
+  if (retrievalAssist.suggestPrompts) suggestPrompts = true
   if (retrievalAssist.reply && !replyLocked) {
     reply = retrievalAssist.reply
   }
 
+  emitAssistStatus('Loading product details…')
   const detailAssist = await runProductDetailAssist(userId, userText, history, toolResults, {
     route: graphResult.route,
     cartQueue: sessionCartQueue,
@@ -83,6 +96,7 @@ export async function runDeterministicChatAssist({
     replyLocked = true
   }
 
+  emitAssistStatus('Updating your cart…')
   const cartAssist = await runCartAssist(userId, userText, history, toolResults, {
     route: graphResult.route,
     cartQueue: sessionCartQueue,
@@ -91,12 +105,13 @@ export async function runDeterministicChatAssist({
   toolResults = cartAssist.toolResults
   if (cartAssist.reply && !replyLocked) {
     reply = cartAssist.reply
-    replyKind = 'cart_confirm'
+    replyKind = cartAssist.replyKind || 'cart_confirm'
   }
   if (cartAssist.cartQueue !== undefined) {
     cartQueue = cartAssist.cartQueue
   }
 
+  emitAssistStatus('Checking delivery address…')
   const addressAssist = await runAddressAssist(userId, userText, toolResults, { history, plan })
   toolResults = addressAssist.toolResults
   if (addressAssist.reply && !replyLocked) {
@@ -104,6 +119,7 @@ export async function runDeterministicChatAssist({
     replyKind = 'address_picker'
   }
 
+  emitAssistStatus('Preparing checkout…')
   const checkoutAssist = await runCheckoutAssist(userId, userText, history, toolResults, {
     plan,
   })
@@ -115,5 +131,5 @@ export async function runDeterministicChatAssist({
 
   toolResults = await ensureCheckoutOnConfirm(userId, userText, messages, toolResults)
 
-  return { reply, toolResults, cartQueue, replyKind, replyLocked }
+  return { reply, toolResults, cartQueue, replyKind, replyLocked, suggestPrompts }
 }

@@ -261,6 +261,24 @@ export function resolveProductIdFromPending(history, pendingName) {
   return hit?.id || null
 }
 
+/** Returns 2+ catalog items when a name reference is ambiguous. */
+export function findAmbiguousCatalogMatches(history, searchName) {
+  const norm = normalizeProductName(searchName)
+  if (!norm) return []
+  const items = activeCatalogProducts(history)
+  const matches = items.filter((item) => {
+    const name = normalizeProductName(item.name || '')
+    if (!name) return false
+    return name.includes(norm) || norm.includes(name)
+  })
+  return matches.length > 1 ? matches : []
+}
+
+export function buildDisambiguationReply(products) {
+  const lines = products.slice(0, 6).map((p, i) => `${i + 1}. **${p.name}**`)
+  return `Which product did you mean?\n\n${lines.join('\n')}\n\nReply with the number (e.g. **1**) or the product name.`
+}
+
 export async function resolveProductIdFromContext(history, userText, cartQueue = null) {
   const items = activeCatalogProducts(history)
   if (!items.length) return null

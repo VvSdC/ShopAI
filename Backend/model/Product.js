@@ -1,5 +1,6 @@
 //product schema
 import mongoose from 'mongoose'
+import { PRODUCT_NAME_COLLATION } from '../utils/productName.js'
 const Schema = mongoose.Schema
 
 const ProductSchema = new Schema(
@@ -7,7 +8,6 @@ const ProductSchema = new Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     description: {
@@ -15,7 +15,8 @@ const ProductSchema = new Schema(
       required: true,
     },
     brand: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Brand',
       required: true,
     },
     category: {
@@ -54,13 +55,6 @@ const ProductSchema = new Schema(
       {
         type: String,
         required: true,
-      },
-    ],
-
-    reviews: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Review',
       },
     ],
 
@@ -107,40 +101,21 @@ const ProductSchema = new Schema(
         if (ret.category && typeof ret.category === 'object' && ret.category.name) {
           ret.category = ret.category.name
         }
+        if (ret.brand && typeof ret.brand === 'object' && ret.brand.name) {
+          ret.brand = ret.brand.name
+        }
         delete ret.user
         return ret
       },
     },
   }
 )
-//Virtuals
-//qty left
+// qty left (inventory only — review stats come from Review.product via productListStats)
 ProductSchema.virtual('qtyLeft').get(function () {
-  const product = this
-  return product.totalQty - product.totalSold
-})
-function approvedReviewsForProduct(product) {
-  return (product?.reviews || []).filter((review) => {
-    const status = review?.moderationStatus
-    return !status || status === 'approved'
-  })
-}
-
-//Total rating (approved reviews only)
-ProductSchema.virtual('totalReviews').get(function () {
-  return approvedReviewsForProduct(this).length
-})
-//average Rating (approved reviews only)
-ProductSchema.virtual('averageRating').get(function () {
-  const approved = approvedReviewsForProduct(this)
-  if (!approved.length) return 0
-  let ratingsTotal = 0
-  approved.forEach((review) => {
-    ratingsTotal += review?.rating
-  })
-  return Math.round((ratingsTotal / approved.length) * 10) / 10
+  return this.totalQty - this.totalSold
 })
 ProductSchema.index({ name: 'text', description: 'text', tags: 'text' })
+ProductSchema.index({ name: 1 }, { unique: true, collation: PRODUCT_NAME_COLLATION })
 ProductSchema.index({ category: 1 })
 ProductSchema.index({ brand: 1 })
 ProductSchema.index({ price: 1 })

@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler'
 import cloudinaryPackage from 'cloudinary'
 import Category from '../model/Category.js'
+import { AppError } from '../utils/appError.js'
 import {
   CACHE_KEYS,
   CACHE_TTL,
@@ -20,14 +21,12 @@ export const createCategoryCtrl = async (req, res) => {
   //category exists
   const categoryFound = await Category.findOne({ name })
   if (categoryFound) {
-    throw new Error('Category already exists')
+    throw new AppError('Category already exists', 409)
   }
   //create
   // Ensure an image file was uploaded
   if (!req?.file?.path && !req?.body?.image) {
-    const err = new Error('Category image is required')
-    err.statusCode = 400
-    throw err
+    throw new AppError('Category image is required', 400)
   }
 
   const category = await Category.create({
@@ -84,8 +83,7 @@ export const updateCategoryCtrl = asyncHandler(async (req, res) => {
 
   const category = await Category.findById(req.params.id)
   if (!category) {
-    res.status(404)
-    throw new Error('Category not found')
+    throw new AppError('Category not found', 404)
   }
 
   // Build update object
@@ -129,8 +127,7 @@ export const updateCategoryCtrl = asyncHandler(async (req, res) => {
 export const deleteCategoryCtrl = asyncHandler(async (req, res) => {
   const category = await Category.findById(req.params.id)
   if (!category) {
-    res.status(404)
-    throw new Error('Category not found')
+    throw new AppError('Category not found', 404)
   }
 
   // Delete image from Cloudinary before removing from DB

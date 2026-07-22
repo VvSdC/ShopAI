@@ -6,6 +6,7 @@ import AddCoupon from "./components/Admin/Coupons/AddCoupon";
 import Login from "./components/Users/Forms/Login";
 import AddProduct from "./components/Admin/Products/AddProduct";
 import RegisterForm from "./components/Users/Forms/RegisterForm";
+import VerifyEmail from "./components/Users/Forms/VerifyEmail";
 import HomePage from "./components/HomePage/HomePage";
 import AboutPage from "./components/HomePage/AboutPage";
 import CancellationPolicyPage from "./components/HomePage/CancellationPolicyPage";
@@ -21,6 +22,7 @@ import AllCategories from "./components/HomePage/AllCategories";
 import UpdateCoupon from "./components/Admin/Coupons/UpdateCoupon";
 import Product from "./components/Users/Products/Product";
 import ShoppingCart from "./components/Users/Products/ShoppingCart";
+import WishlistPage from "./components/Users/Products/WishlistPage";
 import ProductsFilters from "./components/Users/Products/ProductsFilters";
 import CustomerProfile from "./components/Users/Profile/CustomerProfile";
 import AddReview from "./components/Users/Reviews/AddReview";
@@ -30,6 +32,7 @@ import AllOrders from "./components/Admin/Orders/AllOrders";
 import Customers from "./components/Admin/Orders/Customers";
 import BrandsList from "./components/Admin/Categories/BrandsList";
 import AuthTokenRefresh from "./components/AuthRoute/AuthTokenRefresh";
+import SessionExpiredRedirect from "./components/AuthRoute/SessionExpiredRedirect";
 import AuthRoute from "./components/AuthRoute/AuthRoute";
 import AdminRoutes from "./components/AuthRoute/AdminRoutes";
 import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
@@ -37,6 +40,7 @@ import ChatUsagePanel from "./components/Admin/Analytics/ChatUsagePanel";
 import ProductUpdate from "./components/Admin/Products/ProductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ManageReturns from "./components/Admin/Orders/ManageReturns";
+import ManageReviews from "./components/Admin/Reviews/ManageReviews";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
 import AssistantPage from "./components/ChatBot/AssistantPage";
@@ -46,6 +50,8 @@ import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnal
 import InferencePanel from "./components/Admin/Analytics/InferencePanel";
 import ChatbotEvalPanel from "./components/Admin/Analytics/ChatbotEvalPanel";
 import NotFoundPage from "./components/NotFound/NotFoundPage";
+import RouteErrorBoundary from "./components/common/RouteErrorBoundary";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 function AppShell() {
   const location = useLocation();
@@ -53,7 +59,9 @@ function AppShell() {
   const isAdmin = location.pathname.startsWith("/admin");
   const hideFloatingChat =
     isAssistant ||
-    location.pathname.startsWith("/admin/developer-analytics");
+    location.pathname.startsWith('/admin/developer-analytics') ||
+    location.pathname === '/shopping-cart' ||
+    location.pathname === '/order-payment';
   // The assistant and the admin console are full-screen, app-like experiences
   // (à la ChatGPT/Claude). They supply their own header + sidebar, so the global
   // chrome is hidden there to avoid the awkward double-navbar / double-hamburger.
@@ -62,8 +70,22 @@ function AppShell() {
   return (
     <div className="flex min-h-screen flex-col">
       <AuthTokenRefresh />
-      {!hideGlobalChrome && <Navbar />}
+      <SessionExpiredRedirect />
+      {!hideGlobalChrome && (
+        <ErrorBoundary
+          compact
+          title="Navigation is temporarily unavailable"
+          fallback={
+            <header className="border-b border-stone-200 bg-white px-4 py-3 text-sm font-semibold text-indigo-600">
+              ShopAI
+            </header>
+          }
+        >
+          <Navbar />
+        </ErrorBoundary>
+      )}
       <main className="flex-1">
+        <RouteErrorBoundary>
         <Routes>
         {/* admin route */}
         <Route
@@ -96,6 +118,14 @@ function AppShell() {
             element={
               <AdminRoutes>
                 <ManageReturns />
+              </AdminRoutes>
+            }
+          />
+          <Route
+            path="review-moderation"
+            element={
+              <AdminRoutes>
+                <ManageReviews />
               </AdminRoutes>
             }
           />
@@ -233,11 +263,7 @@ function AppShell() {
         />
         <Route
           path="/assistant"
-          element={
-            <AuthRoute>
-              <AssistantPage />
-            </AuthRoute>
-          }
+          element={<AssistantPage />}
         />
         {/* review */}
         <Route
@@ -251,6 +277,7 @@ function AppShell() {
 
         {/* shopping cart */}
         <Route path="/shopping-cart" element={<ShoppingCart />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
         <Route
           path="/order-payment"
           element={
@@ -262,6 +289,7 @@ function AppShell() {
         {/* users */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegisterForm />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/customer-profile"
@@ -273,9 +301,18 @@ function AppShell() {
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+        </RouteErrorBoundary>
       </main>
       {!hideGlobalChrome && <SiteFooter />}
-      {!hideFloatingChat && <ChatWidget />}
+      {!hideFloatingChat && (
+        <ErrorBoundary
+          compact
+          title="Chat is temporarily unavailable"
+          fallback={null}
+        >
+          <ChatWidget />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

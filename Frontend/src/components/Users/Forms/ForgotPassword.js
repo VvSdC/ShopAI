@@ -215,6 +215,7 @@ const ForgotPassword = () => {
                       inputMode="numeric"
                       maxLength={1}
                       value={digit}
+                      aria-label={`Password reset code digit ${i + 1} of 6`}
                       onChange={(e) => handleOTPChange(i, e.target.value)}
                       onKeyDown={(e) => handleOTPKeyDown(i, e)}
                       className="w-12 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 transition-colors"

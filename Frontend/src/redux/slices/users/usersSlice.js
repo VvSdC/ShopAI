@@ -13,6 +13,13 @@ const initialState = {
   loading: false,
   error: null,
   users: [],
+  usersPagination: {
+    limit: 20,
+    total: 0,
+    hasMore: false,
+    nextCursor: null,
+  },
+  usersLoadingMore: false,
   user: null,
   profile: {},
   userAuth: {
@@ -182,7 +189,6 @@ export const logoutAction = createAsyncThunk(
     }
     resetCsrfTokenCache()
     stopProactiveTokenRefresh()
-    localStorage.removeItem('cartItems')
     return true
   }
 )
@@ -200,13 +206,16 @@ export const toggleBlockUserAction = createAsyncThunk(
   }
 )
 
-//fetch all users action (admin)
+//fetch all users action (admin) — cursor pagination
 export const fetchAllUsersAction = createAsyncThunk(
   'users/fetch-all',
-  async (payload, { rejectWithValue }) => {
+  async (payload = {}, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(`/users/all`)
-      return data
+      const { cursor = null, limit = 20, append = false } = payload
+      const params = { limit }
+      if (cursor) params.cursor = cursor
+      const { data } = await axiosInstance.get(`/users/all`, { params })
+      return { ...data, append }
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
@@ -351,16 +360,33 @@ const usersSlice = createSlice({
       state.loading = false
     })
     //fetch all users
-    builder.addCase(fetchAllUsersAction.pending, (state) => {
-      state.loading = true
+    builder.addCase(fetchAllUsersAction.pending, (state, action) => {
+      if (action.meta?.arg?.append) {
+        state.usersLoadingMore = true
+      } else {
+        state.loading = true
+      }
     })
     builder.addCase(fetchAllUsersAction.fulfilled, (state, action) => {
-      state.users = action.payload.users
+      const pageUsers = action.payload?.users || []
+      if (action.payload?.append) {
+        state.users = [...(state.users || []), ...pageUsers]
+      } else {
+        state.users = pageUsers
+      }
+      state.usersPagination = action.payload?.pagination || {
+        limit: 20,
+        total: pageUsers.length,
+        hasMore: false,
+        nextCursor: null,
+      }
       state.loading = false
+      state.usersLoadingMore = false
     })
     builder.addCase(fetchAllUsersAction.rejected, (state, action) => {
       state.error = action.payload
       state.loading = false
+      state.usersLoadingMore = false
     })
     //delete account
     builder.addCase(deleteAccountAction.pending, (state) => {

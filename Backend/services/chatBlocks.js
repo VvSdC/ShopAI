@@ -3,6 +3,39 @@
  * instead of relying on markdown alone.
  */
 import { productRequiresSizeSelection } from '../utils/normalizeProductSizes.js'
+import { hasSignInRequiredResult } from './guestChatRestrictions.js'
+
+const DEFAULT_SUGGESTED_PROMPTS = [
+  { label: 'Find a cricket ball', message: 'Find a cricket ball' },
+  { label: 'Show my orders', message: 'Show my recent orders' },
+  { label: 'What is in my cart?', message: 'What is in my cart?' },
+  { label: 'Any coupons?', message: 'Any active coupon codes?' },
+]
+
+function findDisambiguationInToolResults(toolResults = []) {
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const row = toolResults[i]
+    if (row?.toolName === 'product_disambiguation' && row.products?.length) {
+      return row.products
+    }
+  }
+  return null
+}
+
+function searchReturnedEmpty(toolResults = []) {
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const row = toolResults[i]
+    if (row?.toolName === 'search_products' && row.count === 0) return true
+  }
+  return false
+}
+
+function suggestedPromptsBlock(prompts = DEFAULT_SUGGESTED_PROMPTS) {
+  return {
+    type: 'suggested_prompts',
+    prompts,
+  }
+}
 
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i
 const ORDINAL_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
@@ -21,7 +54,7 @@ const DETAIL_DESC_MAX = 180
 function findSearchInToolResults(toolResults = []) {
   for (let i = toolResults.length - 1; i >= 0; i--) {
     const row = toolResults[i]
-    if (row?.toolName !== 'search_products' && !Array.isArray(row?.products)) continue
+    if (row?.toolName !== 'search_products' && row?.toolName !== 'get_similar_products' && !Array.isArray(row?.products)) continue
     if (row.error) continue
     if (Array.isArray(row.products) && row.products.length) {
       return {
@@ -185,14 +218,36 @@ export function normalizeCartBlock(cart) {
 /**
  * @returns {object[]} UI blocks for the chat client
  */
-export function buildChatBlocks({ toolResults = [], messageKind = null } = {}) {
+export function buildChatBlocks({
+  toolResults = [],
+  messageKind = null,
+  pendingQuery = null,
+  suggestPrompts = false,
+} = {}) {
   const blocks = []
 
+  if (messageKind === 'sign_in_required' || hasSignInRequiredResult(toolResults)) {
+    blocks.push({
+      type: 'sign_in_required',
+      pendingQuery: pendingQuery || null,
+    })
+    return blocks
+  }
+
+  const disambiguation = findDisambiguationInToolResults(toolResults)
   const catalog = findSearchInToolResults(toolResults)
-  if (
-    messageKind === 'product_listing' &&
+  const similarListing = catalog?.products?.length &&
+    toolResults.some((row) => row?.toolName === 'get_similar_products')
+
+  if (disambiguation?.length) {
+    const products = disambiguation.map(normalizeListingProduct)
+    blocks.push({ type: 'product_listing', products })
+    const qa = buildListingQuickActions(products)
+    if (qa) blocks.push(qa)
+  } else if (
     catalog?.products?.length &&
-    catalog.products.every((p) => OBJECT_ID_RE.test(String(p.id || p._id || '')))
+    catalog.products.every((p) => OBJECT_ID_RE.test(String(p.id || p._id || ''))) &&
+    (messageKind === 'product_listing' || similarListing)
   ) {
     const products = catalog.products.map(normalizeListingProduct)
     blocks.push({ type: 'product_listing', products })
@@ -237,6 +292,10 @@ export function buildChatBlocks({ toolResults = [], messageKind = null } = {}) {
     })
     const qa = buildAddressQuickActions(addresses)
     if (qa) blocks.push(qa)
+  }
+
+  if (suggestPrompts || searchReturnedEmpty(toolResults)) {
+    blocks.push(suggestedPromptsBlock())
   }
 
   return blocks

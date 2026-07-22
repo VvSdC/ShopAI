@@ -1,7 +1,10 @@
 import asyncHandler from "express-async-handler";
 import Product from "../model/Product.js";
 import Review from "../model/Review.js";
+import User from "../model/User.js";
+import { AppError } from "../utils/appError.js";
 import { moderateReviewInBackground } from "../services/moderationQueue.js";
+import { userHasDeliveredPurchase } from "../services/reviewPurchaseVerification.js";
 
 // @desc    Create new review
 // @route   POST /api/v1/reviews/:productID
@@ -11,9 +14,14 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
   const { productID } = req.params;
 
+  const reviewer = await User.findById(req.userAuthId).select("isEmailVerified");
+  if (reviewer?.isEmailVerified === false) {
+    throw new AppError("Verify your email before leaving a review.", 403);
+  }
+
   const productFound = await Product.findById(productID);
   if (!productFound) {
-    throw new Error("Product Not Found");
+    throw new AppError("Product Not Found", 404);
   }
 
   const hasReviewed = await Review.findOne({
@@ -21,18 +29,25 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
     user: req.userAuthId,
   });
   if (hasReviewed) {
-    throw new Error("You have already reviewed this product");
+    throw new AppError("You have already reviewed this product", 409);
   }
+
+  const verifiedPurchase = await userHasDeliveredPurchase(
+    req.userAuthId,
+    productFound._id
+  );
 
   const review = await Review.create({
     message,
     rating,
     product: productFound._id,
     user: req.userAuthId,
-  });
-
-  await Product.findByIdAndUpdate(productID, {
-    $push: { reviews: review._id },
+    verifiedPurchase,
+  }).catch((err) => {
+    if (err?.code === 11000) {
+      throw new AppError("You have already reviewed this product", 409);
+    }
+    throw err;
   });
 
   moderateReviewInBackground(review._id);
@@ -50,16 +65,20 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
   const { message, rating } = req.body;
   const review = await Review.findById(req.params.id);
   if (!review) {
-    throw new Error("Review not found");
+    throw new AppError("Review not found", 404);
   }
   if (review.user.toString() !== req.userAuthId.toString()) {
-    throw new Error("You can only update your own review");
+    throw new AppError("You can only update your own review", 403);
   }
   review.message = message !== undefined ? message : review.message;
   review.rating = rating !== undefined ? rating : review.rating;
   review.moderationStatus = "pending";
   review.moderationReason = "";
   review.tags = [];
+  review.verifiedPurchase = await userHasDeliveredPurchase(
+    req.userAuthId,
+    review.product
+  );
   await review.save();
 
   moderateReviewInBackground(review._id);
@@ -77,20 +96,54 @@ export const updateReviewCtrl = asyncHandler(async (req, res) => {
 export const deleteReviewCtrl = asyncHandler(async (req, res) => {
   const review = await Review.findById(req.params.id);
   if (!review) {
-    throw new Error("Review not found");
+    throw new AppError("Review not found", 404);
   }
   //check ownership
   if (review.user.toString() !== req.userAuthId.toString()) {
-    throw new Error("You can only delete your own review");
+    throw new AppError("You can only delete your own review", 403);
   }
-  //remove review reference from product
-  await Product.findByIdAndUpdate(req.params.productID, {
-    $pull: { reviews: review._id },
-  });
   await Review.findByIdAndDelete(req.params.id);
 
   res.json({
     success: true,
     message: "Review deleted successfully",
+  });
+});
+
+// @desc    List reviews for admin moderation
+// @route   GET /api/v1/reviews/admin/all
+// @access  Admin
+export const listAdminReviewsCtrl = asyncHandler(async (req, res) => {
+  const status = req.query.status || "pending";
+  const filter = status === "all" ? {} : { moderationStatus: status };
+
+  const reviews = await Review.find(filter)
+    .populate("user", "name email")
+    .populate("product", "name images")
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  res.json({ success: true, reviews });
+});
+
+// @desc    Approve or reject a review (admin)
+// @route   PUT /api/v1/reviews/admin/:id/moderate
+// @access  Admin
+export const moderateReviewCtrl = asyncHandler(async (req, res) => {
+  const { status, reason } = req.body;
+  const review = await Review.findById(req.params.id);
+  if (!review) {
+    throw new AppError("Review not found", 404);
+  }
+
+  review.moderationStatus = status;
+  review.moderationReason = reason?.trim() || "";
+  await review.save();
+
+  res.json({
+    success: true,
+    message: `Review ${status}`,
+    review,
   });
 });

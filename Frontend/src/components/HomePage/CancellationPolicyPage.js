@@ -34,6 +34,7 @@ export default function CancellationPolicyPage() {
       badge="ShopAI Policy"
       title="Cancellation Policy"
       subtitle="Cancel an order before it ships — we'll refund paid orders automatically through Stripe."
+      seoPath="/cancellation-policy"
     >
       <PolicySection icon={TruckIcon} title="Before your order ships">
         <p>

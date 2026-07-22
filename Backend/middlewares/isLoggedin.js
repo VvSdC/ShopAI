@@ -13,7 +13,7 @@ export const isLoggedIn = async (req, res, next) => {
     return next(new AppError("Invalid/Expired token, please login again", 401));
   }
 
-  const user = await User.findById(decodedUser.id).select("isBlocked");
+  const user = await User.findById(decodedUser.id).select("isBlocked isAdmin").lean();
   if (!user) {
     return next(new AppError("User not found", 401));
   }
@@ -22,6 +22,7 @@ export const isLoggedIn = async (req, res, next) => {
   }
 
   req.userAuthId = decodedUser.id;
+  req.authUser = user;
   next();
 };
 

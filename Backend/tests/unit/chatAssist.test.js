@@ -16,6 +16,13 @@ describe('address assist parsing', () => {
     expect(missing).toContain('phone')
   })
 
+  it('does not treat invalid profile phone as satisfying phone requirement', () => {
+    const draft = extractAddressDraft('10-4, Indraprastha, Hyderabad, Telangana 500084')
+    draft.province = 'Telangana'
+    const missing = listMissingAddressFields(draft, '040-12345678')
+    expect(missing).toContain('phone')
+  })
+
   it('treats city+pin last segment as city without inventing province', () => {
     const draft = extractAddressDraft('Building 7, Infosys SEZ, Pocharam, Hyderabad 500098')
     expect(draft.city).toBe('Hyderabad')

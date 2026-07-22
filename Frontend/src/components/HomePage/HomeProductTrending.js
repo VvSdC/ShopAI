@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { StarIcon } from '@heroicons/react/20/solid'
 import { FireIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 import { fetchProductsAction } from '../../redux/slices/products/productSlices'
+import WishlistButton from '../Users/Products/WishlistButton'
 import baseURL from '../../utils/baseURL'
 import Reveal from './Reveal'
 
@@ -97,21 +98,22 @@ function TrendingProductCard({ product, rank, featured = false }) {
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100">
-      <Link
-        to={productPath}
-        className="group/image relative flex h-32 shrink-0 items-center justify-center bg-stone-50 p-3"
-      >
-        {featured && (
-          <span className="absolute left-2.5 top-2.5 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-            #1 Trending
-          </span>
-        )}
-        {!featured && rank != null && rank <= 7 && (
-          <span className="absolute left-2.5 top-2.5 rounded-md bg-stone-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
-            #{rank}
-          </span>
-        )}
-        {image ? (
+      <div className="relative flex h-32 shrink-0 items-center justify-center bg-stone-50 p-3">
+        <div className="absolute right-2.5 top-2.5 z-10">
+          <WishlistButton product={product} />
+        </div>
+        <Link to={productPath} className="group/image flex h-full w-full items-center justify-center">
+          {featured && (
+            <span className="absolute left-2.5 top-2.5 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+              #1 Trending
+            </span>
+          )}
+          {!featured && rank != null && rank <= 7 && (
+            <span className="absolute left-2.5 top-2.5 rounded-md bg-stone-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              #{rank}
+            </span>
+          )}
+          {image ? (
           <img
             src={productThumbUrl(image, featured)}
             alt={product?.name}
@@ -122,7 +124,8 @@ function TrendingProductCard({ product, rank, featured = false }) {
         ) : (
           <span className="text-xs text-stone-400">No image</span>
         )}
-      </Link>
+        </Link>
+      </div>
 
       <div className="flex min-h-[12.5rem] flex-1 flex-col border-t border-stone-100 p-3">
         <p className="min-h-[1rem] text-[10px] font-semibold uppercase tracking-wider text-indigo-600 sm:text-xs">
@@ -177,11 +180,14 @@ export default function HomeProductTrending() {
 
   useEffect(() => {
     dispatch(fetchProductsAction({ url: productUrl }))
-  }, [dispatch])
+  }, [dispatch, productUrl])
 
   const productsState = useSelector((state) => state?.products)
   const loading = productsState?.loading
-  const productList = productsState?.products?.products ?? []
+  const productList = useMemo(
+    () => productsState?.products?.products ?? [],
+    [productsState?.products?.products]
+  )
 
   const sorted = useMemo(() => {
     return [...productList].sort(

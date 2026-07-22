@@ -18,19 +18,20 @@ import Product from '../model/Product.js'
 import { indexProductEmbedding } from '../services/search/vectorIndexService.js'
 import { runWithConcurrencyLimit } from '../services/search/embeddingSyncService.js'
 import { config } from '../config/env.js'
+import logger from '../utils/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
 
 await mongoose.connect(config.db.mongoUrl)
-console.log(
+logger.log(
   `Embedding config: provider=${config.search.embedding.provider}, ` +
     `model=${config.search.embedding.model}, ` +
     `dimension=${config.search.embedding.dimension}, ` +
     `version=${config.search.embeddingVersion}`
 )
 const products = await Product.find({}).select('_id name')
-console.log(
+logger.log(
   `Force reindexing ${products.length} products (concurrency ${config.search.syncConcurrency})...`
 )
 
@@ -40,10 +41,10 @@ const outcomes = await runWithConcurrencyLimit(
   async (product) => {
     const result = await indexProductEmbedding(product._id)
     if (result.ok) {
-      console.log(`  OK ${product.name} (${result.dims} dims)`)
+      logger.log(`  OK ${product.name} (${result.dims} dims)`)
       return true
     }
-    console.log(`  FAIL ${product.name}: ${result.reason}`)
+    logger.log(`  FAIL ${product.name}: ${result.reason}`)
     return false
   }
 )
@@ -51,5 +52,5 @@ const outcomes = await runWithConcurrencyLimit(
 const ok = outcomes.filter(Boolean).length
 const fail = outcomes.length - ok
 
-console.log(`Done: ${ok} ok, ${fail} failed`)
+logger.log(`Done: ${ok} ok, ${fail} failed`)
 await mongoose.disconnect()

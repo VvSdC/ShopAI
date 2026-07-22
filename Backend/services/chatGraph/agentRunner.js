@@ -11,6 +11,12 @@ import { getToolsForRoute } from './toolSets.js'
 import { serializeToolResultForLlm } from './toolResultCompact.js'
 import { emitChatStreamEvent, isChatStreamActive } from '../chatStreamContext.js'
 import { mergeToolCallDeltas, toolStatusLabel } from '../chatStream.js'
+import { isGuestChatUser } from '../guestCartContext.js'
+import {
+  isAuthRequiredTool,
+  buildSignInRequiredToolResult,
+  SIGN_IN_REQUIRED_ERROR,
+} from '../guestChatRestrictions.js'
 import logger from '../../utils/logger.js'
 
 const MAX_TOOL_ROUNDS = 7
@@ -108,7 +114,8 @@ function extractAssistantMessage(result) {
 }
 
 export async function runAgentWithTools(state, route) {
-  const tools = getToolsForRoute(route)
+  const isGuest = isGuestChatUser(state.userId)
+  const tools = getToolsForRoute(route, { isGuest })
   const promptOptions =
     route === 'policies'
       ? { includePolicyKnowledge: shouldIncludePolicyKnowledge(state.history) }
@@ -163,8 +170,31 @@ export async function runAgentWithTools(state, route) {
         fnArgs = {}
       }
 
-      const result = await executeTool(fnName, state.userId, fnArgs)
+      const result =
+        isGuest && isAuthRequiredTool(fnName)
+          ? buildSignInRequiredToolResult(state.userText, { toolName: fnName, route })
+          : await executeTool(fnName, state.userId, fnArgs)
       toolResults.push({ ...result, toolName: fnName })
+
+      if (result?.error === SIGN_IN_REQUIRED_ERROR) {
+        emitChatStreamEvent({
+          type: 'tool_end',
+          toolName: fnName,
+          round: round + 1,
+          ok: false,
+          signInRequired: true,
+        })
+        const reply = result.message || buildSignInRequiredToolResult(state.userText, { route }).message
+        emitChatStreamEvent({ type: 'text_delta', delta: reply })
+        return {
+          reply,
+          messages,
+          toolResults,
+          toolsUsed,
+          replyKind: 'sign_in_required',
+          replyLocked: true,
+        }
+      }
 
       emitChatStreamEvent({
         type: 'tool_end',

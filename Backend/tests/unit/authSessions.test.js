@@ -273,6 +273,7 @@ describe('PUT /shopai/users/change-password', () => {
       fullname: 'Change Password User',
       email: `change-pw-${Date.now()}@test.com`,
       password: await bcrypt.hash(password, 10),
+      isEmailVerified: true,
     })
 
     const refreshToken = generateRefreshToken(user._id)
@@ -289,6 +290,9 @@ describe('PUT /shopai/users/change-password', () => {
 
     const reloaded = await User.findById(user._id)
     expect(reloaded.sessions).toEqual([])
+    // New hash must be persisted — not only sessions cleared.
+    expect(await bcrypt.compare('newpass456', reloaded.password)).toBe(true)
+    expect(await bcrypt.compare(password, reloaded.password)).toBe(false)
 
     const csrf = await fetchCsrf(app)
 
@@ -299,6 +303,25 @@ describe('PUT /shopai/users/change-password', () => {
     )
 
     expect(refreshRes.status).toBeGreaterThanOrEqual(400)
+
+    // Old password must fail login; new password must succeed.
+    const oldLogin = await withCsrf(
+      request(app).post('/shopai/users/login').send({
+        email: user.email,
+        password,
+      }),
+      csrf
+    )
+    expect(oldLogin.status).toBe(401)
+
+    const newLogin = await withCsrf(
+      request(app).post('/shopai/users/login').send({
+        email: user.email,
+        password: 'newpass456',
+      }),
+      csrf
+    )
+    expect(newLogin.status).toBe(200)
   })
 })
 

@@ -17,6 +17,8 @@ describe('User model serialization', () => {
       passwordResetOTP: 'hashed-otp',
       passwordResetExpires: new Date(Date.now() + 600000),
       passwordResetVerifiedUntil: new Date(Date.now() + 600000),
+      emailVerificationOTP: 'hashed-verify-otp',
+      emailVerificationExpires: new Date(Date.now() + 600000),
     })
 
     const json = user.toJSON()
@@ -28,5 +30,20 @@ describe('User model serialization', () => {
     expect(json.passwordResetOTP).toBeUndefined()
     expect(json.passwordResetExpires).toBeUndefined()
     expect(json.passwordResetVerifiedUntil).toBeUndefined()
+    expect(json.emailVerificationOTP).toBeUndefined()
+    expect(json.emailVerificationExpires).toBeUndefined()
+  })
+
+  it('defaults isEmailVerified to false so new accounts require verification', async () => {
+    const user = await User.create({
+      fullname: 'Unverified Default User',
+      email: `unverified-default-${Date.now()}@test.com`,
+      password: 'hashed-password',
+    })
+
+    expect(user.isEmailVerified).toBe(false)
+
+    const reloaded = await User.findById(user._id)
+    expect(reloaded.isEmailVerified).toBe(false)
   })
 })

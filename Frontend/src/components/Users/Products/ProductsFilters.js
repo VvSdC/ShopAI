@@ -3,10 +3,11 @@ import { Dialog, Transition } from '@headlessui/react'
 import { useDispatch, useSelector } from 'react-redux'
 import { XMarkIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { FunnelIcon } from '@heroicons/react/20/solid'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import Products from './Products'
 import ProductsSkeleton from './ProductsSkeleton'
 import ShopPagination from './ShopPagination'
+import PageSeo from '../../common/PageSeo'
 import baseURL from '../../../utils/baseURL'
 import { fetchProductsAction } from '../../../redux/slices/products/productSlices'
 import { fetchBrandsAction } from '../../../redux/slices/categories/brandsSlice'
@@ -74,6 +75,7 @@ function ShopFiltersPanel({
 
 export default function ProductsFilters() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [params, setParams] = useSearchParams()
   const category = params.get('category')
@@ -85,8 +87,14 @@ export default function ProductsFilters() {
   const [appliedPriceMin, setAppliedPriceMin] = useState(PRICE_SLIDER_MIN)
   const [appliedPriceMax, setAppliedPriceMax] = useState(PRICE_SLIDER_MAX)
   const [selectedBrands, setSelectedBrands] = useState([])
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(15)
+  const [page, setPage] = useState(() => {
+    const p = parseInt(params.get('page') || '1', 10)
+    return Number.isNaN(p) || p < 1 ? 1 : p
+  })
+  const [limit, setLimit] = useState(() => {
+    const l = parseInt(params.get('limit') || '15', 10)
+    return Number.isNaN(l) || l < 1 ? 15 : l
+  })
 
   const setPriceRange = (min, max) => {
     setPriceMin(min)
@@ -137,6 +145,14 @@ export default function ProductsFilters() {
   useEffect(() => {
     setPage(1)
   }, [category, brandFilterKey, colorFilterKey, appliedPriceMin, appliedPriceMax, limit, searchQuery])
+
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage)
+    const next = new URLSearchParams(params)
+    if (nextPage <= 1) next.delete('page')
+    else next.set('page', String(nextPage))
+    setParams(next)
+  }
 
   const handleSearch = (q) => {
     const next = new URLSearchParams(params)
@@ -189,6 +205,11 @@ export default function ProductsFilters() {
     : category
       ? category.replace(/-/g, ' ')
       : 'All products'
+  const seoDescription = searchQuery
+    ? `Search results for “${searchQuery}” on ShopAI.`
+    : category
+      ? `Browse ${category.replace(/-/g, ' ')} products on ShopAI.`
+      : 'Browse all products on ShopAI — filter by brand, color, and price.'
 
   const filterProps = {
     colors,
@@ -204,7 +225,12 @@ export default function ProductsFilters() {
 
   return (
     <div className="min-h-screen bg-stone-100">
-      <main className="mx-auto w-full max-w-[90rem] px-4 py-6 pb-16 sm:px-6 lg:px-8 lg:py-8">
+      <PageSeo
+        title={pageTitle}
+        description={seoDescription}
+        path={`${location.pathname}${location.search}`}
+      />
+      <section aria-label="Product catalog" className="mx-auto w-full max-w-[90rem] px-4 py-6 pb-16 sm:px-6 lg:px-8 lg:py-8">
         <nav
           aria-label="Breadcrumb"
           className="mb-4 flex flex-wrap items-center gap-1 text-sm text-stone-500"
@@ -245,6 +271,7 @@ export default function ProductsFilters() {
               <ProductSearchBar
                 initialQuery={searchQuery}
                 onSearch={handleSearch}
+                categoryFilter={category || ''}
                 className="w-full lg:max-w-md lg:shrink-0"
                 inputId="products-page-search"
               />
@@ -461,7 +488,7 @@ export default function ProductsFilters() {
                       total={total}
                       limit={limit}
                       loading={loading}
-                      onPageChange={setPage}
+                      onPageChange={handlePageChange}
                     />
                   )}
                   {searchQuery && total > limit && (
@@ -474,7 +501,7 @@ export default function ProductsFilters() {
             </div>
           </div>
         </div>
-      </main>
+      </section>
 
       {/* Mobile filters drawer */}
       <Transition.Root show={mobileFiltersOpen} as={Fragment}>

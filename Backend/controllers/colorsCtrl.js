@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Color from "../model/Color.js";
+import { AppError } from "../utils/appError.js";
 import {
   CACHE_KEYS,
   CACHE_TTL,
@@ -16,7 +17,7 @@ export const createColorCtrl = asyncHandler(async (req, res) => {
   //color exists
   const colorFound = await Color.findOne({ name });
   if (colorFound) {
-    throw new Error("color already exists");
+    throw new AppError("color already exists", 409);
   }
   //create
   const color = await Color.create({

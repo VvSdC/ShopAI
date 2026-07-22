@@ -70,7 +70,7 @@ const OrderSchema = new Schema(
     },
     paymentStatus: {
       type: String,
-      default: 'Not paid',
+      default: 'unpaid',
     },
     paymentMethod: {
       type: String,
@@ -92,6 +92,20 @@ const OrderSchema = new Schema(
     },
     deliveredAt: {
       type: Date,
+    },
+    shippedAt: {
+      type: Date,
+      default: null,
+    },
+    trackingCarrier: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    trackingNumber: {
+      type: String,
+      default: null,
+      trim: true,
     },
     stripeSessionId: {
       type: String,
@@ -138,6 +152,21 @@ const OrderSchema = new Schema(
     postPaymentProcessed: {
       type: Boolean,
       default: false,
+    },
+    /** True when stock is pre-reserved at checkout session creation time. */
+    stockReservedAtCheckout: {
+      type: Boolean,
+      default: false,
+    },
+    /** Set when reserved stock is consumed by successful payment fulfillment. */
+    stockReservationSettledAt: {
+      type: Date,
+      default: null,
+    },
+    /** Set when an unpaid/expired checkout releases its pre-reserved stock. */
+    stockReservationReleasedAt: {
+      type: Date,
+      default: null,
     },
     confirmationEmailSent: {
       type: Boolean,

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   STORE_POLICY,
   canCancelOrder,
+  hasActiveStripeCheckout,
   getReturnWindowEnd,
   isWithinReturnWindow,
 } from '../../config/storePolicy.js'
@@ -13,6 +14,26 @@ describe('storePolicy', () => {
     expect(canCancelOrder({ status: 'shipped' })).toBe(false)
     expect(canCancelOrder({ status: 'delivered' })).toBe(false)
     expect(canCancelOrder({ status: 'cancelled' })).toBe(false)
+  })
+
+  it('blocks cancel while Stripe checkout is open', () => {
+    const future = new Date(Date.now() + 60_000)
+    expect(
+      hasActiveStripeCheckout({
+        status: 'pending',
+        paymentStatus: 'Not paid',
+        stripeSessionId: 'cs_test_open',
+        checkoutExpiresAt: future,
+      })
+    ).toBe(true)
+    expect(
+      canCancelOrder({
+        status: 'pending',
+        paymentStatus: 'Not paid',
+        stripeSessionId: 'cs_test_open',
+        checkoutExpiresAt: future,
+      })
+    ).toBe(false)
   })
 
   it('computes return window from delivery date', () => {

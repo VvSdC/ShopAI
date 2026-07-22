@@ -15,6 +15,7 @@ A plain-language tour of the codebase: what each piece does, how a request flows
 | `Backend/.env.example` | All environment variables documented — copy to `Backend/.env` |
 | `Backend/docs/` | Deep-dives (chatbot, search, tagging) |
 | `docs/README.md` | **You are here** — high-level guide |
+| `docs/AUDIT_BACKLOG.md` | **Audit backlog** — prioritized issues (AUD-001+) for implement → test loops |
 
 **Stack:** Node 20+, Express, MongoDB (Mongoose), React, Stripe, multi-provider LLM APIs, optional Redis + BullMQ.
 
@@ -433,3 +434,4 @@ cd Frontend && npm install && npm start
 | [`Backend/docs/CommentTagging.md`](../Backend/docs/CommentTagging.md) | Review moderation and tags |
 | [`Backend/docs/OpenAPI.md`](../Backend/docs/OpenAPI.md) | OpenAPI generation notes |
 | [`Backend/.env.example`](../Backend/.env.example) | Full environment reference |
+| [`docs/AUDIT_BACKLOG.md`](./AUDIT_BACKLOG.md) | Prioritized audit issues — implement/test tracker |

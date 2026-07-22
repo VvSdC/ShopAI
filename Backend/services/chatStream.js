@@ -1,6 +1,7 @@
 const TOOL_STATUS_LABELS = {
   search_products: 'Searching products',
   get_product_details: 'Loading product details',
+  get_similar_products: 'Finding similar products',
   get_categories: 'Browsing categories',
   get_brands: 'Browsing brands',
   get_cart: 'Checking your cart',

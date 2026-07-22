@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersAction, updateOrderAction } from "../../../redux/slices/orders/ordersSlices";
-import { isAdminOrderStatusLocked, adminOrderStatusLockReason } from "../../../utils/orderDisplay";
+import { isAdminOrderStatusLocked, adminOrderStatusLockReason, getOrderDisplayStatus, getOrderDisplayStatusColor } from "../../../utils/orderDisplay";
 import ErrorMsg from "../../ErrorMsg/ErrorMsg";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 import NoDataFound from "../../NoDataFound/NoDataFound";
@@ -143,7 +143,12 @@ export default function AllOrders() {
                       {new Date(order?.createdAt).toLocaleDateString()}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
-                      {order?.status}
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getOrderDisplayStatusColor(order)}`}
+                        title={`Fulfillment: ${getOrderDisplayStatus(order).fulfillmentStatus}`}
+                      >
+                        {getOrderDisplayStatus(order).displayStatusLabel}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-stone-500">
                       {order?.totalPrice}

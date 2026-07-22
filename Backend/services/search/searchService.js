@@ -1,6 +1,11 @@
 import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
 import { enrichProductsWithCategoryNames, resolveCategoryId } from '../../utils/categoryRef.js'
+import {
+  enrichProductsWithBrandNames,
+  resolveBrandIds,
+  buildProductBrandFilter,
+} from '../../utils/brandRef.js'
 import { config } from '../../config/env.js'
 import {
   buildProductSearchFilter,
@@ -12,16 +17,13 @@ import { embedSearchQuery } from './embeddingService.js'
 import { vectorSearch } from './vectorSearch.js'
 import { reciprocalRankFusion, applyRerankOrder } from './hybridRanker.js'
 import { rerankDocuments } from './rerankService.js'
-import { brandMongoCondition, mongoInCondition } from '../../utils/parseBrandFilter.js'
+import { mongoInCondition } from '../../utils/parseBrandFilter.js'
 
 function buildMongoFilter(args) {
   const filter = {}
   if (args.categoryId) filter.category = args.categoryId
-  if (args.brands?.length) {
-    const brandMatch = brandMongoCondition(args.brands)
-    if (brandMatch) filter.brand = brandMatch
-  } else if (args.brand) {
-    filter.brand = args.brand
+  if (args.brandIds?.length) {
+    filter.brand = args.brandIds.length === 1 ? args.brandIds[0] : { $in: args.brandIds }
   }
   if (args.colors?.length) {
     const colorMatch = mongoInCondition(args.colors)
@@ -41,6 +43,11 @@ function buildMongoFilter(args) {
   return filter
 }
 
+async function enrichProductsForSearch(products) {
+  const withCategories = await enrichProductsWithCategoryNames(products)
+  return enrichProductsWithBrandNames(withCategories)
+}
+
 async function keywordSearch(args, limit) {
   const filter = buildProductSearchFilter(args)
   const fetchLimit = Math.min(Math.max(limit * 4, 24), config.search.keywordLimit)
@@ -52,16 +59,23 @@ async function keywordSearch(args, limit) {
     )
     .lean()
 
-  const enriched = await enrichProductsWithCategoryNames(products)
+  const enriched = await enrichProductsForSearch(products)
   return rankProductsByQuery(enriched, args.query || '').slice(0, limit)
 }
 
 async function normalizeSearchArgs(args = {}) {
   const normalized = { ...args }
   delete normalized.category
+  delete normalized.brands
+  delete normalized.brand
   if (args.category) {
     normalized.categoryId = await resolveCategoryId(args.category)
     // Unknown category labels (e.g. "sports") are ignored — search by query instead.
+  }
+  const brandInputs = args.brands?.length ? args.brands : args.brand ? [args.brand] : []
+  if (brandInputs.length) {
+    normalized.brandNames = brandInputs
+    normalized.brandIds = await resolveBrandIds(brandInputs)
   }
   return { normalized }
 }
@@ -69,18 +83,31 @@ async function normalizeSearchArgs(args = {}) {
 export async function searchProducts(args = {}) {
   const query = args.query?.trim() || ''
   const limit = Math.min(Math.max(args.limit || 12, 1), 50)
+  const page = Math.max(parseInt(args.page, 10) || 1, 1)
+  const maxResults = Math.min(
+    Math.max(config.search.maxResults || 100, limit),
+    200
+  )
   const { normalized } = await normalizeSearchArgs(args)
   const mongoFilter = buildMongoFilter(normalized)
 
   if (!query) {
+    const total = await Product.countDocuments(mongoFilter)
     const products = await Product.find(mongoFilter)
+      .skip((page - 1) * limit)
       .limit(limit)
       .select(
         'name brand category price totalQty totalSold colors sizes images description tags'
       )
       .lean()
-    const enriched = await enrichProductsWithCategoryNames(products)
-    return { products: enriched.map(mapProductSearchResult), count: enriched.length, mode: 'browse' }
+    const enriched = await enrichProductsForSearch(products)
+    return {
+      products: enriched.map(mapProductSearchResult),
+      count: total,
+      mode: 'browse',
+      page,
+      limit,
+    }
   }
 
   const keywordResults = await keywordSearch(normalized, config.search.keywordLimit)
@@ -105,13 +132,15 @@ export async function searchProducts(args = {}) {
     productMap.set(String(p._id), p)
   })
 
-  let ordered = mergedIds.map((id) => productMap.get(id)).filter(Boolean).slice(0, limit * 2)
+  let ordered = mergedIds.map((id) => productMap.get(id)).filter(Boolean)
 
   if (ordered.length === 0) {
     return {
       products: [],
       count: 0,
       mode: 'hybrid',
+      page,
+      limit,
       message: 'No products found in the catalog for this search.',
     }
   }
@@ -130,11 +159,32 @@ export async function searchProducts(args = {}) {
   // The reranker keeps semantically-similar items that may still be off-topic
   // (e.g. "cricket helmet" for a "cricket bat" query). The lexical pass uses
   // word-overlap signals against the actual product fields to cut tail noise.
-  ordered = trimToRelevantProducts(ordered, query, limit)
+  ordered = trimToRelevantProducts(ordered, query, maxResults)
 
-  const enriched = await enrichProductsWithCategoryNames(ordered.slice(0, limit))
+  const total = ordered.length
+  const start = (page - 1) * limit
+  const pageSlice = ordered.slice(start, start + limit)
+  const enriched = await enrichProductsForSearch(pageSlice)
   const final = enriched.map(mapProductSearchResult)
-  return { products: final, count: final.length, mode: 'hybrid' }
+  return { products: final, count: total, mode: 'hybrid', page, limit }
+}
+
+/** Fast typeahead — keyword index only (no embed/rerank). */
+export async function searchProductSuggestions(args = {}) {
+  const query = args.query?.trim() || ''
+  const limit = Math.min(Math.max(args.limit || 6, 1), 10)
+
+  if (query.length < 2) {
+    return { suggestions: [], query }
+  }
+
+  const { normalized } = await normalizeSearchArgs(args)
+  const products = await keywordSearch(normalized, limit)
+
+  return {
+    query,
+    suggestions: products.map(mapProductSearchResult),
+  }
 }
 
 export async function searchProductsForChat(userId, args) {

@@ -15,6 +15,9 @@ const initialState = {
   listFetchKey: null,
   detailFetching: false,
   detailFetchKey: null,
+  similarByProductId: {},
+  similarFetching: false,
+  similarFetchKey: null,
   error: null,
   isAdded: false,
   isUpdated: false,
@@ -173,6 +176,37 @@ export const fetchProductAction = createAsyncThunk(
     ),
   }
 )
+
+export const fetchSimilarProductsAction = createAsyncThunk(
+  'product/similar',
+  async ({ productId, limit = 8 }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(`/products/${productId}/similar`, {
+        params: { limit },
+      })
+      return {
+        productId: String(productId),
+        products: Array.isArray(data?.products) ? data.products : [],
+        mode: data?.mode ?? null,
+      }
+    } catch (error) {
+      return rejectWithValue(error?.response?.data)
+    }
+  },
+  {
+    condition: (arg, { getState }) => {
+      const id = String(arg?.productId ?? '')
+      if (!id) return false
+
+      const slice = getState()?.products
+      if (slice?.similarByProductId?.[id]) return false
+
+      if (slice?.similarFetching && slice?.similarFetchKey === id) return false
+
+      return true
+    },
+  }
+)
 //slice
 const productSlice = createSlice({
   name: 'products',
@@ -262,6 +296,25 @@ const productSlice = createSlice({
       state.product = null
       state.isAdded = false
       state.error = action.payload
+    })
+    // similar products (cached per product id)
+    builder.addCase(fetchSimilarProductsAction.pending, (state, action) => {
+      state.similarFetching = true
+      state.similarFetchKey = String(action.meta.arg?.productId ?? '')
+    })
+    builder.addCase(fetchSimilarProductsAction.fulfilled, (state, action) => {
+      state.similarFetching = false
+      state.similarFetchKey = null
+      const { productId, products, mode } = action.payload
+      state.similarByProductId[productId] = { products, mode }
+    })
+    builder.addCase(fetchSimilarProductsAction.rejected, (state, action) => {
+      const productId = String(action.meta.arg?.productId ?? '')
+      state.similarFetching = false
+      state.similarFetchKey = null
+      if (productId) {
+        state.similarByProductId[productId] = { products: [], mode: null }
+      }
     })
     //reset error
     builder.addCase(resetErrAction.pending, (state, action) => {

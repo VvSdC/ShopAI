@@ -1,11 +1,14 @@
 import asyncHandler from "express-async-handler";
 import Brand from "../model/Brand.js";
+import Product from "../model/Product.js";
+import { AppError } from "../utils/appError.js";
 import {
   CACHE_KEYS,
   CACHE_TTL,
   getCachedOrFetch,
   invalidateBrandsCache,
 } from "../services/catalogCache.js";
+import { indexProductEmbeddingInBackground } from "../services/search/vectorIndexService.js";
 
 // @desc    Create new Brand
 // @route   POST /api/v1/brands
@@ -16,7 +19,7 @@ export const createBrandCtrl = asyncHandler(async (req, res) => {
   //brand exists
   const brandFound = await Brand.findOne({ name });
   if (brandFound) {
-    throw new Error("Brand already exists");
+    throw new AppError("Brand already exists", 409);
   }
   //create
   const brand = await Brand.create({
@@ -80,6 +83,12 @@ export const updateBrandCtrl = asyncHandler(async (req, res) => {
       new: true,
     }
   );
+  if (brand) {
+    const productIds = await Product.find({ brand: brand._id }).distinct('_id')
+    productIds.forEach((productId, index) => {
+      indexProductEmbeddingInBackground(productId, index * 400)
+    })
+  }
   await invalidateBrandsCache();
   res.json({
     status: "success",

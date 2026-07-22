@@ -16,6 +16,7 @@ import {
   startLlmUsageSummaryWorker,
   stopLlmUsageSummaryWorker,
 } from './llmUsageSummaryQueue.js'
+import { startChatEvalWorker, stopChatEvalWorker } from './chatEvalQueue.js'
 import { isRedisOperational } from '../config/redisClient.js'
 
 const WORKER_STARTERS = [
@@ -53,6 +54,7 @@ export async function stopAllQueueWorkers() {
     stopModerationWorker,
     stopProductTaggingWorker,
     stopLlmUsageSummaryWorker,
+    stopChatEvalWorker,
     stopEmailWorker,
   ]
 

@@ -1,4 +1,5 @@
 import { categoryDisplayName } from '../../utils/categoryRef.js'
+import { brandDisplayName } from '../../utils/brandRef.js'
 
 export function buildProductSearchDocument(product) {
   const tags = Array.isArray(product.tags) ? product.tags.join(', ') : ''
@@ -17,7 +18,7 @@ export function buildProductSearchDocument(product) {
 
   return [
     product.name,
-    `Brand: ${product.brand || ''}`,
+    `Brand: ${brandDisplayName(product.brand)}`,
     `Category: ${categoryDisplayName(product.category)}`,
     product.description || '',
     tags ? `Tags: ${tags}` : '',

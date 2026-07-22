@@ -5,6 +5,24 @@ import User from '../../model/User.js'
 import Product from '../../model/Product.js'
 import { getCart, syncLocalItems, addItem } from '../../services/cartService.js'
 
+import { createTestBrand } from '../helpers/testBrand.js'
+
+async function createCartTestProduct(user, overrides = {}) {
+  const brand = await createTestBrand(`cart-test-${Date.now()}-${Math.random()}`, user)
+  return Product.create({
+    description: 'Test',
+    brand: brand._id,
+    category: new mongoose.Types.ObjectId(),
+    sizes: ['M'],
+    colors: ['Blue'],
+    images: ['https://example.com/img.jpg'],
+    price: 100,
+    totalQty: 5,
+    user: user._id,
+    ...overrides,
+  })
+}
+
 describe('cartService findOrCreateCart', () => {
   it('returns one cart per user when create races on the unique user index', async () => {
     const user = await User.create({
@@ -43,16 +61,8 @@ describe('cartService findOrCreateCart', () => {
       password: 'hashed',
     })
 
-    const product = await Product.create({
+    const product = await createCartTestProduct(user, {
       name: `Price Refresh Product ${Date.now()}`,
-      description: 'Test',
-      brand: 'TestBrand',
-      category: new mongoose.Types.ObjectId(),
-      sizes: ['M'],
-      colors: ['Blue'],
-      images: ['https://example.com/img.jpg'],
-      price: 100,
-      totalQty: 5,
     })
 
     await Cart.create({
@@ -98,11 +108,8 @@ describe('syncLocalItems', () => {
       password: 'hashed',
     })
 
-    const productA = await Product.create({
+    const productA = await createCartTestProduct(user, {
       name: `Sync Product A ${Date.now()}`,
-      description: 'Test',
-      brand: 'TestBrand',
-      category: new mongoose.Types.ObjectId(),
       sizes: ['M'],
       colors: ['Blue'],
       images: ['https://example.com/a.jpg'],
@@ -110,11 +117,8 @@ describe('syncLocalItems', () => {
       totalQty: 10,
     })
 
-    const productB = await Product.create({
+    const productB = await createCartTestProduct(user, {
       name: `Sync Product B ${Date.now()}`,
-      description: 'Test',
-      brand: 'TestBrand',
-      category: new mongoose.Types.ObjectId(),
       sizes: ['L'],
       colors: ['Red'],
       images: ['https://example.com/b.jpg'],
@@ -209,18 +213,13 @@ describe('addItem', () => {
       password: 'hashed',
     })
 
-    const product = await Product.create({
+    const product = await createCartTestProduct(user, {
       name: `No Size Product ${Date.now()}`,
-      description: 'Test',
-      brand: 'TestBrand',
-      category: new mongoose.Types.ObjectId(),
       sizeMeasurementType: 'none',
       sizeLabel: '',
       sizes: [],
       colors: ['Black'],
-      images: ['https://example.com/img.jpg'],
       price: 299,
-      totalQty: 5,
     })
 
     const cart = await addItem(user._id, {

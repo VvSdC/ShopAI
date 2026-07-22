@@ -1,5 +1,18 @@
 /** Calendar-day coupon dates (inclusive start & end). */
 
+import { AppError } from './appError.js'
+
+export function parseCouponDiscountPercent(discount) {
+  const value = Number(discount)
+  if (!Number.isFinite(value)) {
+    throw new AppError('Discount value must be a number', 400)
+  }
+  if (value <= 0 || value > 100) {
+    throw new AppError('Discount must be between 1 and 100', 400)
+  }
+  return value
+}
+
 export function startOfDay(date = new Date()) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)

@@ -1,18 +1,21 @@
 import Order from '../model/Order.js'
 import { getStripeClient } from '../config/stripeClient.js'
 import Product from '../model/Product.js'
-import User from '../model/User.js'
+import User, { USER_STRIPE_CHECKOUT_SELECT } from '../model/User.js'
 import {
   isCouponExpired,
   isCouponLive,
   isCouponNotStarted,
 } from '../utils/couponDates.js'
 import { findLiveCouponByCode } from '../utils/couponQueries.js'
-import { productIdKey } from './cartService.js'
+import { productIdKey, resolveOptionMatch } from './cartService.js'
+import { resolveSizeForProduct } from './cartVariantMatch.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 import { enqueueCheckoutExpiry } from './checkoutQueue.js'
 import config from '../config/env.js'
+import { atomicallyReserveStockForOrderItems, releaseStock } from './stockService.js'
+import { AppError } from '../utils/appError.js'
 
 export async function resolveOrderCoupon(couponCode) {
   if (!couponCode) {
@@ -50,14 +53,46 @@ export async function validateAndPriceOrderItems(orderItems) {
   let recalculatedTotal = 0
 
   for (const item of orderItems) {
+    const label = item?.name || 'Item'
     const product = orderProductMap[productIdKey(item._id)]
-    if (!product) continue
+    if (!product) {
+      throw new AppError(`${label} is no longer available`, 400)
+    }
+
+    const matchedColor = resolveOptionMatch(item.color, product.colors)
+    if (!matchedColor) {
+      throw new AppError(
+        `${product.name}: color "${item.color}" is not available. Choose from: ${(product.colors || []).join(', ') || 'N/A'}`,
+        400
+      )
+    }
+
+    const matchedSize = resolveSizeForProduct(item.size, product)
+    if (!matchedSize) {
+      throw new AppError(
+        `${product.name}: size "${item.size}" is not available. Choose from: ${(product.sizes || []).join(', ') || 'N/A'}`,
+        400
+      )
+    }
+
     const qtyLeft = product.totalQty - product.totalSold
-    if (qtyLeft <= 0) continue
+    if (qtyLeft <= 0) {
+      throw new AppError(`${product.name} is out of stock`, 400)
+    }
+
     const finalQty = Math.min(item.qty, qtyLeft)
+    if (finalQty < item.qty) {
+      throw new AppError(
+        `Only ${qtyLeft} unit(s) of ${product.name} remain in stock`,
+        400
+      )
+    }
+
     const trustedPrice = product.price
     validatedItems.push({
       ...item,
+      color: matchedColor,
+      size: matchedSize,
       price: trustedPrice,
       qty: finalQty,
       totalPrice: trustedPrice * finalQty,
@@ -66,10 +101,21 @@ export async function validateAndPriceOrderItems(orderItems) {
   }
 
   if (validatedItems.length <= 0) {
-    throw new Error('All items in your cart are unavailable or out of stock')
+    throw new AppError('All items in your cart are unavailable or out of stock', 400)
+  }
+
+  if (validatedItems.length !== orderItems.length) {
+    throw new AppError('Some cart items could not be included in checkout', 400)
   }
 
   return { validatedItems, recalculatedTotal }
+}
+
+async function releaseReservedCheckoutStock(orderItems = []) {
+  for (const item of orderItems) {
+    if (!item?._id) continue
+    await releaseStock(item._id, item.qty)
+  }
 }
 
 export async function createCheckoutSession({
@@ -79,7 +125,7 @@ export async function createCheckoutSession({
   couponCode,
   source = 'cart',
 }) {
-  const user = await User.findById(userId)
+  const user = await User.findById(userId).select(USER_STRIPE_CHECKOUT_SELECT)
   if (!user) {
     throw new Error('User not found')
   }
@@ -93,26 +139,14 @@ export async function createCheckoutSession({
   const { couponFound, discountRate } = await resolveOrderCoupon(couponCode)
   const { validatedItems, recalculatedTotal } =
     await validateAndPriceOrderItems(orderItems)
+  await atomicallyReserveStockForOrderItems(validatedItems)
 
   const finalTotal =
     discountRate > 0
       ? Math.round(recalculatedTotal * (1 - discountRate) * 100) / 100
       : recalculatedTotal
 
-  const order = await Order.create({
-    user: user._id,
-    orderItems: validatedItems.map(enrichNewOrderItem),
-    shippingAddress,
-    totalPrice: finalTotal,
-    subtotalBeforeDiscount: recalculatedTotal,
-    discountAmount:
-      discountRate > 0 ? Math.round((recalculatedTotal - finalTotal) * 100) / 100 : 0,
-    discountRate,
-    ...(couponFound && { coupon: couponFound.code }),
-  })
-
-  user.orders.push(order._id)
-  await user.save()
+  let order = null
 
   const convertedOrders = validatedItems.map((item) => {
     const discountedPrice =
@@ -141,18 +175,34 @@ export async function createCheckoutSession({
     country: addr.country || 'IN',
   }
 
-  const stripe = getStripeClient()
-  const stripeCustomer = await stripe.customers.create({
-    name: user.fullname,
-    email: user.email,
-    address: stripeAddress,
-    shipping: {
-      name:
-        `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
-      phone: addr.phone || '',
+  try {
+    order = await Order.create({
+      user: user._id,
+      orderItems: validatedItems.map(enrichNewOrderItem),
+      shippingAddress,
+      totalPrice: finalTotal,
+      subtotalBeforeDiscount: recalculatedTotal,
+      discountAmount:
+        discountRate > 0 ? Math.round((recalculatedTotal - finalTotal) * 100) / 100 : 0,
+      discountRate,
+      stockReservedAtCheckout: true,
+      stockReservationSettledAt: null,
+      stockReservationReleasedAt: null,
+      ...(couponFound && { coupon: couponFound.code }),
+    })
+
+    const stripe = getStripeClient()
+    const stripeCustomer = await stripe.customers.create({
+      name: user.fullname,
+      email: user.email,
       address: stripeAddress,
-    },
-  })
+      shipping: {
+        name:
+          `${addr.firstName || ''} ${addr.lastName || ''}`.trim() || user.fullname,
+        phone: addr.phone || '',
+        address: stripeAddress,
+      },
+    })
 
   const baseUrl = config.cors.origin
   const checkoutSource = source === 'chat' ? 'chat' : 'cart'
@@ -165,31 +215,38 @@ export async function createCheckoutSession({
       ? `${baseUrl}/assistant?payment=cancelled`
       : `${baseUrl}/shopping-cart?payment=cancelled`
 
-  const session = await stripe.checkout.sessions.create({
-    line_items: convertedOrders,
-    customer: stripeCustomer.id,
-    metadata: {
-      orderId: order._id.toString(),
+    const session = await stripe.checkout.sessions.create({
+      line_items: convertedOrders,
+      customer: stripeCustomer.id,
+      metadata: {
+        orderId: order._id.toString(),
+        checkoutSource,
+      },
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    })
+
+    order.stripeSessionId = session.id
+    order.checkoutSource = checkoutSource
+    order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
+    await order.save()
+
+    await enqueueCheckoutExpiry(order._id, CHECKOUT_LINK_TTL_MS)
+
+    return {
+      url: session.url,
+      orderId: String(order._id),
+      orderNumber: order.orderNumber,
+      totalPrice: finalTotal,
       checkoutSource,
-    },
-    mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-  })
-
-  order.stripeSessionId = session.id
-  order.checkoutSource = checkoutSource
-  order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_MS)
-  await order.save()
-
-  await enqueueCheckoutExpiry(order._id, CHECKOUT_LINK_TTL_MS)
-
-  return {
-    url: session.url,
-    orderId: String(order._id),
-    orderNumber: order.orderNumber,
-    totalPrice: finalTotal,
-    checkoutSource,
-    expiresAt: order.checkoutExpiresAt,
+      expiresAt: order.checkoutExpiresAt,
+    }
+  } catch (err) {
+    await releaseReservedCheckoutStock(validatedItems)
+    if (order?._id) {
+      await Order.findByIdAndDelete(order._id).catch(() => {})
+    }
+    throw err
   }
 }

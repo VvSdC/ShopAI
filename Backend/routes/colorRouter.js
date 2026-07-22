@@ -9,13 +9,13 @@ import {
 import isAdmin from "../middlewares/isAdmin.js";
 
 import { isLoggedIn } from "../middlewares/isLoggedin.js";
+import { validateObjectId } from "../middlewares/validateObjectId.js";
 const colorRouter = express.Router();
 
-isAdmin;
 colorRouter.post("/", isLoggedIn, isAdmin, createColorCtrl);
 colorRouter.get("/", getAllColorsCtrl);
-colorRouter.get("/:id", getSingleColorCtrl);
-colorRouter.delete("/:id", isLoggedIn, isAdmin, deleteColorCtrl);
-colorRouter.put("/:id", isLoggedIn, isAdmin, updateColorCtrl);
+colorRouter.get("/:id", validateObjectId('id'), getSingleColorCtrl);
+colorRouter.delete("/:id", isLoggedIn, isAdmin, validateObjectId('id'), deleteColorCtrl);
+colorRouter.put("/:id", isLoggedIn, isAdmin, validateObjectId('id'), updateColorCtrl);
 
 export default colorRouter;

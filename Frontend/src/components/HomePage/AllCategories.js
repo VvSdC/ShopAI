@@ -9,6 +9,7 @@ import {
 import { fetchCategoriesAction } from '../../redux/slices/categories/categoriesSlice'
 import CategoryCard from './CategoryCard'
 import ErrorMsg from '../ErrorMsg/ErrorMsg'
+import PageSeo from '../common/PageSeo'
 
 function CategoriesSkeleton() {
   return (
@@ -66,7 +67,10 @@ export default function AllCategories() {
     (state) => state?.categories
   )
 
-  const allCategories = categoriesPayload?.categories ?? []
+  const allCategories = useMemo(
+    () => categoriesPayload?.categories ?? [],
+    [categoriesPayload?.categories]
+  )
 
   const sorted = useMemo(() => sortByPopularity(allCategories), [allCategories])
 
@@ -84,6 +88,11 @@ export default function AllCategories() {
 
   return (
     <div className="min-h-screen bg-stone-50">
+      <PageSeo
+        title="Shop by category"
+        description="Browse every department on ShopAI and jump straight to the products you need."
+        path="/all-categories"
+      />
       {/* Header */}
       <div className="border-b border-stone-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">

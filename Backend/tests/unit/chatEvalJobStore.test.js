@@ -7,6 +7,8 @@ import {
   getChatEvalJob,
   patchChatEvalJob,
   publicChatEvalJob,
+  reconcileStaleEvalJob,
+  STALE_EVAL_JOB_MS,
 } from '../../services/chatEvalJobStore.js'
 
 describe('chatEvalJobStore (MongoDB)', () => {
@@ -90,5 +92,35 @@ describe('chatEvalJobStore (MongoDB)', () => {
     expect(await EvalJob.countDocuments()).toBe(22)
     await createChatEvalJob(userId)
     expect(await EvalJob.countDocuments()).toBeLessThanOrEqual(20)
+  })
+
+  it('marks stale running jobs as failed on status poll', async () => {
+    const job = await createChatEvalJob(userId)
+    const staleHeartbeat = new Date(Date.now() - STALE_EVAL_JOB_MS - 60_000)
+
+    await EvalJob.updateOne(
+      { jobId: job.id },
+      {
+        $set: {
+          status: 'running',
+          lastHeartbeatAt: staleHeartbeat,
+          updatedAt: staleHeartbeat,
+        },
+      }
+    )
+
+    const loaded = await getChatEvalJob(job.id, userId)
+    expect(loaded.status).toBe('failed')
+    expect(loaded.error).toMatch(/timed out|interrupted/i)
+    expect(loaded.finishedAt).toBeTruthy()
+  })
+
+  it('reconcileStaleEvalJob leaves fresh running jobs unchanged', async () => {
+    const job = await createChatEvalJob(userId)
+    await patchChatEvalJob(job.id, { status: 'running', total: 3, completed: 1 })
+
+    const doc = await EvalJob.findOne({ jobId: job.id })
+    const reconciled = await reconcileStaleEvalJob(doc)
+    expect(reconciled.status).toBe('running')
   })
 })

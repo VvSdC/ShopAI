@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import User from '../model/User.js'
+import { AppError } from '../utils/appError.js'
 import {
   listSessions,
   getSessionMessagesForClient,
@@ -18,8 +19,7 @@ export const listChatSessionsCtrl = asyncHandler(async (req, res) => {
 export const getChatSessionCtrl = asyncHandler(async (req, res) => {
   const session = await getSessionMessagesForClient(req.userAuthId, req.params.id)
   if (!session) {
-    res.status(404)
-    throw new Error('Conversation not found')
+    throw new AppError('Conversation not found', 404)
   }
 
   res.json({
@@ -38,8 +38,7 @@ export const getChatSessionMessagesCtrl = asyncHandler(async (req, res) => {
   })
 
   if (!page) {
-    res.status(404)
-    throw new Error('Conversation not found')
+    throw new AppError('Conversation not found', 404)
   }
 
   res.json({
@@ -71,8 +70,7 @@ export const createChatSessionCtrl = asyncHandler(async (req, res) => {
 export const deleteChatSessionCtrl = asyncHandler(async (req, res) => {
   const deleted = await deleteSession(req.userAuthId, req.params.id)
   if (!deleted) {
-    res.status(404)
-    throw new Error('Conversation not found')
+    throw new AppError('Conversation not found', 404)
   }
   res.json({ success: true, message: 'Conversation deleted' })
 })

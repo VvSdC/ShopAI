@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import {
   PlusIcon,
   TrashIcon,
@@ -11,10 +12,12 @@ import {
 } from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
 import {
-  formatMessage,
   TypingDots,
   SUGGESTED_PROMPTS,
   AI_CHATBOT_LABEL,
+  buildClientWelcomeMessage,
+  routeStatusLabel,
+  chatErrorMessage,
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import ChatMessageBody from './chatBlocks/ChatMessageBody'
@@ -28,9 +31,36 @@ import {
   formatSessionDate,
 } from './useShopAIChat'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
-import { keepStripeReturnSearch } from './assistantNavigation'
+import { keepStripeReturnSearch, ASSISTANT_PATH } from './assistantNavigation'
+import { useResumePendingChat } from './useResumePendingChat'
+import {
+  buildGuestHistory,
+  enrichAssistantMessage,
+  readGuestAssistantMessages,
+  writeGuestAssistantMessages,
+  clearGuestAssistantMessages,
+  welcomeSuggestedPromptsBlock,
+} from './guestChatHistory'
 
 const ASSISTANT_TEXTAREA_MAX_HEIGHT = 120
+const GUEST_ASSISTANT_WELCOME_SUFFIX =
+  '\n\nBrowse and add to cart without an account. Sign in when you want to checkout, view orders, or manage addresses.'
+
+function buildGuestAssistantWelcome() {
+  return buildClientWelcomeMessage('there') + GUEST_ASSISTANT_WELCOME_SUFFIX
+}
+
+function guestWelcomeMessages() {
+  const stored = readGuestAssistantMessages()
+  if (stored.length > 0) return stored
+  return [
+    {
+      role: 'assistant',
+      content: buildGuestAssistantWelcome(),
+      blocks: [welcomeSuggestedPromptsBlock(SUGGESTED_PROMPTS)],
+    },
+  ]
+}
 
 function SendIcon() {
   return (
@@ -54,6 +84,7 @@ function SendIcon() {
 export default function AssistantPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
   const [sessions, setSessions] = useState([])
   const [activeSessionId, setActiveSessionId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -70,6 +101,7 @@ export default function AssistantPage() {
 
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const handleSendRef = useRef(null)
   const { sendMessage, handleClientActions } = useShopAIChatActions()
 
   const { handleCheckoutPaid, handleCheckoutExpired } = useCheckoutHandlers(setMessages)
@@ -82,6 +114,10 @@ export default function AssistantPage() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  useEffect(() => {
+    if (isLoggedIn) clearGuestAssistantMessages()
+  }, [isLoggedIn])
 
   useEffect(() => {
     scrollToBottom()
@@ -199,6 +235,17 @@ export default function AssistantPage() {
       setLoadingSessions(true)
       setSessionsLoadError(null)
       try {
+        if (!isLoggedIn) {
+          setSessions([])
+          setActiveSessionId('guest')
+          setMessages(guestWelcomeMessages())
+          setHasMoreOlder(false)
+          if (shouldCleanNav && !cancelled) {
+            navigate(cleanPath, { replace: true, state: null })
+          }
+          return
+        }
+
         const list = await fetchSessionList()
         if (cancelled) return
 
@@ -265,17 +312,24 @@ export default function AssistantPage() {
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
     const streamMessageId = `stream-${Date.now()}`
+    const guestHistoryBase = isLoggedIn ? messages : [...messages, { role: 'user', content: text }]
     setMessages((prev) => [
       ...prev,
       { id: streamMessageId, role: 'assistant', content: '', streaming: true },
-    ])
+    ]))
     setStreamStatus(null)
     setIsLoading(true)
 
     try {
       const data = await sendMessage(
-        { text, sessionId: activeSessionId },
         {
+          text,
+          sessionId: isLoggedIn ? activeSessionId : undefined,
+          isGuest: !isLoggedIn,
+          history: isLoggedIn ? [] : buildGuestHistory(guestHistoryBase),
+        },
+        {
+          onRoute: ({ route }) => setStreamStatus(routeStatusLabel(route)),
           onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
           onTextDelta: ({ delta }) => {
             setStreamStatus(null)
@@ -296,19 +350,13 @@ export default function AssistantPage() {
         )
       }
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamMessageId
-            ? {
-                ...msg,
-                content: data.reply,
-                checkout: data.checkout || null,
-                blocks: data.blocks || null,
-                streaming: false,
-              }
-            : msg
+      setMessages((prev) => {
+        const next = prev.map((msg) =>
+          msg.id === streamMessageId ? enrichAssistantMessage(msg, data) : msg
         )
-      )
+        if (!isLoggedIn) writeGuestAssistantMessages(next)
+        return next
+      })
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -320,12 +368,17 @@ export default function AssistantPage() {
         )
       }
     } catch (err) {
-      const errorMsg =
-        err.message || 'Sorry, I had trouble processing that. Please try again.'
+      const errorMsg = chatErrorMessage(err)
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === streamMessageId
-            ? { ...msg, content: errorMsg, streaming: false }
+            ? {
+                ...msg,
+                content: errorMsg,
+                streaming: false,
+                failed: true,
+                retryText: text,
+              }
             : msg
         )
       )
@@ -334,6 +387,18 @@ export default function AssistantPage() {
       setStreamStatus(null)
     }
   }
+
+  handleSendRef.current = handleSend
+
+  const resumePendingQuery = useCallback((query) => {
+    handleSendRef.current?.(query)
+  }, [])
+
+  useResumePendingChat({
+    isLoggedIn,
+    isReady: !loadingSessions && Boolean(activeSessionId),
+    onResume: resumePendingQuery,
+  })
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-slate-900 text-slate-100">
@@ -654,12 +719,23 @@ export default function AssistantPage() {
                         blocks={msg.blocks}
                         onQuickAction={handleSend}
                         disabled={isLoading}
+                        returnPath={ASSISTANT_PATH}
                       />
                     )
                   ) : (
                     msg.content
                   )}
                 </div>
+                {msg.role === 'assistant' && msg.failed && msg.retryText && (
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleSend(msg.retryText)}
+                    className="text-xs font-semibold text-indigo-600 underline hover:text-indigo-800 disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                )}
                 {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[90%] sm:max-w-[80%]">
                     <CheckoutPaymentCard

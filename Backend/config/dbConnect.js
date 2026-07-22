@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { config } from './env.js'
+import logger from '../utils/logger.js'
 
 function formatMongoError(error) {
   const msg = error?.message || String(error)
@@ -19,7 +20,7 @@ function formatMongoError(error) {
 const dbConnect = async () => {
   if (!config.db.mongoUrl) {
     const message = formatMongoError(new Error('MONGO_URL not set'))
-    console.error(`MongoDB: ${message}`)
+    logger.error(`MongoDB: ${message}`)
     throw new Error(message)
   }
 
@@ -28,11 +29,11 @@ const dbConnect = async () => {
     const connected = await mongoose.connect(config.db.mongoUrl, {
       serverSelectionTimeoutMS: config.isTest ? 5000 : 10000,
     })
-    console.log(`MongoDB connected: ${connected.connection.host}`)
+    logger.log(`MongoDB connected: ${connected.connection.host}`)
     return connected
   } catch (error) {
     const message = formatMongoError(error)
-    console.error(`MongoDB connection failed: ${message}`)
+    logger.error(`MongoDB connection failed: ${message}`)
     throw new Error(message)
   }
 }

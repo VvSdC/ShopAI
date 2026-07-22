@@ -8,6 +8,7 @@ import { fetchCategoriesAction } from "../../../redux/slices/categories/categori
 import { fetchColorsAction } from "../../../redux/slices/categories/colorsSlice";
 import { fetchProductAction, updateProductAction } from "../../../redux/slices/products/productSlices";
 import ProductSizeFields from "./ProductSizeFields";
+import ProductDescriptionField from "./ProductDescriptionField";
 import { buildSizePayload } from "../../../utils/sizeMeasurement";
 import { resetSuccessAction } from "../../../redux/slices/globalActions/globalActions";
 
@@ -267,23 +268,11 @@ export default function ProductUpdate() {
                   />
                 </div>
               </div>
-              {/* description */}
-              <div>
-                <label
-                  htmlFor="comment"
-                  className="block text-sm font-medium text-stone-700">
-                  Add Product Description
-                </label>
-                <div className="mt-1">
-                  <textarea
-                    rows={4}
-                    name="description"
-                    value={formData.description}
-                    onChange={handleOnChange}
-                    className="block w-full rounded-md border-stone-300 border shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
-                </div>
-              </div>
+              <ProductDescriptionField
+                name="description"
+                value={formData.description}
+                onChange={handleOnChange}
+              />
               <div>
                 {loading ? (
                   <LoadingComponent />

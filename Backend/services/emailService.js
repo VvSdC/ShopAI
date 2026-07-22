@@ -219,6 +219,28 @@ export function sendPasswordResetOTPEmail(to, name, otp) {
   })
 }
 
+export function sendEmailVerificationOTPEmail(to, name, otp) {
+  return sendEmail({
+    to,
+    subject: 'Verify your ShopAI email',
+    html: wrap(`
+      <h2 style="color:#1f2937;margin-top:0;">Confirm your email</h2>
+      <p style="color:#4b5563;line-height:1.6;">
+        Hi ${name}, welcome to ShopAI! Enter this code to verify your email and activate your account:
+      </p>
+      <div style="text-align:center;margin:24px 0;">
+        <div style="display:inline-block;background:#f3f4f6;border:2px dashed #4f46e5;border-radius:10px;padding:16px 40px;">
+          <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#4f46e5;font-family:monospace;">${otp}</span>
+        </div>
+      </div>
+      <p style="color:#6b7280;font-size:13px;line-height:1.5;">
+        This code expires in <strong>10 minutes</strong>. Verified accounts help keep reviews and orders trustworthy.
+      </p>
+    `),
+    text: `Hi ${name},\n\nYour ShopAI email verification code is: ${otp}\n\nValid for 10 minutes.`,
+  })
+}
+
 function formatInr(amount) {
   const value = Number(amount || 0)
   return `Rs. ${value.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
@@ -436,6 +458,67 @@ export function sendOrderConfirmationEmail(to, name, order) {
 
       <p style="color:#6b7280;font-size:13px;line-height:1.5;margin-top:24px;text-align:center;">
         Questions about your order? Reply to this email or visit your account for order status updates.
+      </p>
+    `),
+  })
+}
+
+/** Customer notice when paid order cannot be fulfilled due to stock — refund initiated. */
+export function sendOrderStockUnavailableRefundEmail(
+  to,
+  name,
+  order,
+  { refundAmount = 0, refundTimeline = '5–7 business days' } = {}
+) {
+  const orderNumber = order.orderNumber || order._id
+  const orderTotal = Number(order.totalPrice) || 0
+  const refundLabel = refundAmount > 0 ? formatInr(refundAmount) : formatInr(orderTotal)
+  const safeName = escapeHtml(name)
+  const profileUrl = `${config.cors.origin}/customer-profile`
+  const subject = `Update on your ShopAI order #${orderNumber} — refund issued`
+
+  const refundBlock =
+    refundAmount > 0
+      ? `<p style="color:#4b5563;line-height:1.6;margin:16px 0;">
+          A full refund of <strong>${refundLabel}</strong> has been issued to your original payment method.
+          It should appear within <strong>${escapeHtml(refundTimeline)}</strong>.
+        </p>`
+      : `<p style="color:#4b5563;line-height:1.6;margin:16px 0;">
+          We are processing a full refund of <strong>${refundLabel}</strong> to your original payment method.
+          If you do not see it within <strong>${escapeHtml(refundTimeline)}</strong>, please reply to this email.
+        </p>`
+
+  const text = [
+    `Hi ${name},`,
+    '',
+    `We could not fulfill order #${orderNumber} because one or more items sold out after payment.`,
+    'Your order has been cancelled.',
+    refundAmount > 0
+      ? `A refund of ${refundLabel} has been issued to your original payment method (${refundTimeline}).`
+      : `A full refund of ${refundLabel} is being processed (${refundTimeline}).`,
+    '',
+    `View your account: ${profileUrl}`,
+    '',
+    'We are sorry for the inconvenience.',
+  ].join('\n')
+
+  return sendEmail({
+    to,
+    subject,
+    text,
+    tags: ['order-stock-unavailable', 'order-refund'],
+    html: wrap(`
+      <h2 style="color:#1f2937;margin-top:0;font-size:22px;">We could not complete your order</h2>
+      <p style="color:#4b5563;line-height:1.6;margin:8px 0 16px;">
+        Hi ${safeName}, thank you for shopping with ShopAI. Unfortunately, one or more items in order
+        <strong>#${escapeHtml(orderNumber)}</strong> sold out before we could reserve stock, so we have cancelled the order.
+      </p>
+      ${refundBlock}
+      <div style="text-align:center;margin:28px 0 8px;">
+        <a href="${profileUrl}" style="${buttonStyle}">View your account</a>
+      </div>
+      <p style="color:#6b7280;font-size:13px;line-height:1.5;margin-top:24px;text-align:center;">
+        We are sorry for the inconvenience. Reply to this email if you need help.
       </p>
     `),
   })

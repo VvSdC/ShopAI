@@ -1,9 +1,14 @@
 import { toolDefinitions } from '../chatTools.js'
+import { AUTH_REQUIRED_TOOLS } from '../guestChatRestrictions.js'
+
+function filterGuestToolNames(names) {
+  return names.filter((name) => !AUTH_REQUIRED_TOOLS.has(name))
+}
 
 export const ROUTE_TOOL_NAMES = {
-  retrieval: ['search_products', 'get_product_details', 'get_categories', 'get_brands'],
-  product_detail: ['get_product_details', 'search_products'],
-  comparison: ['search_products', 'get_product_details', 'get_categories', 'get_brands'],
+  retrieval: ['search_products', 'get_product_details', 'get_similar_products', 'get_categories', 'get_brands'],
+  product_detail: ['get_product_details', 'get_similar_products', 'search_products'],
+  comparison: ['search_products', 'get_product_details', 'get_similar_products', 'get_categories', 'get_brands'],
   payment: ['get_my_orders', 'get_order_details'],
   order_summary: ['get_my_orders', 'get_order_details'],
   order_update: [
@@ -26,14 +31,16 @@ export const ROUTE_TOOL_NAMES = {
     'preview_checkout',
     'create_checkout_session',
     'get_product_details',
+    'get_similar_products',
     'get_active_coupons',
   ],
   policies: ['get_active_coupons'],
   general: ['search_products', 'get_cart', 'get_active_coupons', 'get_my_orders'],
 }
 
-export function getToolsForRoute(route) {
-  const names = ROUTE_TOOL_NAMES[route] || ROUTE_TOOL_NAMES.general
+export function getToolsForRoute(route, options = {}) {
+  const baseNames = ROUTE_TOOL_NAMES[route] || ROUTE_TOOL_NAMES.general
+  const names = options.isGuest ? filterGuestToolNames(baseNames) : baseNames
   const allowed = new Set(names)
   return toolDefinitions.filter((def) => allowed.has(def.function.name))
 }

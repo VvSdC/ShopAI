@@ -1,4 +1,4 @@
-import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
+import { canCancelOrder, hasActiveStripeCheckout, STORE_POLICY } from '../config/storePolicy.js'
 import { RETURN_REASONS } from '../constants/returnReasons.js'
 import { orderService } from './orderService.js'
 import {
@@ -6,6 +6,8 @@ import {
   createReturnRequest,
 } from './returnService.js'
 import { normalizeOrderItems } from './orderLineItems.js'
+import { resolveOrderDisplayStatus } from '../utils/orderDisplayStatus.js'
+import { enrichOrderForResponse } from './orderEnrichment.js'
 
 export async function resolveOrderForUser(userId, { order_id, order_number }) {
   return orderService.findByReference(userId, { order_id, order_number })
@@ -24,6 +26,10 @@ export function getOrderCancelReturnStatus(order) {
     paymentStatus: order.paymentStatus,
     totalPrice: order.totalPrice,
     deliveredAt: order.deliveredAt || null,
+    refundStatus: order.refundStatus || 'none',
+    ...resolveOrderDisplayStatus(order, {
+      returnRequestStatus: order.returnRequestStatus || null,
+    }),
     items: normalizeOrderItems(order.orderItems).map((item) => ({
       name: item.name,
       qty: item.qty,
@@ -37,6 +43,15 @@ export function getOrderCancelReturnStatus(order) {
       ...summary,
       availableAction: 'none',
       message: 'This order is already cancelled.',
+    }
+  }
+
+  if (hasActiveStripeCheckout(order)) {
+    return {
+      ...summary,
+      availableAction: 'none',
+      message:
+        'Payment is in progress for this order. Wait for checkout to complete or expire before cancelling.',
     }
   }
 

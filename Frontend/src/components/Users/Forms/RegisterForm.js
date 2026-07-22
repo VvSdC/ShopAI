@@ -5,12 +5,15 @@ import { registerUserAction } from '../../../redux/slices/users/usersSlice'
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, validatePassword } from '../../../utils/passwordPolicy'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
+import LegalPoliciesModal from './LegalPoliciesModal'
 
 const RegisterForm = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [validationError, setValidationError] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [legalModalOpen, setLegalModalOpen] = useState(false)
+  const [legalModalTab, setLegalModalTab] = useState('terms')
   const [formData, setFormData] = useState({
     fullname: '',
     email: '',
@@ -26,7 +29,7 @@ const RegisterForm = () => {
     e.preventDefault()
     setValidationError('')
     if (!agreedToTerms) {
-      setValidationError('You must agree to the Terms of Service')
+      setValidationError('You must agree to the Terms of Service and Privacy Policy')
       return
     }
     const passwordError = validatePassword(password)
@@ -38,13 +41,30 @@ const RegisterForm = () => {
   }
   const { user, error, loading } = useSelector((state) => state?.users)
   useEffect(() => {
-    if (user) {
+    if (user?.requiresEmailVerification) {
+      const signupEmail = user?.data?.email
+      navigate('/verify-email', { replace: true, state: { email: signupEmail } })
+      return
+    }
+    if (user && !user?.requiresEmailVerification) {
       navigate('/login', { replace: true })
     }
   }, [user, navigate])
 
+  const openLegalModal = (tab, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setLegalModalTab(tab)
+    setLegalModalOpen(true)
+  }
+
   return (
     <>
+      <LegalPoliciesModal
+        open={legalModalOpen}
+        initialTab={legalModalTab}
+        onClose={() => setLegalModalOpen(false)}
+      />
       <section className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-violet-50/40 flex items-center justify-center py-12 px-4 relative overflow-hidden">
         {/* Animated Background Layer */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -182,7 +202,22 @@ const RegisterForm = () => {
                   className="mt-1 w-4 h-4 rounded-lg border-gray-300 text-violet-600 focus:ring-violet-500/20 cursor-pointer"
                 />
                 <span className="ml-2 text-sm text-gray-600 group-hover:text-gray-900 transition-colors leading-relaxed">
-                  I agree to the <span className="font-semibold text-violet-600">Terms of Service</span> and <span className="font-semibold text-violet-600">Privacy Policy</span>
+                  I agree to the{' '}
+                  <button
+                    type="button"
+                    onClick={(e) => openLegalModal('terms', e)}
+                    className="font-semibold text-violet-600 hover:text-violet-700 underline-offset-2 hover:underline"
+                  >
+                    Terms of Service
+                  </button>{' '}
+                  and{' '}
+                  <button
+                    type="button"
+                    onClick={(e) => openLegalModal('privacy', e)}
+                    className="font-semibold text-violet-600 hover:text-violet-700 underline-offset-2 hover:underline"
+                  >
+                    Privacy Policy
+                  </button>
                 </span>
               </label>
 

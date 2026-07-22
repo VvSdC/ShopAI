@@ -1,8 +1,10 @@
 import asyncHandler from 'express-async-handler'
 import Coupon from '../model/Coupon.js'
+import { AppError } from '../utils/appError.js'
 import {
   normalizeCouponDates,
   assertCouponDateRange,
+  parseCouponDiscountPercent,
   isCouponLive,
   isCouponNotStarted,
   isCouponExpired,
@@ -31,9 +33,7 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
 
   await assertCouponCodeAvailable(code)
 
-  if (isNaN(discount)) {
-    throw new Error('Discount value must be a number')
-  }
+  const discountPercent = parseCouponDiscountPercent(discount)
 
   const dates = normalizeCouponDates({ startDate, endDate })
   assertCouponDateRange(dates.startDate, dates.endDate)
@@ -42,7 +42,7 @@ export const createCouponCtrl = asyncHandler(async (req, res) => {
     code: normalizeCouponCode(code),
     startDate: dates.startDate,
     endDate: dates.endDate,
-    discount,
+    discount: discountPercent,
     user: req.userAuthId,
   })
 
@@ -124,12 +124,12 @@ export const getCouponCtrl = asyncHandler(async (req, res) => {
 
   const all = await findCouponsByCode(code)
   if (all.some((c) => isCouponNotStarted(c))) {
-    throw new Error('This coupon is not active yet')
+    throw new AppError('This coupon is not active yet', 400)
   }
   if (all.some((c) => isCouponExpired(c))) {
-    throw new Error('This coupon has expired')
+    throw new AppError('This coupon has expired', 400)
   }
-  throw new Error('Coupon not found')
+  throw new AppError('Coupon not found', 404)
 })
 
 export const updateCouponCtrl = asyncHandler(async (req, res) => {
@@ -141,17 +141,20 @@ export const updateCouponCtrl = asyncHandler(async (req, res) => {
     await assertCouponCodeAvailable(code, { excludeId: req.params.id })
   }
 
+  const update = {
+    startDate: dates.startDate,
+    endDate: dates.endDate,
+  }
+  if (code) update.code = code.toUpperCase().trim()
+  if (discount !== undefined) {
+    update.discount = parseCouponDiscountPercent(discount)
+  }
+
   const existing = await Coupon.findById(req.params.id)
-  const coupon = await Coupon.findByIdAndUpdate(
-    req.params.id,
-    {
-      code: code?.toUpperCase().trim(),
-      discount,
-      startDate: dates.startDate,
-      endDate: dates.endDate,
-    },
-    { new: true, runValidators: true }
-  )
+  const coupon = await Coupon.findByIdAndUpdate(req.params.id, update, {
+    new: true,
+    runValidators: true,
+  })
   if (existing?.code) await invalidateCouponsCache(existing.code)
   if (coupon) await scheduleCouponCacheJobs(coupon)
   res.json({

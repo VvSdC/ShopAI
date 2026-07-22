@@ -35,6 +35,14 @@ const kitListingHistory = [
   },
 ]
 
+const shirtListingHistory = [
+  {
+    role: 'assistant',
+    content:
+      '1. **Jack & Jones Men\'s Red Casual Shirt** — ₹1,899 · [View product](/products/507f1f77bcf86cd799439011)',
+  },
+]
+
 describe('productContext catalog parsing', () => {
   it('extracts product ids from assistant listings', () => {
     const items = extractProductsFromHistory(history)

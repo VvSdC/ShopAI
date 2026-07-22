@@ -1,32 +1,47 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import axiosInstance from '../../../utils/axiosInstance'
 import { clearCartAction } from '../../../redux/slices/cart/cartSlices'
+import {
+  paymentVerificationErrorMessage,
+  resolvePaymentVerificationState,
+} from '../../../utils/paymentVerification'
 
 export default function ThanksForOrdering() {
   const dispatch = useDispatch()
   const [searchParams] = useSearchParams()
   const sessionId = searchParams.get('session_id')
+  const [verifying, setVerifying] = useState(Boolean(sessionId))
   const [verified, setVerified] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [emailTo, setEmailTo] = useState('')
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState('')
+  const [verificationError, setVerificationError] = useState('')
 
-  // Verify payment; backend ensures confirmation email is sent once (idempotent)
-  useEffect(() => {
+  const verifyPayment = useCallback(async () => {
     if (!sessionId) return
 
-    axiosInstance
-      .get(`/orders/verify-payment/${sessionId}`)
-      .then((res) => {
-        setVerified(true)
-        setEmailSent(res.data?.confirmationEmailSent === true)
-        if (res.data?.emailTo) setEmailTo(res.data.emailTo)
-      })
-      .catch((err) => console.error('Payment verification failed:', err))
+    setVerifying(true)
+    setVerificationError('')
+
+    try {
+      const res = await axiosInstance.get(`/orders/verify-payment/${sessionId}`)
+      setVerified(true)
+      setEmailSent(res.data?.confirmationEmailSent === true)
+      if (res.data?.emailTo) setEmailTo(res.data.emailTo)
+    } catch (err) {
+      setVerified(false)
+      setVerificationError(paymentVerificationErrorMessage(err))
+    } finally {
+      setVerifying(false)
+    }
   }, [sessionId])
+
+  useEffect(() => {
+    verifyPayment()
+  }, [verifyPayment])
 
   // Clear cart only after payment is verified (not on accidental /success visits)
   useEffect(() => {
@@ -54,6 +69,13 @@ export default function ThanksForOrdering() {
       setResending(false)
     }
   }
+
+  const ui = resolvePaymentVerificationState({
+    sessionId,
+    verifying,
+    verified,
+    verificationError,
+  })
 
   return (
     <>
@@ -150,59 +172,120 @@ export default function ThanksForOrdering() {
         <div className="w-full max-w-lg relative z-10">
           {/* Success Animation Header */}
           <div className="text-center mb-8">
-            <div
-              className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-emerald-200/50 animate-bounce"
-              style={{ animationDuration: '2s' }}
-            >
-              <svg
-                className="w-12 h-12 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {ui.showSuccessChrome ? (
+              <div
+                className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-emerald-200/50 animate-bounce"
+                style={{ animationDuration: '2s' }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold mb-4">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Payment Successful
-            </div>
+                <svg
+                  className="w-12 h-12 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+            ) : ui.phase === 'error' ? (
+              <div className="mx-auto w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                <svg
+                  className="w-12 h-12 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            ) : (
+              <div className="mx-auto w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-300 border-t-amber-600" />
+              </div>
+            )}
+            {ui.showSuccessChrome && (
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold mb-4">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Payment Successful
+              </div>
+            )}
             <h2 className="text-4xl font-bold text-gray-900 tracking-tight">
-              Thank You!
+              {ui.title}
             </h2>
             <p className="text-gray-500 mt-3 text-lg">
-              Your order has been placed successfully
+              {ui.subtitle}
             </p>
+            {ui.phase === 'error' && sessionId && (
+              <button
+                type="button"
+                onClick={verifyPayment}
+                disabled={verifying}
+                className="mt-4 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {verifying ? 'Retrying…' : 'Retry verification'}
+              </button>
+            )}
+            {ui.phase === 'missing_session' && (
+              <Link
+                to="/customer-profile"
+                className="mt-4 inline-block text-sm font-semibold text-indigo-700 underline hover:text-indigo-900"
+              >
+                View my orders
+              </Link>
+            )}
           </div>
 
           {/* Order Card */}
           <div className="bg-white/70 backdrop-blur-xl rounded-3xl shadow-[0_8px_40px_rgb(0,0,0,0.06)] border border-white/80 p-8 lg:p-10">
             {/* Order Status */}
-            <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-3 h-3 rounded-full ${verified ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400 animate-pulse'}`}
-                />
-                <span
-                  className={`text-sm font-semibold ${verified ? 'text-emerald-600' : 'text-amber-600'}`}
-                >
-                  {verified ? 'Payment Verified' : 'Verifying Payment...'}
-                </span>
+            {sessionId && (
+              <div className="flex items-center justify-center mb-8">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      verified
+                        ? 'bg-emerald-500 animate-pulse'
+                        : verificationError
+                          ? 'bg-red-500'
+                          : 'bg-amber-400 animate-pulse'
+                    }`}
+                  />
+                  <span
+                    className={`text-sm font-semibold ${
+                      verified
+                        ? 'text-emerald-600'
+                        : verificationError
+                          ? 'text-red-600'
+                          : 'text-amber-600'
+                    }`}
+                  >
+                    {verified
+                      ? 'Payment Verified'
+                      : verificationError
+                        ? 'Verification Failed'
+                        : 'Verifying Payment…'}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Progress Steps */}
+            {ui.showProgress && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -301,8 +384,10 @@ export default function ThanksForOrdering() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Message */}
+            {verified && (
             <div className="bg-emerald-50/80 rounded-2xl p-6 mb-8 border border-emerald-100">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -355,6 +440,7 @@ export default function ThanksForOrdering() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Action Buttons */}
             <div className="space-y-3">

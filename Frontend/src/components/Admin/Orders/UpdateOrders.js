@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, Link } from "react-router-dom";
 import { fetchOderAction, updateOrderAction } from "../../../redux/slices/orders/ordersSlices";
-import { isAdminOrderStatusLocked, adminOrderStatusLockReason } from "../../../utils/orderDisplay";
+import { isAdminOrderStatusLocked, adminOrderStatusLockReason, getOrderDisplayStatus, getOrderDisplayStatusColor, orderFulfillmentStatus } from "../../../utils/orderDisplay";
 import LoadingComponent from "../../LoadingComp/LoadingComponent";
 
 const UpdateOrders = () => {
@@ -30,8 +30,21 @@ const UpdateOrders = () => {
         <Link to="/admin/all-orders" className="text-sm text-indigo-600 hover:text-indigo-500">
           ← Back to all orders
         </Link>
+        <p className="mt-4 text-sm font-medium text-stone-700">Customer-facing status</p>
+        <span
+          className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getOrderDisplayStatusColor(order)}`}
+        >
+          {getOrderDisplayStatus(order).displayStatusLabel}
+        </span>
+        <p className="mt-1 text-xs text-stone-500">
+          Fulfillment: {getOrderDisplayStatus(order).fulfillmentStatus}
+          {order?.refundStatus && order.refundStatus !== 'none'
+            ? ` · Refund: ${order.refundStatus}`
+            : ''}
+          {order?.returnRequestStatus ? ` · Return: ${order.returnRequestStatus}` : ''}
+        </p>
         <label htmlFor="location" className="block text-sm font-medium text-stone-700 mt-4">
-          Update Order
+          Update fulfillment status
         </label>
         {locked ? (
           <p className="mt-2 text-sm text-stone-500">{adminOrderStatusLockReason(order)}</p>
@@ -40,7 +53,7 @@ const UpdateOrders = () => {
             id="location"
             name="status"
             onChange={onChange}
-            value={order?.status || "pending"}
+            value={orderFulfillmentStatus(order) || "pending"}
             className="mt-1 block w-full rounded-md border-2 border-stone-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
           >
             <option value="pending">Pending</option>

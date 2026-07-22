@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import axiosInstance from '../../../utils/axiosInstance'
+import { withCartIdempotency } from '../../../utils/cartIdempotency'
 import { fetchCouponAction } from '../coupons/couponsSlice'
 import { parseLocalCart } from '../../../utils/localCart'
 import { skipIfListFetching } from '../../utils/skipIfFetching'
@@ -132,7 +133,7 @@ export const clearCartAction = createAsyncThunk(
       }
     }
     try {
-      const { data } = await axiosInstance.delete('/cart')
+      const { data } = await axiosInstance.delete('/cart', withCartIdempotency())
       const payload = mapServerCartResponse(data)
       persistCartItems(payload.cartItems)
       return { ...payload, fromServer: true }
@@ -169,7 +170,7 @@ export const syncAndLoadCartAction = createAsyncThunk(
       const { itemsToSync, mergeConflicts } = partitionLocalCartForMerge(localItems, serverItems)
 
       if (itemsToSync.length > 0) {
-        await axiosInstance.post('/cart/sync', { items: itemsToSync })
+        await axiosInstance.post('/cart/sync', { items: itemsToSync }, withCartIdempotency())
       }
 
       const { data } = await axiosInstance.get('/cart')
@@ -213,12 +214,16 @@ export const addOrderToCartaction = createAsyncThunk(
     }
 
     try {
-      const { data } = await axiosInstance.post('/cart/items', {
-        productId: cartItem._id,
-        color: cartItem.color,
-        size: cartItem.size,
-        qty: cartItem.qty,
-      })
+      const { data } = await axiosInstance.post(
+        '/cart/items',
+        {
+          productId: cartItem._id,
+          color: cartItem.color,
+          size: cartItem.size,
+          qty: cartItem.qty,
+        },
+        withCartIdempotency()
+      )
       const payload = mapServerCartResponse(data)
       persistCartItems(payload.cartItems)
       return payload
@@ -259,12 +264,16 @@ export const changeOrderItemQty = createAsyncThunk(
     }
 
     try {
-      const { data } = await axiosInstance.patch('/cart/items', {
-        productId,
-        color,
-        size,
-        qty,
-      })
+      const { data } = await axiosInstance.patch(
+        '/cart/items',
+        {
+          productId,
+          color,
+          size,
+          qty,
+        },
+        withCartIdempotency()
+      )
       const payload = mapServerCartResponse(data)
       persistCartItems(payload.cartItems)
       return payload
@@ -291,9 +300,12 @@ export const removeOrderItemQty = createAsyncThunk(
     }
 
     try {
-      const { data } = await axiosInstance.delete('/cart/items', {
-        data: { productId, color, size },
-      })
+      const { data } = await axiosInstance.delete(
+        '/cart/items',
+        withCartIdempotency({
+          data: { productId, color, size },
+        })
+      )
       const payload = mapServerCartResponse(data)
       persistCartItems(payload.cartItems)
       return payload
@@ -315,7 +327,11 @@ export const applyCartCouponAction = createAsyncThunk(
     }
 
     try {
-      const { data } = await axiosInstance.post('/cart/coupon', { code: trimmed })
+      const { data } = await axiosInstance.post(
+        '/cart/coupon',
+        { code: trimmed },
+        withCartIdempotency()
+      )
       await dispatch(fetchCouponAction(trimmed))
       const payload = mapServerCartResponse(data)
       persistCartItems(payload.cartItems)
@@ -485,6 +501,7 @@ const cartSlice = createSlice({
 
     builder.addCase(validateCartAction.pending, (state) => {
       state.validating = true
+      state.error = null
     })
     builder.addCase(validateCartAction.fulfilled, (state, action) => {
       state.validating = false

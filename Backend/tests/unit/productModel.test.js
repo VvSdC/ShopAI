@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import mongoose from 'mongoose'
 import Product from '../../model/Product.js'
 import User from '../../model/User.js'
+import { createTestBrand } from '../helpers/testBrand.js'
 
 async function createTestProduct(overrides = {}) {
   const user =
@@ -12,10 +13,14 @@ async function createTestProduct(overrides = {}) {
       password: 'hashed',
     }))
 
+  const brand =
+    overrides.brand ||
+    (await createTestBrand(`test-brand-${Date.now()}`, user))._id
+
   return Product.create({
     name: `Product ${Date.now()}-${Math.random()}`,
     description: 'Test description',
-    brand: 'TestBrand',
+    brand,
     category: new mongoose.Types.ObjectId(),
     sizes: ['M'],
     colors: ['Blue'],
@@ -28,6 +33,21 @@ async function createTestProduct(overrides = {}) {
 }
 
 describe('Product model', () => {
+  it('rejects duplicate product names that differ only by case', async () => {
+    const name = `Nike Air Max ${Date.now()}`
+    const user = await User.create({
+      fullname: 'Case Dup User',
+      email: `case-dup-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    await createTestProduct({ name, user: user._id })
+
+    await expect(
+      createTestProduct({ name: name.toLowerCase(), user: user._id })
+    ).rejects.toThrow()
+  })
+
   it('enforces unique product names at the database level', async () => {
     const name = `Unique Name ${Date.now()}`
     const user = await User.create({

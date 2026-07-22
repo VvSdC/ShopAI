@@ -15,24 +15,21 @@ import {
 import { fetchMyReturnsAction } from '../../../redux/slices/returns/returnsSlice'
 import CustomerDetails from './CustomerDetails'
 import AddressManagement from './AddressManagement'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import ReturnRequestModal from './ReturnRequestModal'
 import {
   getPaymentStatusLabel,
   getPaymentStatusColor,
   getRefundSummary,
+  getOrderDisplayStatus,
+  getOrderDisplayStatusColor,
+  orderFulfillmentStatus,
+  isReturnInProgress,
   REFUND_TIMELINE,
 } from '../../../utils/orderDisplay'
 import { useStripeReturnHandler, isStripePaymentReturnSearch } from '../../ChatBot/useStripeReturnHandler'
 import ConfirmDialog from '../../common/ConfirmDialog'
 import ShopPagination from '../Products/ShopPagination'
-
-const statusColor = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  shipped: 'bg-purple-100 text-purple-800',
-  delivered: 'bg-green-100 text-green-800',
-  cancelled: 'bg-red-100 text-red-800',
-}
 
 const paymentStatusColor = {
   paid: 'bg-green-100 text-green-800',
@@ -164,7 +161,7 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
               <span className="text-lg font-bold text-gray-900">₹{order.totalPrice}</span>
             </div>
             {/* Cancel button — only for pending/processing orders */}
-            {['pending', 'processing'].includes(order.status) && (
+            {['pending', 'processing'].includes(orderFulfillmentStatus(order)) && (
               <button
                 onClick={() => onCancel(order._id)}
                 className="mt-4 w-full rounded-md bg-red-600 py-2 px-4 text-sm font-medium text-white hover:bg-red-700 transition-colors"
@@ -172,7 +169,9 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
                 Cancel Order
               </button>
             )}
-            {order.status === 'delivered' && (
+            {orderFulfillmentStatus(order) === 'delivered' &&
+              !isReturnInProgress(order) &&
+              order.refundStatus === 'none' && (
               <button
                 onClick={() => onReturn(order)}
                 className="mt-4 w-full rounded-md bg-indigo-600 py-2 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
@@ -180,7 +179,7 @@ function OrderDetailsModal({ order, onClose, onCancel, onReturn }) {
                 Request Return
               </button>
             )}
-            {order.status === 'cancelled' && <CancelledOrderNotice order={order} />}
+            {orderFulfillmentStatus(order) === 'cancelled' && <CancelledOrderNotice order={order} />}
           </div>
         </div>
       </div>
@@ -323,6 +322,7 @@ export default function CustomerProfile() {
 
   return (
     <div className="bg-white pb-28 lg:pb-10">
+      <PrivatePageSeo title="My account" path="/customer-profile" />
       <div className="border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <nav className="text-xs text-stone-500">
@@ -539,11 +539,11 @@ export default function CustomerProfile() {
                                 </td>
                                 <td className="whitespace-nowrap px-4 py-4">
                                   <span
-                                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                                      statusColor[order.status] || 'bg-stone-100 text-stone-800'
-                                    }`}
+                                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getOrderDisplayStatusColor(
+                                      order
+                                    )}`}
                                   >
-                                    {order.status}
+                                    {getOrderDisplayStatus(order).displayStatusLabel}
                                   </span>
                                 </td>
                                 <td className="hidden whitespace-nowrap px-4 py-4 text-sm text-stone-600 sm:table-cell">
@@ -564,7 +564,7 @@ export default function CustomerProfile() {
                                     >
                                       View
                                     </button>
-                                    {['pending', 'processing'].includes(order.status) && (
+                                    {['pending', 'processing'].includes(orderFulfillmentStatus(order)) && (
                                       <button
                                         type="button"
                                         onClick={() => handleCancelOrder(order._id)}
@@ -573,7 +573,9 @@ export default function CustomerProfile() {
                                         Cancel
                                       </button>
                                     )}
-                                    {order.status === 'delivered' && (
+                                    {orderFulfillmentStatus(order) === 'delivered' &&
+                                      !isReturnInProgress(order) &&
+                                      order.refundStatus === 'none' && (
                                       <button
                                         type="button"
                                         onClick={() => setReturnOrder(order)}

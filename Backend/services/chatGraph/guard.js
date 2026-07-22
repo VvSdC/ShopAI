@@ -59,6 +59,7 @@ export async function guardNode(state) {
   // planner for proper language detection and slot extraction.
   const heuristic = classifyIntentHeuristic(state.userText, state.history)
   const looksEnglish =
+    // eslint-disable-next-line no-control-regex -- ASCII-only check for English heuristic fast path
     /^[\x00-\x7F]+$/.test(text) && ENGLISH_MARKER_PATTERN.test(text)
   if (heuristic.confidence === 'high' && looksEnglish) {
     patchLlmUsageContext({ route: heuristic.route, routeReason: heuristic.reason })

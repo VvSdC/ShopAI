@@ -102,6 +102,7 @@ export async function pollOrderPaymentStatus(userId, orderId) {
         })
       }
       if (session.status === 'expired') {
+        await expireCheckoutJob(order._id)
         return {
           paid: false,
           expired: true,

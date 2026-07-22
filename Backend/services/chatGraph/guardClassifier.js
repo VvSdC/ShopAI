@@ -42,7 +42,7 @@ export function parseGuardJson(raw) {
 }
 
 /**
- * LLM safety gate with regex fast-paths. Fails open (allows) if classification unavailable.
+ * LLM safety gate with regex fast-paths. Fails closed when classification is unavailable.
  */
 export async function classifyMessageSafety(userText, history = []) {
   const text = String(userText || '').trim()
@@ -92,12 +92,12 @@ ${text}`
     )
     const parsed = parseGuardJson(response.choices?.[0]?.message?.content)
     if (parsed) return parsed
-    logger.warn('[guardClassifier] Unparseable LLM response, allowing message')
+    logger.warn('[guardClassifier] Unparseable LLM response, blocking message')
   } catch (err) {
-    logger.warn('[guardClassifier] LLM safety check failed, allowing message:', err.message)
+    logger.warn('[guardClassifier] LLM safety check failed, blocking message:', err.message)
   }
 
-  return { allowed: true }
+  return { allowed: false, reason: 'off_topic' }
 }
 
 /** @deprecated Use classifyMessageSafety — kept for existing imports/tests. */

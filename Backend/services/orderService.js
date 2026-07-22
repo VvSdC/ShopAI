@@ -2,7 +2,8 @@ import Order from '../model/Order.js'
 import mongoose from 'mongoose'
 import { getStripeClient } from '../config/stripeClient.js'
 import User from '../model/User.js'
-import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
+import { canCancelOrder, hasActiveStripeCheckout, isPaymentSettled, STORE_POLICY } from '../config/storePolicy.js'
+import { normalizePaymentStatus, PAYMENT_STATUS } from '../utils/paymentStatus.js'
 import { normalizeOrderItems, getActiveQty } from './orderLineItems.js'
 import { productIdKey, clearCart } from './cartService.js'
 import {
@@ -14,6 +15,7 @@ import { createStripeRefund, persistPaymentReferences } from './orderRefund.js'
 import { releaseStock } from './stockService.js'
 import { AppError } from '../utils/appError.js'
 import logger from '../utils/logger.js'
+import { enrichOrderForResponse, enrichOrdersForResponse } from './orderEnrichment.js'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'processing', 'shipped', 'delivered']
 
@@ -72,7 +74,7 @@ export class OrderService {
     }
     const user = await User.findById(userId).select('isAdmin')
     this.assertUserCanAccess(order, userId, { isAdmin: user?.isAdmin })
-    return order
+    return enrichOrderForResponse(order)
   }
 
   async findForUser(userId, orderId) {
@@ -110,7 +112,7 @@ export class OrderService {
     ])
 
     return {
-      orders,
+      orders: await enrichOrdersForResponse(orders),
       pagination: {
         page: safePage,
         limit: safeLimit,
@@ -146,7 +148,7 @@ export class OrderService {
       hasMore && orders.length ? encodeOrderCursor(orders[orders.length - 1]) : null
 
     return {
-      orders,
+      orders: await enrichOrdersForResponse(orders),
       pagination: {
         limit: safeLimit,
         total,
@@ -192,7 +194,7 @@ export class OrderService {
     return { orders, saleToday }
   }
 
-  async updateStatus(orderId, status) {
+  async updateStatus(orderId, status, { trackingCarrier, trackingNumber } = {}) {
     const order = await Order.findById(orderId)
     if (!order) {
       throw new AppError('Order not found', 404)
@@ -208,8 +210,15 @@ export class OrderService {
     if (status === 'delivered') {
       update.deliveredAt = order.deliveredAt || new Date()
     }
+    if (status === 'shipped') {
+      update.shippedAt = order.shippedAt || new Date()
+      if (trackingCarrier) update.trackingCarrier = trackingCarrier
+      if (trackingNumber) update.trackingNumber = trackingNumber
+    }
 
-    return Order.findByIdAndUpdate(orderId, update, { new: true })
+    return enrichOrderForResponse(
+      await Order.findByIdAndUpdate(orderId, update, { new: true })
+    )
   }
 
   async restoreStockForCancelledItems(items) {
@@ -228,6 +237,13 @@ export class OrderService {
     }
     this.assertUserCanAccess(order, userId)
 
+    if (hasActiveStripeCheckout(order)) {
+      throw new AppError(
+        'This order has an open checkout session. Wait for payment to complete or for the checkout link to expire before cancelling.',
+        400
+      )
+    }
+
     if (!canCancelOrder(order)) {
       throw new AppError(
         'This order cannot be cancelled. Only pending or processing orders can be cancelled before they ship.',
@@ -237,6 +253,18 @@ export class OrderService {
 
     if (order.postPaymentProcessed) {
       await this.restoreStockForCancelledItems(order.orderItems)
+    } else if (
+      order.stockReservedAtCheckout &&
+      !order.stockReservationReleasedAt &&
+      !order.stockReservationSettledAt
+    ) {
+      for (const item of normalizeOrderItems(order.orderItems)) {
+        const productId = productIdKey(item._id)
+        const qty = Number(item.qty) || 0
+        if (!productId || qty <= 0) continue
+        await releaseStock(productId, qty)
+      }
+      order.stockReservationReleasedAt = new Date()
     }
 
     let stripeRefundId = null
@@ -270,7 +298,7 @@ export class OrderService {
     await order.save()
 
     return {
-      order,
+      order: await enrichOrderForResponse(order),
       refundAmount,
       stripeRefundId,
       message:
@@ -298,6 +326,103 @@ export class OrderService {
   }
 
   /**
+   * Customer paid on Stripe after the order was cancelled locally — record payment and auto-refund.
+   */
+  async resolvePaidCheckoutOnCancelledOrder(orderId, existingOrder, session) {
+    if (existingOrder.refundStatus === 'full') {
+      return {
+        order: existingOrder,
+        updatedOrder: existingOrder,
+        fulfillment: null,
+        skipped: true,
+        reason: 'order_cancelled_already_refunded',
+        refundAmount: existingOrder.totalRefunded || 0,
+      }
+    }
+
+    const paymentRefs = await persistPaymentReferences(orderId, session)
+    const totalPrice = session.amount_total / 100
+
+    let order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        totalPrice,
+        currency: session.currency,
+        paymentMethod: session.payment_method_types?.[0] || 'card',
+        paymentStatus: session.payment_status,
+        ...paymentRefs,
+      },
+      { new: true }
+    )
+
+    let stripeRefundId = null
+    let refundAmount = 0
+
+    if (session.payment_status === 'paid') {
+      refundAmount =
+        Math.round((totalPrice - (order.totalRefunded || 0)) * 100) / 100
+      if (refundAmount > 0) {
+        const refund = await createStripeRefund(order, refundAmount)
+        stripeRefundId = refund.id
+      }
+    }
+
+    if (order.postPaymentProcessed) {
+      await this.restoreStockForCancelledItems(order.orderItems)
+    } else if (
+      order.stockReservedAtCheckout &&
+      !order.stockReservationReleasedAt &&
+      !order.stockReservationSettledAt
+    ) {
+      for (const item of normalizeOrderItems(order.orderItems)) {
+        const productId = productIdKey(item._id)
+        const qty = Number(item.qty) || 0
+        if (!productId || qty <= 0) continue
+        await releaseStock(productId, qty)
+      }
+      order.stockReservationReleasedAt = new Date()
+    }
+
+    const cancelledItems = normalizeOrderItems(order.orderItems).map((item) => ({
+      ...item,
+      lineStatus: 'cancelled',
+      cancelledQty: item.qty,
+    }))
+
+    const totalRefunded = (order.totalRefunded || 0) + refundAmount
+    const update = {
+      status: 'cancelled',
+      orderItems: cancelledItems,
+      totalRefunded,
+      refundStatus:
+        refundAmount > 0 && totalRefunded >= totalPrice - 0.01 ? 'full' : order.refundStatus,
+      ...(order.stockReservationReleasedAt
+        ? { stockReservationReleasedAt: order.stockReservationReleasedAt }
+        : {}),
+    }
+
+    if (stripeRefundId) {
+      update.stripeRefundIds = [...(order.stripeRefundIds || []), stripeRefundId]
+    }
+
+    order = await Order.findByIdAndUpdate(orderId, update, { new: true })
+
+    logger.warn(
+      `[orders] paid checkout on cancelled order ${order?.orderNumber || orderId} — auto-refund ₹${refundAmount}`
+    )
+
+    return {
+      order,
+      updatedOrder: order,
+      fulfillment: null,
+      skipped: true,
+      reason: 'order_cancelled_paid_refunded',
+      refundAmount,
+      stripeRefundId,
+    }
+  }
+
+  /**
    * Apply Stripe checkout session fields to an order and run paid fulfillment when needed.
    * Used by webhook, verify-payment, and payment polling.
    */
@@ -309,6 +434,9 @@ export class OrderService {
     }
 
     if (existingOrder.status === 'cancelled') {
+      if (session.payment_status === 'paid') {
+        return this.resolvePaidCheckoutOnCancelledOrder(orderId, existingOrder, session)
+      }
       return {
         order: existingOrder,
         updatedOrder: existingOrder,
@@ -318,7 +446,7 @@ export class OrderService {
       }
     }
 
-    if (existingOrder.paymentStatus === 'paid') {
+    if (existingOrder.paymentStatus === 'paid' || isPaymentSettled(existingOrder)) {
       await this.ensureCartClearedForPaidOrder(existingOrder)
       return {
         order: existingOrder,
@@ -329,27 +457,59 @@ export class OrderService {
     }
 
     const paymentRefs = await persistPaymentReferences(id, session)
+    const paymentFields = {
+      totalPrice: session.amount_total / 100,
+      currency: session.currency,
+      paymentMethod: session.payment_method_types?.[0] || 'card',
+      paymentStatus: normalizePaymentStatus(session.payment_status),
+      ...paymentRefs,
+    }
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      {
-        totalPrice: session.amount_total / 100,
-        currency: session.currency,
-        paymentMethod: session.payment_method_types?.[0] || 'card',
-        paymentStatus: session.payment_status,
-        ...paymentRefs,
-      },
-      { new: true }
-    )
+    const email =
+      receiptEmail ||
+      session.customer_details?.email ||
+      session.customer_email ||
+      null
 
+    let updatedOrder
     let fulfillment = null
-    if (session.payment_status === 'paid' && updatedOrder) {
-      const email =
-        receiptEmail ||
-        session.customer_details?.email ||
-        session.customer_email ||
-        null
+
+    if (session.payment_status === 'paid') {
+      updatedOrder = await Order.findOneAndUpdate(
+        {
+          _id: id,
+          paymentStatus: { $nin: ['paid', PAYMENT_STATUS.PAID] },
+          status: { $ne: 'cancelled' },
+        },
+        paymentFields,
+        { new: true }
+      )
+
+      if (!updatedOrder) {
+        const current = await Order.findById(id)
+        if (current?.paymentStatus === 'paid') {
+          await this.ensureCartClearedForPaidOrder(current)
+          return {
+            order: current,
+            updatedOrder: current,
+            fulfillment: null,
+            alreadyPaid: true,
+          }
+        }
+        if (current?.status === 'cancelled') {
+          return this.resolvePaidCheckoutOnCancelledOrder(orderId, current, session)
+        }
+        return {
+          order: current,
+          updatedOrder: current,
+          fulfillment: null,
+          skipped: true,
+        }
+      }
+
       fulfillment = await processPaidOrder(id, { receiptEmail: email })
+    } else {
+      updatedOrder = await Order.findByIdAndUpdate(id, paymentFields, { new: true })
     }
 
     const refreshedOrder = await Order.findById(id)

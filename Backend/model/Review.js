@@ -37,6 +37,11 @@ const ReviewSchema = new Schema(
       type: String,
       default: "",
     },
+    /** Buyer received this product on a delivered order. */
+    verifiedPurchase: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -45,6 +50,7 @@ const ReviewSchema = new Schema(
 
 ReviewSchema.index({ product: 1 })
 ReviewSchema.index({ user: 1 })
+ReviewSchema.index({ user: 1, product: 1 }, { unique: true })
 
 const Review = mongoose.model("Review", ReviewSchema);
 

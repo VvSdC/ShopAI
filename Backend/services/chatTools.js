@@ -1,11 +1,12 @@
 import logger from '../utils/logger.js'
 import Product from '../model/Product.js'
-import { PUBLIC_REVIEW_MATCH } from '../utils/reviewVisibility.js'
 import { categoryDisplayName } from '../utils/categoryRef.js'
+import { brandDisplayName, enrichProductsWithBrandNames } from '../utils/brandRef.js'
+import { reviewStatsByProductIds } from './productListStats.js'
 import Category from '../model/Category.js'
 import Brand from '../model/Brand.js'
 import {
-  countProductsByBrandName,
+  countProductsByBrandId,
   countProductsByCategoryId,
 } from './catalogProductCounts.js'
 import Coupon from '../model/Coupon.js'
@@ -24,10 +25,22 @@ import {
 } from './checkoutFromCart.js'
 import { resolveSizeForProduct } from './cartVariantMatch.js'
 import { searchProductsForChat } from './search/searchService.js'
+import { getSimilarProducts } from './similarProductsService.js'
+import { isGuestChatUser, getGuestCartState } from './guestCartContext.js'
+import {
+  guestGetCart,
+  guestAddToCart,
+  guestUpdateCartItem,
+  guestApplyCoupon,
+  guestRemoveCoupon,
+  guestCheckoutBlocked,
+} from './guestCartService.js'
+import { buildSignInRequiredToolResult } from './guestChatRestrictions.js'
 import {
   listShippingAddresses,
   addShippingAddress,
   updateShippingAddress,
+  AddressValidationError,
 } from './addressService.js'
 import {
   getOrderCancelReturnStatus,
@@ -36,6 +49,11 @@ import {
   resolveOrderForUser,
 } from './orderActionsService.js'
 import { orderService } from './orderService.js'
+import {
+  getWishlist,
+  addWishlistItem,
+  removeWishlistItem,
+} from './wishlistService.js'
 
 export const toolDefinitions = [
   {
@@ -139,6 +157,68 @@ export const toolDefinitions = [
   {
     type: 'function',
     function: {
+      name: 'get_similar_products',
+      description:
+        'Get grounded similar products from the catalog using stored embeddings (same index as search). Use when the customer asks for alternatives, related items, or "something like this".',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: {
+            type: 'string',
+            description: 'The source product ID to find neighbors for',
+          },
+          limit: {
+            type: 'number',
+            description: 'How many similar products to return (default 6, max 10)',
+          },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_my_wishlist',
+      description:
+        "List products saved in the current user's wishlist. Use when the customer asks about saved items or favorites.",
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_to_wishlist',
+      description: 'Save a product to the signed-in user wishlist by product ID.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product MongoDB ID' },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_from_wishlist',
+      description: 'Remove a product from the signed-in user wishlist by product ID.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product MongoDB ID' },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_categories',
       description:
         'List all available product categories. Use when user wants to browse or asks what categories are available.',
@@ -188,18 +268,27 @@ export const toolDefinitions = [
     function: {
       name: 'add_shipping_address',
       description:
-        'Save a new shipping address to the user account. Use when the user provides delivery address details during checkout or asks to add an address. Parse city, state/province, and pincode from free-text when possible. Use profile name if first/last name not given.',
+        'Save a new shipping address to the user account. Use ONLY when the user has explicitly provided each field in the conversation. Never invent, guess, or auto-fill values — especially phone numbers, PIN codes, city, state, or street. If any required field is missing from what the user actually said, ask them for it first with a short prompt naming the missing fields — do NOT call this tool. Parse city, state/province, and pincode from the user\'s free-text when they provided them. Fall back to the user profile only for first/last name and phone.',
       parameters: {
         type: 'object',
         properties: {
-          first_name: { type: 'string', description: 'First name' },
-          last_name: { type: 'string', description: 'Last name' },
-          address: { type: 'string', description: 'Street address line' },
-          city: { type: 'string', description: 'City' },
-          province: { type: 'string', description: 'State or province (e.g. Telangana)' },
-          postal_code: { type: 'string', description: 'Postal / PIN code' },
+          first_name: { type: 'string', description: 'First name from the user or profile — never invent.' },
+          last_name: { type: 'string', description: 'Last name from the user or profile — never invent.' },
+          address: { type: 'string', description: 'Street address line as provided by the user.' },
+          city: { type: 'string', description: 'City as provided by the user.' },
+          province: { type: 'string', description: 'State or province (e.g. Telangana) as provided by the user.' },
+          postal_code: {
+            type: 'string',
+            description: 'Indian PIN code — exactly 6 digits. Ask the user if they did not provide one.',
+            pattern: '^\\d{6}$',
+          },
           country: { type: 'string', description: 'Country code or name (default India/IN)' },
-          phone: { type: 'string', description: 'Contact phone number' },
+          phone: {
+            type: 'string',
+            description:
+              'Contact phone — Indian mobile only: 10 digits starting 6–9, optionally prefixed with +91 or 91. NEVER invent or guess a phone number. If the user did not provide one and no profile phone is available, ask them.',
+            pattern: '^(?:\\+?91[-\\s]?)?[6-9]\\d{9}$',
+          },
         },
         required: ['address', 'city', 'province', 'postal_code'],
       },
@@ -210,7 +299,7 @@ export const toolDefinitions = [
     function: {
       name: 'update_shipping_address',
       description:
-        'Update an existing saved shipping address by index (from get_my_addresses). Use when user wants to change their delivery address.',
+        'Update an existing saved shipping address by index (from get_my_addresses). Use when user wants to change their delivery address. Never invent field values — only pass fields the user explicitly changed.',
       parameters: {
         type: 'object',
         properties: {
@@ -223,9 +312,14 @@ export const toolDefinitions = [
           address: { type: 'string' },
           city: { type: 'string' },
           province: { type: 'string' },
-          postal_code: { type: 'string' },
+          postal_code: { type: 'string', pattern: '^\\d{6}$' },
           country: { type: 'string' },
-          phone: { type: 'string' },
+          phone: {
+            type: 'string',
+            description:
+              'Indian mobile only: 10 digits starting 6–9, optionally prefixed +91. Never invent.',
+            pattern: '^(?:\\+?91[-\\s]?)?[6-9]\\d{9}$',
+          },
         },
         required: ['address_index'],
       },
@@ -421,11 +515,17 @@ export const toolDefinitions = [
 
 const toolExecutors = {
   async get_my_orders(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_summary' })
+    }
     const limit = Math.min(Math.max(args.limit || 5, 1), 10)
     return orderService.listForChat(userId, limit)
   },
 
   async get_order_details(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_summary' })
+    }
     return orderService.getDetailsForChat(userId, {
       order_id: args.order_id,
       order_number: args.order_number,
@@ -451,27 +551,76 @@ const toolExecutors = {
         'name description brand category price totalQty totalSold colors sizes sizeMeasurementType sizeLabel images'
       )
       .populate('category', 'name')
-      .populate({ path: 'reviews', match: PUBLIC_REVIEW_MATCH })
 
     if (!product) return { error: 'Product not found.' }
 
-    const id = String(product._id)
+    const [productWithBrand] = await enrichProductsWithBrandNames([product.toObject()])
+    const statsMap = await reviewStatsByProductIds([product._id])
+    const reviewStats = statsMap.get(String(product._id)) || { totalReviews: 0 }
+    const id = String(productWithBrand._id)
     return {
       id,
-      name: product.name,
-      description: product.description,
-      brand: product.brand,
-      category: categoryDisplayName(product.category),
-      price: product.price,
-      inStock: product.totalQty - product.totalSold > 0,
-      qtyLeft: product.totalQty - product.totalSold,
-      colors: product.colors,
-      sizes: product.sizes,
-      sizeMeasurementType: product.sizeMeasurementType || 'apparel',
-      sizeLabel: product.sizeLabel || '',
-      images: product.images,
-      totalReviews: product.reviews?.length || 0,
+      name: productWithBrand.name,
+      description: productWithBrand.description,
+      brand: brandDisplayName(productWithBrand.brand),
+      category: categoryDisplayName(productWithBrand.category),
+      price: productWithBrand.price,
+      inStock: productWithBrand.totalQty - productWithBrand.totalSold > 0,
+      qtyLeft: productWithBrand.totalQty - productWithBrand.totalSold,
+      colors: productWithBrand.colors,
+      sizes: productWithBrand.sizes,
+      sizeMeasurementType: productWithBrand.sizeMeasurementType || 'apparel',
+      sizeLabel: productWithBrand.sizeLabel || '',
+      images: productWithBrand.images,
+      totalReviews: reviewStats.totalReviews,
       productUrl: `/products/${id}`,
+    }
+  },
+
+  async get_similar_products(_userId, args) {
+    const limit = Math.min(Math.max(args.limit || 6, 1), 10)
+    const result = await getSimilarProducts(args.product_id, { limit })
+    return {
+      count: result.count,
+      products: result.products,
+      mode: result.mode,
+      grounded: result.grounded,
+      message: result.explanation,
+    }
+  },
+
+  async get_my_wishlist(userId) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await getWishlist(userId)
+    return {
+      count: wishlist.count || 0,
+      items: wishlist.items || [],
+    }
+  },
+
+  async add_to_wishlist(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await addWishlistItem(userId, args.product_id)
+    return {
+      success: true,
+      message: 'Saved to wishlist',
+      count: wishlist.count || 0,
+    }
+  },
+
+  async remove_from_wishlist(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await removeWishlistItem(userId, args.product_id)
+    return {
+      success: true,
+      message: 'Removed from wishlist',
+      count: wishlist.count || 0,
     }
   },
 
@@ -490,11 +639,11 @@ const toolExecutors = {
   async get_brands() {
     const [brands, counts] = await Promise.all([
       Brand.find().select('name').lean(),
-      countProductsByBrandName(),
+      countProductsByBrandId(),
     ])
     return brands.map((b) => ({
       name: b.name,
-      productCount: counts.get(b.name) || 0,
+      productCount: counts.get(String(b._id)) || 0,
     }))
   },
 
@@ -515,6 +664,9 @@ const toolExecutors = {
   },
 
   async get_my_addresses(userId) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
     const result = await listShippingAddresses(userId)
     if (result.message) {
       return {
@@ -542,14 +694,56 @@ const toolExecutors = {
   },
 
   async add_shipping_address(userId, args) {
-    return addShippingAddress(userId, args)
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+    try {
+      return await addShippingAddress(userId, args)
+    } catch (err) {
+      if (err instanceof AddressValidationError) {
+        return {
+          error: 'address_validation_failed',
+          missing: err.missing,
+          invalid: err.invalid,
+          message: err.message,
+        }
+      }
+      throw err
+    }
   },
 
   async update_shipping_address(userId, args) {
-    return updateShippingAddress(userId, args)
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+    try {
+      return await updateShippingAddress(userId, args)
+    } catch (err) {
+      if (err instanceof AddressValidationError) {
+        return {
+          error: 'address_validation_failed',
+          missing: err.missing,
+          invalid: err.invalid,
+          message: err.message,
+        }
+      }
+      throw err
+    }
   },
 
   async get_cart(userId) {
+    if (isGuestChatUser(userId)) {
+      const state = getGuestCartState()
+      const cart = await guestGetCart(state)
+      if (cart.isEmpty) {
+        return { message: 'Your cart is empty.', cart }
+      }
+      return {
+        ...cart,
+        summary: `${cart.lineCount} product line(s), ${cart.totalUnits} unit(s) total, ₹${cart.total}`,
+      }
+    }
+
     const cart = await getCart(userId)
     if (cart.isEmpty) {
       return { message: 'Your cart is empty.', cart }
@@ -561,6 +755,10 @@ const toolExecutors = {
   },
 
   async add_to_cart(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestAddToCart(getGuestCartState(), args)
+    }
+
     const qty = Math.max(1, Number(args.qty) || 1)
     const productId = args.product_id
 
@@ -605,6 +803,10 @@ const toolExecutors = {
   },
 
   async update_cart_item(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestUpdateCartItem(getGuestCartState(), args)
+    }
+
     const cart = await updateItemQty(userId, {
       productId: args.product_id,
       color: args.color,
@@ -620,6 +822,10 @@ const toolExecutors = {
   },
 
   async apply_coupon_to_cart(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestApplyCoupon(getGuestCartState(), args.code)
+    }
+
     const cart = await applyCoupon(userId, args.code)
     return {
       success: true,
@@ -630,6 +836,10 @@ const toolExecutors = {
   },
 
   async remove_coupon_from_cart(userId) {
+    if (isGuestChatUser(userId)) {
+      return guestRemoveCoupon(getGuestCartState())
+    }
+
     const cart = await removeCoupon(userId)
     return {
       success: true,
@@ -640,6 +850,10 @@ const toolExecutors = {
   },
 
   async preview_checkout(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+
     const addressIndex = Number.isFinite(args.address_index)
       ? args.address_index
       : undefined
@@ -647,6 +861,9 @@ const toolExecutors = {
   },
 
   async get_order_cancel_return_status(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     const order = await resolveOrderForUser(userId, {
       order_id: args.order_id,
       order_number: args.order_number,
@@ -655,14 +872,24 @@ const toolExecutors = {
   },
 
   async cancel_order(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     return cancelOrderByReference(userId, args)
   },
 
   async submit_return_request(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'order_update' })
+    }
     return submitReturnByReference(userId, args)
   },
 
   async create_checkout_session(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return guestCheckoutBlocked()
+    }
+
     const addressIndex = Number.isFinite(args.address_index)
       ? args.address_index
       : undefined

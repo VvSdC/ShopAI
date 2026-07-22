@@ -17,13 +17,23 @@ describe('productSearch', () => {
     expect(filter.$and.length).toBeGreaterThan(0)
   })
 
-  it('escapes regex metacharacters in brand and color filters', () => {
+  it('escapes regex metacharacters in color filters', () => {
     const malicious = '(a+)+$'
-    const brandFilter = buildProductSearchFilter({ brand: malicious })
     const colorFilter = buildProductSearchFilter({ color: malicious })
 
-    expect(brandFilter.$and[0].brand.$regex).toBe('\\(a\\+\\)\\+\\$')
     expect(colorFilter.$and[0].colors.$regex).toBe('\\(a\\+\\)\\+\\$')
+  })
+
+  it('filters by brand ObjectId refs', () => {
+    const brandId = '507f1f77bcf86cd799439011'
+    const brandFilter = buildProductSearchFilter({ brandIds: [brandId] })
+    expect(brandFilter.$and[0].brand).toBe(brandId)
+  })
+
+  it('filters by legacy brand name strings', () => {
+    const brandFilter = buildProductSearchFilter({ brandNames: ['MRF'] })
+    expect(brandFilter.$and[0].$expr.$and[1].$regexMatch.regex).toBe('^MRF$')
+    expect(brandFilter.$and[0].$expr.$and[1].$regexMatch.options).toBe('i')
   })
 
   it('scores name matches higher than unrelated products', () => {

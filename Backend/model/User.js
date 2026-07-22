@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { normalizeEmail } from "../utils/normalizeEmail.js";
 const Schema = mongoose.Schema;
 
 const UserShema = new Schema(
@@ -13,17 +14,12 @@ const UserShema = new Schema(
       type: String,
       required: true,
       unique: true,
+      set: normalizeEmail,
     },
     password: {
       type: String,
       required: true,
     },
-    orders: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Order",
-      },
-    ],
     phone: {
       type: String,
       default: "",
@@ -70,6 +66,11 @@ const UserShema = new Schema(
     passwordResetExpires: { type: Date },
     /** Set after successful OTP verification; allows one password reset without reusing the OTP hash. */
     passwordResetVerifiedUntil: { type: Date },
+    /** Safe default: unverified until signup OTP (or an explicit trusted path) confirms the inbox. */
+    isEmailVerified: { type: Boolean, default: false },
+    /** Bcrypt hash of the 6-digit signup verification OTP. */
+    emailVerificationOTP: { type: String },
+    emailVerificationExpires: { type: Date },
   },
   {
     timestamps: true,
@@ -80,6 +81,8 @@ const UserShema = new Schema(
         delete ret.passwordResetOTP
         delete ret.passwordResetExpires
         delete ret.passwordResetVerifiedUntil
+        delete ret.emailVerificationOTP
+        delete ret.emailVerificationExpires
         return ret
       },
     },
@@ -94,6 +97,23 @@ UserShema.methods.createPasswordResetOTP = async function () {
   return otp;
 };
 
+UserShema.methods.createEmailVerificationOTP = async function () {
+  const otp = String(crypto.randomInt(100000, 999999));
+  this.emailVerificationOTP = await bcrypt.hash(otp, 10);
+  this.emailVerificationExpires = Date.now() + 10 * 60 * 1000;
+  return otp;
+};
+
+UserShema.methods.verifyEmailVerificationOTP = async function (otp) {
+  if (!this.emailVerificationOTP) return false;
+
+  const expires = this.emailVerificationExpires;
+  const expiresMs = expires instanceof Date ? expires.getTime() : Number(expires);
+  if (!expiresMs || expiresMs <= Date.now()) return false;
+
+  return bcrypt.compare(String(otp), this.emailVerificationOTP);
+};
+
 UserShema.methods.verifyPasswordResetOTP = async function (otp) {
   if (!this.passwordResetOTP) return false;
 
@@ -106,7 +126,7 @@ UserShema.methods.verifyPasswordResetOTP = async function (otp) {
 
 UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
   const user = await this.findOne({
-    email: String(email || "").toLowerCase().trim(),
+    email: normalizeEmail(email),
     passwordResetOTP: { $exists: true, $ne: null },
     passwordResetExpires: { $gt: Date.now() },
   });
@@ -116,9 +136,22 @@ UserShema.statics.findByEmailAndValidResetOtp = async function (email, otp) {
   return valid ? user : null;
 };
 
+UserShema.statics.findByEmailAndValidVerificationOtp = async function (email, otp) {
+  const user = await this.findOne({
+    email: normalizeEmail(email),
+    isEmailVerified: false,
+    emailVerificationOTP: { $exists: true, $ne: null },
+    emailVerificationExpires: { $gt: Date.now() },
+  });
+  if (!user) return null;
+
+  const valid = await user.verifyEmailVerificationOTP(otp);
+  return valid ? user : null;
+};
+
 UserShema.statics.findByEmailAndVerifiedReset = async function (email) {
   return this.findOne({
-    email: String(email || "").toLowerCase().trim(),
+    email: normalizeEmail(email),
     passwordResetVerifiedUntil: { $gt: Date.now() },
   });
 };
@@ -130,6 +163,15 @@ const User = mongoose.model("User", UserShema);
 
 /** Mongoose select string — omit secrets from API responses. */
 export const SAFE_USER_SELECT =
-  "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil";
+  "-password -sessions -passwordResetOTP -passwordResetExpires -passwordResetVerifiedUntil -emailVerificationOTP -emailVerificationExpires";
+
+/** Field projections for common user lookups (avoid loading password / OTP hashes). */
+export const USER_PROFILE_UPDATE_SELECT = "email fullname phone country";
+export const USER_PASSWORD_SELECT = "password";
+export const USER_SHIPPING_SELECT = "shippingAddresses hasShippingAddress";
+export const USER_CHECKOUT_SELECT = "hasShippingAddress shippingAddresses";
+export const USER_STRIPE_CHECKOUT_SELECT = "_id fullname email";
+export const USER_ADMIN_BLOCK_SELECT = "isAdmin isBlocked";
+export const USER_SESSIONS_SELECT = "sessions";
 
 export default User;

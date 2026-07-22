@@ -115,13 +115,49 @@ export async function runRetrievalAssist(
   }
 
   const result = await executeTool('search_products', userId, { query, limit: 8 })
-  const mergedToolResults = [...toolResults, { ...result, toolName: 'search_products' }]
+  let mergedToolResults = [...toolResults, { ...result, toolName: 'search_products' }]
 
   if (result.error) {
     return {
       toolResults: mergedToolResults,
       reply:
         "I had trouble searching our catalog just now. Please try again in a moment, or browse products from the shop menu.",
+    }
+  }
+
+  if ((result.count ?? 0) === 0) {
+    const relaxedQuery = query
+      .replace(/\b(under|below|over|above|less than|more than|upto|up to)\s*[₹]?\s*\d[\d,]*\b/gi, '')
+      .replace(/\b(in|with|size|color|colour)\s+\w+\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+
+    if (relaxedQuery.length >= 2 && relaxedQuery.toLowerCase() !== query.toLowerCase()) {
+      const retry = await executeTool('search_products', userId, { query: relaxedQuery, limit: 8 })
+      mergedToolResults = [...mergedToolResults, { ...retry, toolName: 'search_products' }]
+      if ((retry.count ?? 0) > 0) {
+        const reply = buildCatalogBackedReply(retry, { kitQuery: isKitBundleQuery(userText) })
+        return {
+          toolResults: mergedToolResults,
+          reply: `No exact match for that filter, but here are close options:\n\n${reply}`,
+        }
+      }
+    }
+
+    const categories = await executeTool('get_categories', userId, {})
+    mergedToolResults = [...mergedToolResults, { ...categories, toolName: 'get_categories' }]
+    const names = (categories?.categories || [])
+      .slice(0, 5)
+      .map((c) => c.name)
+      .filter(Boolean)
+    const categoryHint = names.length
+      ? `\n\nTry browsing: **${names.join('**, **')}** — or tell me what you're looking for in different words.`
+      : '\n\nTry a shorter search term or browse from the shop menu.'
+
+    return {
+      toolResults: mergedToolResults,
+      reply: `${result.message || "I couldn't find anything matching that in our catalog."}${categoryHint}`,
+      suggestPrompts: true,
     }
   }
 

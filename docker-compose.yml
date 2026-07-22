@@ -21,6 +21,17 @@ services:
       retries: 5
       start_period: 15s
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./Backend
@@ -36,6 +47,7 @@ services:
       HOST: ${HOST:-0.0.0.0}
       PORT: 2030
       MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/ShopAI}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       JWT_KEY: ${JWT_KEY:?Set JWT_KEY in .env}
       JWT_REFRESH_KEY: ${JWT_REFRESH_KEY:?Set JWT_REFRESH_KEY in .env}
@@ -56,6 +68,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2030/health"]
       interval: 30s
@@ -75,6 +89,29 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  # Optional: BullMQ worker process (requires REDIS_URL in .env).
+  # worker:
+  #   build:
+  #     context: ./Backend
+  #     dockerfile: Dockerfile
+  #   restart: unless-stopped
+  #   command: ["node", "worker.js"]
+  #   env_file:
+  #     - path: .env
+  #       required: false
+  #   environment:
+  #     NODE_ENV: ${NODE_ENV:-production}
+  #     MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/ShopAI}
+  #     REDIS_URL: ${REDIS_URL:-}
+  #     RUN_QUEUE_WORKERS_IN_API: "false"
+  #     ENABLE_CHECKOUT_QUEUE: ${ENABLE_CHECKOUT_QUEUE:-true}
+  #     ENABLE_EMAIL_QUEUE: ${ENABLE_EMAIL_QUEUE:-true}
+  #   depends_on:
+  #     mongodb:
+  #       condition: service_healthy
+  #     backend:
+  #       condition: service_healthy
 
 volumes:
   mongo_data:

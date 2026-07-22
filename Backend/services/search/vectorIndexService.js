@@ -1,5 +1,6 @@
 import logger from '../../utils/logger.js'
 import Product from '../../model/Product.js'
+import { enrichProductsWithBrandNames } from '../../utils/brandRef.js'
 import { config } from '../../config/env.js'
 import { buildProductSearchDocument } from './documentBuilder.js'
 import { embedText } from './embeddingService.js'
@@ -8,7 +9,8 @@ export async function indexProductEmbedding(productId) {
   const product = await Product.findById(productId).populate('category', 'name')
   if (!product) return { ok: false, reason: 'not_found' }
 
-  const searchDocument = buildProductSearchDocument(product)
+  const [indexedProduct] = await enrichProductsWithBrandNames([product.toObject()])
+  const searchDocument = buildProductSearchDocument(indexedProduct)
   let embeddingMeta = {}
 
   try {
