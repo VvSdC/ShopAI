@@ -67,7 +67,16 @@ export const registerUserCtrl = asyncHandler(async (req, res) => {
 
   const otp = await user.createEmailVerificationOTP();
   await user.save({ validateBeforeSave: false });
-  await sendEmailVerificationOTPEmail(user.email, user.fullname, otp);
+
+  try {
+    await sendEmailVerificationOTPEmail(user.email, user.fullname, otp);
+  } catch (err) {
+    await User.findByIdAndDelete(user._id);
+    throw new AppError(
+      "Could not send verification email. Please try again in a few minutes.",
+      503
+    );
+  }
 
   res.status(201).json({
     status: "success",
@@ -220,6 +229,8 @@ export const updateProfileCtrl = asyncHandler(async (req, res) => {
   if (!user) {
     throw new AppError("User not found", 404);
   }
+
+  let emailChanged = false;
   if (req.body.email) {
     const email = normalizeEmail(req.body.email);
     if (email !== user.email) {
@@ -228,11 +239,40 @@ export const updateProfileCtrl = asyncHandler(async (req, res) => {
         throw new AppError("Email is already in use", 409);
       }
       user.email = email;
+      user.isEmailVerified = false;
+      emailChanged = true;
     }
   }
   if (fullname) user.fullname = fullname;
   if (phone !== undefined) user.phone = phone;
   if (country !== undefined) user.country = country;
+
+  if (emailChanged) {
+    const otp = await user.createEmailVerificationOTP();
+    await user.save({ validateBeforeSave: false });
+    try {
+      await sendEmailVerificationOTPEmail(user.email, user.fullname, otp);
+    } catch (err) {
+      throw new AppError(
+        "Could not send verification email for your new address. Try again later.",
+        503
+      );
+    }
+    return res.json({
+      status: "success",
+      message: "Profile updated. Verify your new email with the 6-digit code we sent.",
+      requiresEmailVerification: true,
+      user: {
+        _id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone,
+        country: user.country,
+        isEmailVerified: false,
+      },
+    });
+  }
+
   await user.save();
   res.json({
     status: "success",
@@ -497,6 +537,21 @@ export const toggleBlockUserCtrl = asyncHandler(async (req, res) => {
 // @access  Private
 
 export const deleteAccountCtrl = asyncHandler(async (req, res) => {
+  const { currentPassword } = req.body;
+  if (!currentPassword) {
+    throw new AppError("Current password is required to delete your account", 400);
+  }
+
+  const user = await User.findById(req.userAuthId).select(USER_PASSWORD_SELECT);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const matchesCurrent = await bcrypt.compare(currentPassword, user.password);
+  if (!matchesCurrent) {
+    throw new AppError("Current password is incorrect", 400);
+  }
+
   const userId = req.userAuthId;
 
   // Keep order history for commerce/audit, but detach the user.

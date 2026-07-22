@@ -17,6 +17,7 @@ import {
   TicketIcon,
   ReceiptPercentIcon,
   ChartBarIcon,
+  ChatBubbleLeftRightIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline'
 import { logoutAction } from '../../redux/slices/users/usersSlice'
@@ -30,6 +31,7 @@ const navSections = [
       { name: 'Customers', href: 'customers', icon: UsersIcon },
       { name: 'All Orders', href: 'all-orders', icon: ClipboardDocumentListIcon },
       { name: 'Return Requests', href: 'return-requests', icon: ArrowUturnLeftIcon },
+      { name: 'Review moderation', href: 'review-moderation', icon: ChatBubbleLeftRightIcon },
     ],
   },
   {

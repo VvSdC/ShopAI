@@ -31,7 +31,23 @@ export function isWithinReturnWindow(deliveredAt, now = new Date()) {
   return now <= end
 }
 
+export function isPaymentSettled(order) {
+  return String(order?.paymentStatus || '').toLowerCase() === 'paid'
+}
+
+/** Stripe Checkout session created and not yet paid or expired — user may be on the payment page. */
+export function hasActiveStripeCheckout(order) {
+  if (!order?.stripeSessionId) return false
+  if (isPaymentSettled(order)) return false
+  if (order.status === 'cancelled') return false
+  if (order.checkoutExpiresAt && new Date(order.checkoutExpiresAt) <= new Date()) {
+    return false
+  }
+  return true
+}
+
 export function canCancelOrder(order) {
   if (order.status === 'cancelled') return false
+  if (hasActiveStripeCheckout(order)) return false
   return STORE_POLICY.cancellation.allowedStatuses.includes(order.status)
 }

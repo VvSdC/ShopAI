@@ -1,19 +1,25 @@
-import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   ArrowLeftIcon,
   EyeIcon,
   HeartIcon,
+  ShoppingCartIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
+import Swal from 'sweetalert2'
 import {
   getWishlistFromLocalStorageAction,
   removeWishlistItemAction,
 } from '../../../redux/slices/wishlist/wishlistSlice'
+import { addOrderToCartaction } from '../../../redux/slices/cart/cartSlices'
+import axiosInstance from '../../../utils/axiosInstance'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import { formatPrice } from './cartDisplay'
+import { resolveCartSize } from '../../../utils/sizeMeasurement'
 
-function WishlistCard({ item, onRemove }) {
+function WishlistCard({ item, onRemove, onAddToCart, adding }) {
   const productPath = `/products/${item._id}`
   const outOfStock = item.inStock === false || (item.qtyLeft != null && item.qtyLeft <= 0)
 
@@ -63,12 +69,21 @@ function WishlistCard({ item, onRemove }) {
         </Link>
         <p className="mt-2 text-lg font-bold text-stone-900">{formatPrice(item.price)}</p>
         <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={outOfStock || adding}
+            onClick={() => onAddToCart(item)}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ShoppingCartIcon className="h-4 w-4" />
+            {adding ? 'Adding…' : 'Add to cart'}
+          </button>
           <Link
             to={productPath}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-stone-200 px-3 py-2.5 text-sm font-semibold text-stone-700 transition hover:border-indigo-200 hover:text-indigo-700"
           >
             <EyeIcon className="h-4 w-4" />
-            View product
+            View
           </Link>
         </div>
       </div>
@@ -78,7 +93,9 @@ function WishlistCard({ item, onRemove }) {
 
 export default function WishlistPage() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { items, listFetching } = useSelector((state) => state?.wishlists)
+  const [addingId, setAddingId] = useState(null)
 
   useEffect(() => {
     dispatch(getWishlistFromLocalStorageAction())
@@ -88,8 +105,46 @@ export default function WishlistPage() {
     dispatch(removeWishlistItemAction(productId))
   }
 
+  const handleAddToCart = async (item) => {
+    setAddingId(item._id)
+    try {
+      const { data } = await axiosInstance.get(`/products/${item._id}`)
+      const product = data?.product
+      if (!product) throw new Error('Product not found')
+
+      const color = product.colors?.[0] || 'Standard'
+      const size = resolveCartSize(product, product.sizes?.[0] || '')
+
+      await dispatch(
+        addOrderToCartaction({
+          _id: product._id,
+          name: product.name,
+          qty: 1,
+          price: product.price,
+          description: product.description,
+          color,
+          size,
+          image: product.images?.[0] || item.image,
+          totalPrice: product.price,
+          qtyLeft: product.qtyLeft,
+        })
+      ).unwrap()
+
+      navigate('/shopping-cart')
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Could not add to cart',
+        text: err?.message || 'Open the product page to choose options.',
+      })
+    } finally {
+      setAddingId(null)
+    }
+  }
+
   return (
     <div className="min-h-full bg-stone-50 pb-10">
+      <PrivatePageSeo title="Wishlist" path="/wishlist" />
       <div className="border-b border-stone-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
@@ -140,7 +195,13 @@ export default function WishlistPage() {
             </p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map((item) => (
-                <WishlistCard key={item._id} item={item} onRemove={handleRemove} />
+                <WishlistCard
+                  key={item._id}
+                  item={item}
+                  onRemove={handleRemove}
+                  onAddToCart={handleAddToCart}
+                  adding={addingId === item._id}
+                />
               ))}
             </div>
           </>

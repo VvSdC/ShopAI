@@ -162,7 +162,7 @@ const Login = () => {
 
             <form onSubmit={onSubmitHandler} className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                <label htmlFor="login-email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
                   Email Address
                 </label>
                 <div className="relative group">
@@ -182,6 +182,7 @@ const Login = () => {
                     </svg>
                   </div>
                   <input
+                    id="login-email"
                     name="email"
                     value={email}
                     onChange={onChangeHandler}
@@ -195,7 +196,7 @@ const Login = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                <label htmlFor="login-password" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
                   Password
                 </label>
                 <div className="relative group">
@@ -215,6 +216,7 @@ const Login = () => {
                     </svg>
                   </div>
                   <input
+                    id="login-password"
                     name="password"
                     value={password}
                     onChange={onChangeHandler}

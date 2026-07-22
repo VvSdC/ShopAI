@@ -33,6 +33,9 @@ const SOCIAL_BOT_AGENTS = [
   'Slackbot',
   'TelegramBot',
   'Discordbot',
+  'Googlebot',
+  'bingbot',
+  'Applebot',
 ].join(',')
 
 function escapeXml(value) {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 import request from 'supertest'
 import app from '../../app/app.js'
 import User from '../../model/User.js'
@@ -15,16 +16,18 @@ import { createTestBrand } from '../helpers/testBrand.js'
 
 describe('DELETE /shopai/users/delete-account', () => {
   it('cascades wishlist, reviews, return requests, and cart; anonymises orders', async () => {
+    const plainPassword = 'secret123'
+    const hashedPassword = await bcrypt.hash(plainPassword, 10)
     const user = await User.create({
       fullname: 'Delete Me',
       email: `delete-me-${Date.now()}@test.com`,
-      password: 'hashed',
+      password: hashedPassword,
       isEmailVerified: true,
     })
     const otherUser = await User.create({
       fullname: 'Keep Me',
       email: `keep-me-${Date.now()}@test.com`,
-      password: 'hashed',
+      password: hashedPassword,
       isEmailVerified: true,
     })
 
@@ -114,6 +117,7 @@ describe('DELETE /shopai/users/delete-account', () => {
     const res = await request(app)
       .delete('/shopai/users/delete-account')
       .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currentPassword: plainPassword })
 
     expect(res.status).toBe(200)
 

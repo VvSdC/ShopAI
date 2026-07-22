@@ -152,6 +152,7 @@ export default function VerifyEmail() {
                     inputMode="numeric"
                     maxLength={1}
                     value={digit}
+                    aria-label={`Verification code digit ${i + 1} of 6`}
                     onChange={(e) => handleOTPChange(i, e.target.value)}
                     onKeyDown={(e) => handleOTPKeyDown(i, e)}
                     className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg font-bold border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"

@@ -22,6 +22,7 @@ import {
 import { applyCartCouponAction } from '../../../redux/slices/cart/cartSlices'
 import LoadingComponent from '../../LoadingComp/LoadingComponent'
 import ErrorMsg from '../../ErrorMsg/ErrorMsg'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import SuccessMsg from '../../SuccessMsg/SuccessMsg'
 import {
   formatPrice,
@@ -379,9 +380,8 @@ export default function ShoppingCart() {
   const { coupon, loading: couponLoading, error: couponError, isAdded } = useSelector(
     (state) => state?.coupons
   )
-  const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating } = useSelector(
-    (state) => state?.carts
-  )
+  const { cartItems, stockWarnings, priceWarnings, mergeConflicts, validating, error: cartError } =
+    useSelector((state) => state?.carts)
   const isLoggedIn = useSelector((state) => state?.users?.userAuth?.isLoggedIn)
 
   const availableItems = useMemo(
@@ -448,6 +448,18 @@ export default function ShoppingCart() {
 
   return (
     <div className="bg-white pb-28 lg:pb-10">
+      <PrivatePageSeo title="Shopping cart" path="/shopping-cart" />
+      {cartError && (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <ErrorMsg
+            variant="inline"
+            message={
+              cartError?.message ||
+              (typeof cartError === 'string' ? cartError : 'Could not validate your cart.')
+            }
+          />
+        </div>
+      )}
       {/* Top bar — breadcrumb + title */}
       <div className="border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

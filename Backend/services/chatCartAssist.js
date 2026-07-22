@@ -9,6 +9,8 @@ import {
   lastAssistantMessageKind,
   parseQuantityIntent,
   resolveProductIdFromContext,
+  findAmbiguousCatalogMatches,
+  buildDisambiguationReply,
 } from './chatGraph/productContext.js'
 import {
   getPurchaseIntent,
@@ -198,6 +200,7 @@ async function processCartQueue(userId, userText, history, toolResults, queue, p
 
 export async function runCartAssist(userId, userText, history = [], toolResults = [], options = {}) {
   const llmAdds = cartAddsInResults(toolResults)
+  const plan = options.plan || null
   if (llmAdds.length) {
     const confirmation = await buildCartConfirmationReply(userId, toolResults)
     if (confirmation) {
@@ -275,6 +278,29 @@ export async function runCartAssist(userId, userText, history = [], toolResults 
     (await resolveProductIdFromContext(history, userText, sessionQueue))
 
   if (!resolvedId) {
+    const nameHint = plan?.product_ref?.name || getPendingCartProductName(history)
+    if (nameHint) {
+      const ambiguous = findAmbiguousCatalogMatches(history, nameHint)
+      if (ambiguous.length > 1) {
+        return {
+          toolResults: [
+            ...toolResults,
+            {
+              toolName: 'product_disambiguation',
+              products: ambiguous.map((p) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                productUrl: p.productUrl || `/products/${p.id}`,
+              })),
+            },
+          ],
+          reply: buildDisambiguationReply(ambiguous),
+          replyKind: 'product_listing',
+        }
+      }
+    }
+
     if (options.route === 'checkout' && isCartAssistIntent(intent)) {
       return {
         toolResults,

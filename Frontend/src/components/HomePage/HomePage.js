@@ -17,6 +17,7 @@ import {
 import HomeCategories from './HomeCategories'
 import HomeProductTrending from './HomeProductTrending'
 import HomeAiAssistantPromo from './HomeAiAssistantPromo'
+import HomeRecentlyViewed from './HomeRecentlyViewed'
 import Reveal from './Reveal'
 import PageSeo from '../common/PageSeo'
 
@@ -207,6 +208,8 @@ export default function HomePage() {
 
       {/* Trending products */}
       <HomeProductTrending />
+
+      <HomeRecentlyViewed />
 
       {/* Bottom CTA */}
       <section className="relative mt-auto shrink-0 overflow-hidden bg-stone-900">

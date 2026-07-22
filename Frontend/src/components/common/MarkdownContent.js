@@ -1,5 +1,8 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { isSafeMarkdownHref } from '../../utils/markdownLinks'
+
+export { isSafeMarkdownHref }
 
 const markdownComponents = {
   h1: ({ children, ...props }) => (
@@ -37,7 +40,11 @@ const markdownComponents = {
       {children}
     </li>
   ),
-  a: ({ children, href, ...props }) => (
+  a: ({ children, href, ...props }) => {
+    if (!isSafeMarkdownHref(href)) {
+      return <span className="text-stone-600">{children}</span>
+    }
+    return (
     <a
       href={href}
       className="font-medium text-indigo-600 underline hover:text-indigo-500"
@@ -47,7 +54,8 @@ const markdownComponents = {
     >
       {children}
     </a>
-  ),
+    )
+  },
   strong: ({ children, ...props }) => (
     <strong className="font-semibold text-stone-800" {...props}>
       {children}

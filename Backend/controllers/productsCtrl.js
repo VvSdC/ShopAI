@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'
 import Product from '../model/Product.js'
+import Review from '../model/Review.js'
 import { loadPublicReviewsForProduct } from '../services/productReviews.js'
 import { tagProductInBackground } from '../services/productTaggingQueue.js'
 import { indexProductEmbeddingInBackground } from '../services/search/vectorIndexService.js'
@@ -19,7 +20,7 @@ import {
   invalidateCategoriesCache,
   invalidateProductListCache,
 } from '../services/catalogCache.js'
-import { CACHE_TTL, productsListCacheKey } from '../constants/cacheKeys.js'
+import { CACHE_TTL, productsListCacheKey, productsSearchCacheKey } from '../constants/cacheKeys.js'
 import { AppError } from '../utils/appError.js'
 import { normalizeProductSizes } from '../utils/normalizeProductSizes.js'
 import { mongoInCondition, parseBrandFilterQuery, parseColorFilterQuery } from '../utils/parseBrandFilter.js'
@@ -201,7 +202,14 @@ export const getProductsCtrl = asyncHandler(async (req, res) => {
       if (priceRange[1] >= 0) searchArgs.max_price = priceRange[1]
     }
 
-    const { products, count, message } = await searchProducts(searchArgs)
+    const { data } = await getCachedOrFetch(
+      productsSearchCacheKey(searchArgs),
+      CACHE_TTL.productsList,
+      () => searchProducts(searchArgs)
+    )
+    const products = data?.products ?? []
+    const count = data?.count ?? 0
+    const message = data?.message
     const total = count
     return res.json({
       status: 'success',

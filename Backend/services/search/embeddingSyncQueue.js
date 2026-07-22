@@ -121,7 +121,12 @@ export function scheduleEmbeddingSyncOnStartup() {
 }
 
 async function runEmbeddingStartupPipeline() {
-  await verifyEmbeddingDimensionOnStartup()
+  try {
+    await verifyEmbeddingDimensionOnStartup()
+  } catch (err) {
+    logger.error('[search] Embedding startup pipeline halted:', err.message)
+    return
+  }
 
   if (isEmbeddingSyncQueueEnabled()) {
     try {
@@ -137,7 +142,14 @@ async function runEmbeddingStartupPipeline() {
     return
   }
 
-  logger.log('[search] Embedding sync running in-process (no Redis queue)')
+  if (config.isProduction) {
+    logger.warn(
+      '[search] Embedding sync skipped in production without Redis queue — set REDIS_URL and ENABLE_EMBEDDING_SYNC_QUEUE=true'
+    )
+    return
+  }
+
+  logger.log('[search] Embedding sync running in-process (development fallback)')
   runInProcessSyncDetached()
 }
 

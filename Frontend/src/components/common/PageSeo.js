@@ -17,6 +17,7 @@ export default function PageSeo({
   image,
   type = 'website',
   noIndex = false,
+  jsonLd,
   children,
 }) {
   const pageTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME
@@ -46,6 +47,10 @@ export default function PageSeo({
       <meta name="twitter:title" content={pageTitle} />
       <meta name="twitter:description" content={metaDescription} />
       <meta name="twitter:image" content={shareImage} />
+
+      {jsonLd ? (
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      ) : null}
 
       {children}
     </Helmet>

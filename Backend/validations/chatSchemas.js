@@ -27,10 +27,22 @@ export const guestChatMessageSchema = z
       ),
     history: z
       .array(
-        z.object({
-          role: z.enum(['user', 'assistant']),
-          content: z.string().max(CHAT_MESSAGE_MAX_LENGTH),
-        })
+        z
+          .object({
+            role: z.enum(['user', 'assistant']),
+            content: z.string().max(CHAT_MESSAGE_MAX_LENGTH),
+            messageKind: z.string().max(48).optional(),
+            catalogProducts: z
+              .array(
+                z.object({
+                  id: z.string().max(24).optional(),
+                  name: z.string().max(200).optional(),
+                })
+              )
+              .max(20)
+              .optional(),
+          })
+          .strict()
       )
       .max(40)
       .optional(),

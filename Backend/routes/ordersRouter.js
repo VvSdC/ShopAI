@@ -16,7 +16,7 @@ import { isLoggedIn } from '../middlewares/isLoggedin.js'
 import isAdmin from '../middlewares/isAdmin.js'
 import { validate } from '../middlewares/validate.js'
 import { validateObjectId } from '../middlewares/validateObjectId.js'
-import { createOrderSchema } from '../validations/orderSchemas.js'
+import { createOrderSchema, updateOrderStatusSchema } from '../validations/orderSchemas.js'
 
 const orderRouter = express.Router()
 
@@ -33,7 +33,7 @@ orderRouter.post(
   resendConfirmationCtrl
 )
 orderRouter.put('/cancel/:id', isLoggedIn, validateObjectId('id'), cancelOrderCtrl)
-orderRouter.put('/update/:id', isLoggedIn, isAdmin, validateObjectId('id'), updateOrderCtrl)
+orderRouter.put('/update/:id', isLoggedIn, isAdmin, validateObjectId('id'), validate(updateOrderStatusSchema), updateOrderCtrl)
 orderRouter.get('/:id', isLoggedIn, validateObjectId('id'), getSingleOrderCtrl)
 
 export default orderRouter

@@ -43,6 +43,11 @@ export const createReviewCtrl = asyncHandler(async (req, res) => {
     product: productFound._id,
     user: req.userAuthId,
     verifiedPurchase,
+  }).catch((err) => {
+    if (err?.code === 11000) {
+      throw new AppError("You have already reviewed this product", 409);
+    }
+    throw err;
   });
 
   moderateReviewInBackground(review._id);
@@ -102,5 +107,43 @@ export const deleteReviewCtrl = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: "Review deleted successfully",
+  });
+});
+
+// @desc    List reviews for admin moderation
+// @route   GET /api/v1/reviews/admin/all
+// @access  Admin
+export const listAdminReviewsCtrl = asyncHandler(async (req, res) => {
+  const status = req.query.status || "pending";
+  const filter = status === "all" ? {} : { moderationStatus: status };
+
+  const reviews = await Review.find(filter)
+    .populate("user", "name email")
+    .populate("product", "name images")
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  res.json({ success: true, reviews });
+});
+
+// @desc    Approve or reject a review (admin)
+// @route   PUT /api/v1/reviews/admin/:id/moderate
+// @access  Admin
+export const moderateReviewCtrl = asyncHandler(async (req, res) => {
+  const { status, reason } = req.body;
+  const review = await Review.findById(req.params.id);
+  if (!review) {
+    throw new AppError("Review not found", 404);
+  }
+
+  review.moderationStatus = status;
+  review.moderationReason = reason?.trim() || "";
+  await review.save();
+
+  res.json({
+    success: true,
+    message: `Review ${status}`,
+    review,
   });
 });

@@ -4,7 +4,8 @@
 # REQUIRED Netlify environment variables (Site settings → Environment variables):
 #   REACT_APP_API_URL — backend base ending in /shopai (baked at build time)
 #   REACT_APP_SITE_URL — canonical storefront origin, e.g. https://shopai.example.com
-#     Used for sitemap.xml absolute URLs and social-preview redirects at build time.
+#     Required for sitemap absolute URLs and social-preview bot redirects at build time.
+#     Without it, crawlers only see the CSR shell on product pages.
 
 [build]
   base    = "Frontend"
@@ -30,4 +31,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: http://localhost:2030; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; base-uri 'self'; form-action 'self';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https:; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; base-uri 'self'; form-action 'self';"

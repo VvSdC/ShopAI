@@ -21,6 +21,7 @@
     "search:reindex": "node scripts/reindex-embeddings.js",
     "analytics:backfill-usage": "node scripts/backfill-llm-usage-summary.js",
     "openapi:export": "node scripts/export-openapi.js",
+    "migrate": "node scripts/migrate.js",
     "lint": "eslint . --ext .js --config .eslintrc.cjs",
     "lint:fix": "eslint . --ext .js --fix --config .eslintrc.cjs",
     "depcheck": "depcheck"

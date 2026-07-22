@@ -1,3 +1,4 @@
+import { normalizeChatInput } from '../../utils/chatInputNormalize.js'
 import {
   activeCatalogProducts,
   isAddToCartVariantIntent,
@@ -151,12 +152,15 @@ function isVariantReplyAfterProductDetail(text, history) {
  * unambiguous; low confidence triggers LLM disambiguation in intentClassifier.
  */
 export function classifyIntentHeuristic(text, history = []) {
-  if (isVariantReplyAfterProductDetail(text, history)) {
+  const normalizedText = normalizeChatInput(text)
+  const routeText = normalizedText !== String(text || '').trim() ? normalizedText : text
+
+  if (isVariantReplyAfterProductDetail(routeText, history)) {
     return { route: 'checkout', confidence: 'high', reason: 'heuristic_variant_after_detail' }
   }
 
-  const route = routeIntentHeuristic(text, history)
-  const t = String(text || '').trim()
+  const route = routeIntentHeuristic(routeText, history)
+  const t = String(routeText || '').trim()
 
   if (isCatalogOrdinalSelection(t, history)) {
     const route = /\b(add|put)\b/i.test(t.toLowerCase()) ? 'checkout' : 'product_detail'
@@ -194,13 +198,13 @@ export function classifyIntentHeuristic(text, history = []) {
       break
 
     case 'checkout':
-      if (isHighConfidenceCheckout(text, history)) {
+      if (isHighConfidenceCheckout(routeText, history)) {
         return { route, confidence: 'high', reason: 'heuristic_checkout' }
       }
       break
 
     case 'retrieval':
-      if (isDiscoveryIntent(text, history) || PRODUCT_DETAIL_PATTERN.test(t)) {
+      if (isDiscoveryIntent(routeText, history) || PRODUCT_DETAIL_PATTERN.test(t)) {
         return { route, confidence: 'high', reason: 'heuristic_retrieval' }
       }
       break

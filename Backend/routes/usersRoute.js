@@ -46,7 +46,7 @@ loginRoute.post("/", validate(loginSchema), loginUserCtrl);
 export const registerRoute = express.Router();
 registerRoute.post("/", validate(registerSchema), registerUserCtrl);
 
-userRoutes.post("/refresh", refreshTokenCtrl);
+userRoutes.post("/refresh", authLimiter, refreshTokenCtrl);
 userRoutes.post("/logout", logoutUserCtrl);
 userRoutes.post("/forgot-password", authLimiter, otpResendLimiter, forgotPasswordCtrl);
 userRoutes.post("/verify-otp", authLimiter, otpConsumeLimiter, verifyOTPCtrl);

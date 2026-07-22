@@ -58,3 +58,27 @@ services:
         value: "true"
       - key: VECTOR_SEARCH_BACKEND
         value: auto
+
+  # Optional background worker (paid Render plan + Redis required).
+  # Uncomment when upgrading from free tier — runs BullMQ workers separately from the API.
+  # - type: worker
+  #   name: shopai-worker
+  #   runtime: node
+  #   plan: starter
+  #   branch: main
+  #   rootDir: Backend
+  #   buildCommand: npm install
+  #   startCommand: npm run start:worker
+  #   envVars:
+  #     - key: NODE_ENV
+  #       value: production
+  #     - key: RUN_QUEUE_WORKERS_IN_API
+  #       value: "false"
+  #     - key: ENABLE_CHECKOUT_QUEUE
+  #       value: "true"
+  #     - key: ENABLE_EMBEDDING_SYNC_QUEUE
+  #       value: "true"
+  #     - key: ENABLE_MODERATION_QUEUE
+  #       value: "true"
+  #     - key: ENABLE_EMAIL_QUEUE
+  #       value: "true"

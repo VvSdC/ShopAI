@@ -40,6 +40,7 @@ function deriveMessageKind({ replyKind, toolResults = [], payload = {} }) {
   if (replyKind) return replyKind
   if (payload?.checkout?.checkoutUrl) return 'checkout_link'
   const names = (toolResults || []).map((r) => r?.toolName)
+  if (names.includes('product_disambiguation')) return 'product_listing'
   if (names.includes('get_product_details')) return 'product_detail'
   if (names.includes('add_to_cart')) return 'cart_confirm'
   if (names.includes('get_cart')) return 'cart_summary'
@@ -51,6 +52,18 @@ function deriveMessageKind({ replyKind, toolResults = [], payload = {} }) {
   if (names.includes('search_products')) return 'product_listing'
   if (names.some((n) => /order/i.test(n || ''))) return 'order_summary'
   return null
+}
+
+function chatStreamErrorPayload(err) {
+  const status = err?.statusCode || err?.status || 500
+  const message = err?.message || 'Chat stream failed'
+  let code = 'chat_failed'
+  if (status === 429 || /rate limit/i.test(message)) code = 'rate_limited'
+  else if (status === 401 || status === 403) code = 'auth_required'
+  else if (status === 404) code = 'not_found'
+  else if (status >= 500) code = 'server_error'
+  else if (/stream ended without/i.test(message)) code = 'stream_incomplete'
+  return { code, message }
 }
 
 async function resolveChatSession(userId, userName, sessionId) {
@@ -176,9 +189,7 @@ export const chatMessageStreamCtrl = asyncHandler(async (req, res) => {
     writeSseEvent(res, 'done', payload)
     res.end()
   } catch (err) {
-    writeSseEvent(res, 'error', {
-      message: err.message || 'Chat stream failed',
-    })
+    writeSseEvent(res, 'error', chatStreamErrorPayload(err))
     res.end()
   }
 })
@@ -246,9 +257,7 @@ export const guestChatMessageStreamCtrl = asyncHandler(async (req, res) => {
     writeSseEvent(res, 'done', payload)
     res.end()
   } catch (err) {
-    writeSseEvent(res, 'error', {
-      message: err.message || 'Chat stream failed',
-    })
+    writeSseEvent(res, 'error', chatStreamErrorPayload(err))
     res.end()
   }
 })
@@ -291,7 +300,12 @@ async function buildChatPayloadFromGraph({
   )
   let reply = sanitizeAssistantReply(applyCheckoutReply(formattedReply, toolResults))
   const messageKind = deriveMessageKind({ replyKind, toolResults, payload: {} })
-  const blocks = buildChatBlocks({ toolResults, messageKind, pendingQuery: userText })
+  const blocks = buildChatBlocks({
+    toolResults,
+    messageKind,
+    pendingQuery: userText,
+    suggestPrompts: Boolean(assisted.suggestPrompts),
+  })
   if (blocks.length) {
     reply = sanitizeAssistantReply(applyBlockAwareReply(reply, blocks, toolResults, userText))
   }

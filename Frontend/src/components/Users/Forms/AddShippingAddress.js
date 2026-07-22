@@ -291,14 +291,24 @@ const AddShippingAddress = ({ onAddressSelect }) => {
           </p>
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-3" role="radiogroup" aria-label="Select shipping address">
           {addresses.map((addr) => (
             <div
               key={addr._id}
+              role="radio"
+              tabIndex={editingId === null ? 0 : -1}
+              aria-checked={selectedId === addr._id}
               onClick={() => {
                 if (editingId === null) setSelectedId(addr._id)
               }}
-              className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all ${
+              onKeyDown={(e) => {
+                if (editingId !== null) return
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setSelectedId(addr._id)
+                }
+              }}
+              className={`relative rounded-lg border-2 p-4 cursor-pointer transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                 selectedId === addr._id
                   ? 'border-indigo-600 bg-indigo-50'
                   : 'border-gray-200 bg-white hover:border-gray-300'

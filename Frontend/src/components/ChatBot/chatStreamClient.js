@@ -91,7 +91,9 @@ export async function postChatMessageStream({ message, sessionId }, handlers = {
         handlers.onDone?.(data)
         break
       case 'error':
-        throw new Error(data?.message || 'Chat stream failed')
+        throw Object.assign(new Error(data?.message || 'Chat stream failed'), {
+          code: data?.code || 'chat_failed',
+        })
       default:
         break
     }
@@ -160,7 +162,9 @@ export async function postGuestChatMessageStream(
         handlers.onDone?.(data)
         break
       case 'error':
-        throw new Error(data?.message || 'Chat stream failed')
+        throw Object.assign(new Error(data?.message || 'Chat stream failed'), {
+          code: data?.code || 'chat_failed',
+        })
       default:
         break
     }

@@ -13,7 +13,6 @@ services:
   backend:
     build:
       context: ./Backend
-      target: deps
     working_dir: /app
     command: npm run test
     environment:

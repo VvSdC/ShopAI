@@ -82,10 +82,25 @@ export function scheduleChatEvalJob(params) {
 
   enqueueChatEvalJob(params)
     .then((queued) => {
-      if (!queued) runChatEvalDetached(params)
+      if (queued) return
+      if (config.isProduction) {
+        logger.warn(
+          `[chatEvalQueue] Eval ${params.jobId} skipped in production without Redis queue — set ENABLE_CHAT_EVAL_QUEUE=true`
+        )
+        return patchChatEvalJob(params.jobId, {
+          status: 'failed',
+          error: 'Chat evaluation queue is not configured in production',
+          finishedAt: new Date().toISOString(),
+          lastHeartbeatAt: new Date(),
+        }).catch((patchErr) => {
+          logger.warn(`[chatEvalQueue] could not mark job ${params.jobId} failed:`, patchErr.message)
+        })
+      }
+      runChatEvalDetached(params)
     })
     .catch((err) => {
       logger.warn(`[chatEvalQueue] schedule failed for ${params.jobId}:`, err.message)
+      if (config.isProduction) return
       runChatEvalDetached(params)
     })
 }

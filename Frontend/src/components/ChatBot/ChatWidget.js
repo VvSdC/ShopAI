@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
 import axiosInstance from '../../utils/axiosInstance'
-import { TypingDots, buildClientWelcomeMessage } from './chatFormatting'
+import { TypingDots, buildClientWelcomeMessage, SUGGESTED_PROMPTS, routeStatusLabel, chatErrorMessage } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import ChatMessageBody from './chatBlocks/ChatMessageBody'
 import CheckoutPaymentCard from './CheckoutPaymentCard'
@@ -15,6 +15,11 @@ import {
   writeWidgetSessionId,
   clearWidgetSessionId,
 } from './widgetSessionStorage'
+import {
+  buildGuestHistory,
+  enrichAssistantMessage,
+  welcomeSuggestedPromptsBlock,
+} from './guestChatHistory'
 import { ASSISTANT_PATH, assistantSessionState } from './assistantNavigation'
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
 import { useResumePendingChat } from './useResumePendingChat'
@@ -36,16 +41,9 @@ function buildGuestWidgetWelcome() {
   return buildClientWelcomeMessage('there') + GUEST_WIDGET_WELCOME_SUFFIX
 }
 
-function buildGuestHistory(messages) {
-  return (messages || [])
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content && !m.streaming)
-    .slice(-20)
-    .map((m) => ({ role: m.role, content: m.content }))
-}
-
 function readGuestWidgetMessages() {
   try {
-    const raw = localStorage.getItem(GUEST_WIDGET_MESSAGES_KEY)
+    const raw = sessionStorage.getItem(GUEST_WIDGET_MESSAGES_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
@@ -55,7 +53,11 @@ function readGuestWidgetMessages() {
 }
 
 function writeGuestWidgetMessages(messages) {
-  localStorage.setItem(GUEST_WIDGET_MESSAGES_KEY, JSON.stringify(messages.slice(-40)))
+  sessionStorage.setItem(GUEST_WIDGET_MESSAGES_KEY, JSON.stringify(messages.slice(-40)))
+}
+
+function clearGuestWidgetMessages() {
+  sessionStorage.removeItem(GUEST_WIDGET_MESSAGES_KEY)
 }
 
 function mapApiMessages(items) {
@@ -147,6 +149,7 @@ export default function ChatWidget() {
 
     if (!userId) return
 
+    clearGuestWidgetMessages()
     let cancelled = false
     setSessionHydrated(false)
 
@@ -226,6 +229,7 @@ export default function ChatWidget() {
         {
           role: 'assistant',
           content: isLoggedIn ? buildWidgetWelcome(userName) : buildGuestWidgetWelcome(),
+          blocks: [welcomeSuggestedPromptsBlock(SUGGESTED_PROMPTS)],
         },
       ]
     })
@@ -265,6 +269,7 @@ export default function ChatWidget() {
           history: isLoggedIn ? [] : buildGuestHistory(updatedMessages),
         },
         {
+          onRoute: ({ route }) => setStreamStatus(routeStatusLabel(route)),
           onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
           onTextDelta: ({ delta }) => {
             setStreamStatus(null)
@@ -295,26 +300,25 @@ export default function ChatWidget() {
       setMessages((prev) => {
         const next = prev.map((msg) =>
           msg.id === streamMessageId
-            ? {
-                ...msg,
-                content: data.reply,
-                checkout: data.checkout || null,
-                blocks: data.blocks || null,
-                streaming: false,
-              }
+            ? enrichAssistantMessage(msg, data)
             : msg
         )
         if (!isLoggedIn) writeGuestWidgetMessages(next)
         return next
       })
     } catch (err) {
-      const errorMsg =
-        err.message || 'Sorry, I had trouble processing that. Please try again.'
+      const errorMsg = chatErrorMessage(err)
 
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === streamMessageId
-            ? { ...msg, content: errorMsg, streaming: false }
+            ? {
+                ...msg,
+                content: errorMsg,
+                streaming: false,
+                failed: true,
+                retryText: text,
+              }
             : msg
         )
       )
@@ -532,6 +536,16 @@ export default function ChatWidget() {
                     msg.content
                   )}
                 </div>
+                {msg.role === 'assistant' && msg.failed && msg.retryText && (
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleSend(msg.retryText)}
+                    className="text-xs font-semibold text-indigo-600 underline hover:text-indigo-800 disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                )}
                 {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[85%]">
                     <CheckoutPaymentCard

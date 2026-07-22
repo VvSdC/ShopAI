@@ -70,7 +70,7 @@ const OrderSchema = new Schema(
     },
     paymentStatus: {
       type: String,
-      default: 'Not paid',
+      default: 'unpaid',
     },
     paymentMethod: {
       type: String,
@@ -92,6 +92,20 @@ const OrderSchema = new Schema(
     },
     deliveredAt: {
       type: Date,
+    },
+    shippedAt: {
+      type: Date,
+      default: null,
+    },
+    trackingCarrier: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    trackingNumber: {
+      type: String,
+      default: null,
+      trim: true,
     },
     stripeSessionId: {
       type: String,

@@ -50,6 +50,7 @@ const ReviewSchema = new Schema(
 
 ReviewSchema.index({ product: 1 })
 ReviewSchema.index({ user: 1 })
+ReviewSchema.index({ user: 1, product: 1 }, { unique: true })
 
 const Review = mongoose.model("Review", ReviewSchema);
 

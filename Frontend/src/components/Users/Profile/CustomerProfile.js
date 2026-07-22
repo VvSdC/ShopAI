@@ -15,6 +15,7 @@ import {
 import { fetchMyReturnsAction } from '../../../redux/slices/returns/returnsSlice'
 import CustomerDetails from './CustomerDetails'
 import AddressManagement from './AddressManagement'
+import PrivatePageSeo from '../../common/PrivatePageSeo'
 import ReturnRequestModal from './ReturnRequestModal'
 import {
   getPaymentStatusLabel,
@@ -321,6 +322,7 @@ export default function CustomerProfile() {
 
   return (
     <div className="bg-white pb-28 lg:pb-10">
+      <PrivatePageSeo title="My account" path="/customer-profile" />
       <div className="border-b border-stone-200 bg-stone-50">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <nav className="text-xs text-stone-500">

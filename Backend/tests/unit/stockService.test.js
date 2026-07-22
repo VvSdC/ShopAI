@@ -7,6 +7,7 @@ import {
   atomicallyReserveStockForOrderItems,
   StockReservationError,
 } from '../../services/stockService.js'
+import { createTestBrand } from '../helpers/testBrand.js'
 
 async function createTestProduct(overrides = {}) {
   const user =
@@ -17,10 +18,12 @@ async function createTestProduct(overrides = {}) {
       password: 'hashed',
     }))
 
+  const brand = await createTestBrand(`stock-brand-${Date.now()}-${Math.random()}`, user)
+
   return Product.create({
     name: 'Test Product',
     description: 'Test description',
-    brand: 'TestBrand',
+    brand: brand._id,
     category: new mongoose.Types.ObjectId(),
     sizes: ['M'],
     colors: ['Blue'],

@@ -27,6 +27,12 @@ describe('productReviews', () => {
       totalQty: 5,
     })
 
+    const otherUser = await User.create({
+      fullname: 'Review Loader Other',
+      email: `review-loader-other-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
     await Review.create({
       user: user._id,
       product: product._id,
@@ -35,7 +41,7 @@ describe('productReviews', () => {
       moderationStatus: 'approved',
     })
     await Review.create({
-      user: user._id,
+      user: otherUser._id,
       product: product._id,
       message: 'Hidden review',
       rating: 1,

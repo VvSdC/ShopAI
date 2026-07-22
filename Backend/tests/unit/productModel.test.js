@@ -29,7 +29,6 @@ async function createTestProduct(overrides = {}) {
     price: 100,
     totalQty: 2,
     ...overrides,
-    brand: overrides.brand ?? brand,
   })
 }
 

@@ -32,6 +32,7 @@ vi.mock('../../services/orderFulfillment.js', async (importOriginal) => {
 import { orderService } from '../../services/orderService.js'
 import Product from '../../model/Product.js'
 import { atomicallyReserveStock } from '../../services/stockService.js'
+import { createStripeRefund } from '../../services/orderRefund.js'
 
 describe('orderService', () => {
   beforeEach(() => {
@@ -74,6 +75,42 @@ describe('orderService', () => {
     const unchanged = await Order.findById(order._id)
     expect(unchanged.paymentStatus).toBe('paid')
     expect(unchanged.postPaymentProcessed).toBe(true)
+  })
+
+  it('runs fulfillment only once when checkout payment races', async () => {
+    processPaidOrder.mockResolvedValue({ processed: true, emailSent: true })
+
+    const user = await User.create({
+      fullname: 'Race Payment User',
+      email: `race-payment-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Race Ball', price: 100 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 100,
+      paymentStatus: 'Not paid',
+      stripeSessionId: 'cs_test_race',
+    })
+
+    const session = {
+      id: 'cs_test_race',
+      amount_total: 10000,
+      currency: 'inr',
+      payment_method_types: ['card'],
+      payment_status: 'paid',
+      payment_intent: 'pi_race',
+    }
+
+    const first = await orderService.applyStripeCheckoutSession(order._id, session)
+    const second = await orderService.applyStripeCheckoutSession(order._id, session)
+
+    expect(processPaidOrder).toHaveBeenCalledTimes(1)
+    expect(first.fulfillment).toBeTruthy()
+    expect(second.alreadyPaid).toBe(true)
+    expect(second.fulfillment).toBeNull()
   })
 
   it('rejects status updates for cancelled orders', async () => {
@@ -379,7 +416,7 @@ describe('orderService', () => {
     expect(refreshed.totalQty - refreshed.totalSold).toBe(23)
   })
 
-  it('does not fulfill Stripe checkout for cancelled orders', async () => {
+  it('refunds Stripe checkout when payment completes on a cancelled order', async () => {
     const user = await User.create({
       fullname: 'Cancelled Fulfillment User',
       email: `cancel-fulfill-${Date.now()}@test.com`,
@@ -393,6 +430,7 @@ describe('orderService', () => {
       totalPrice: 50,
       paymentStatus: 'Not paid',
       status: 'cancelled',
+      stockReservedAtCheckout: true,
     })
 
     const result = await orderService.applyStripeCheckoutSession(order._id, {
@@ -404,12 +442,39 @@ describe('orderService', () => {
       payment_intent: 'pi_test_cancelled',
     })
 
-    expect(result.reason).toBe('order_cancelled')
+    expect(result.reason).toBe('order_cancelled_paid_refunded')
+    expect(result.refundAmount).toBe(50)
+    expect(createStripeRefund).toHaveBeenCalled()
     expect(processPaidOrder).not.toHaveBeenCalled()
 
-    const unchanged = await Order.findById(order._id)
-    expect(unchanged.paymentStatus).toBe('Not paid')
-    expect(unchanged.status).toBe('cancelled')
+    const updated = await Order.findById(order._id)
+    expect(updated.paymentStatus).toBe('paid')
+    expect(updated.status).toBe('cancelled')
+    expect(updated.refundStatus).toBe('full')
+    expect(updated.totalRefunded).toBe(50)
+  })
+
+  it('rejects cancel while checkout session is still open', async () => {
+    const user = await User.create({
+      fullname: 'Open Checkout User',
+      email: `open-checkout-${Date.now()}@test.com`,
+      password: 'hashed',
+    })
+
+    const order = await Order.create({
+      user: user._id,
+      orderItems: [testOrderItem({ name: 'Pending Item', price: 40 })],
+      shippingAddress: testShippingAddress(),
+      totalPrice: 40,
+      paymentStatus: 'Not paid',
+      status: 'pending',
+      stripeSessionId: 'cs_test_open',
+      checkoutExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    })
+
+    await expect(orderService.cancelForUser(user._id, order._id)).rejects.toMatchObject({
+      statusCode: 400,
+    })
   })
 
   it('formats chat order summaries consistently', () => {

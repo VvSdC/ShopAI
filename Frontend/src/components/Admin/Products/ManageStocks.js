@@ -10,6 +10,7 @@ import NoDataFound from "../../NoDataFound/NoDataFound";
 import ShopPagination from "../../Users/Products/ShopPagination";
 
 const PAGE_SIZE = 15;
+const LOW_STOCK_THRESHOLD = 5;
 
 export default function ManageStocks() {
   const [page, setPage] = useState(1);
@@ -74,6 +75,14 @@ export default function ManageStocks() {
             List of all the products in your account including their name,
             title,
           </p>
+          {products?.some(
+            (product) =>
+              product?.qtyLeft > 0 && product.qtyLeft <= LOW_STOCK_THRESHOLD
+          ) && (
+            <p className="mt-2 inline-flex rounded-md bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 ring-1 ring-amber-200">
+              Low stock alert: one or more products have {LOW_STOCK_THRESHOLD} or fewer units left.
+            </p>
+          )}
         </div>
         <div className="sm:ml-16 sm:flex-none">
           <button
@@ -173,6 +182,10 @@ export default function ManageStocks() {
                           {product?.qtyLeft < 0 ? (
                             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
                               Out of Stock
+                            </span>
+                          ) : product?.qtyLeft <= LOW_STOCK_THRESHOLD ? (
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+                              Low stock ({product.qtyLeft})
                             </span>
                           ) : (
                             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">

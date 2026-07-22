@@ -179,11 +179,17 @@ export async function verifyEmbeddingDimensionOnStartup() {
     }
 
     if (!report.ok) {
-      logger.warn(
+      const message =
         `[search] Embedding dimension mismatch: configured=${report.expectedDim}, ` +
-          `sample stored=${report.storedDim}, mismatched products=${report.mismatchCount}. ` +
-          `${MIGRATION_HINT}`
-      )
+        `sample stored=${report.storedDim}, mismatched products=${report.mismatchCount}. ` +
+        `${MIGRATION_HINT}`
+
+      if (config.isProduction) {
+        logger.error(message)
+        throw new Error('Embedding dimension mismatch — run npm run search:reindex before deploy')
+      }
+
+      logger.warn(message)
       return report
     }
 

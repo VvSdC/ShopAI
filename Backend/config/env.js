@@ -213,6 +213,8 @@ export const config = {
       windowMs: envInt('RATE_LIMIT_VALIDATE_CART_WINDOW_MS', 15 * 60 * 1000),
       max: envInt('RATE_LIMIT_VALIDATE_CART_MAX', 30),
     },
+    /** Divide in-memory limits when API runs on multiple replicas without Redis. */
+    instanceCount: envInt('RATE_LIMIT_INSTANCE_COUNT', 1),
   },
 
   openapi: {
@@ -242,6 +244,12 @@ export function validateConfig(options = {}) {
   if (!config.auth.jwtRefreshKey) missing.push('JWT_REFRESH_KEY')
 
   if (strict && !config.stripe.secretKey) missing.push('STRIPE_KEY')
+
+  if (strict && config.stripe.secretKey && !config.stripe.webhookSecret) {
+    logger.warn(
+      '[config] STRIPE_KEY is set but STRIPE_WEBHOOK_SECRET is missing — webhooks will be rejected; payment still works via verify-payment and checkout polling'
+    )
+  }
 
   if (missing.length === 0) return { ok: true, missing: [] }
 

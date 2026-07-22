@@ -12,7 +12,6 @@ import { StarIcon } from '@heroicons/react/20/solid'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchProductAction } from '../../../redux/slices/products/productSlices'
-import ErrorMsg from '../../ErrorMsg/ErrorMsg'
 import MarkdownContent from '../../common/MarkdownContent'
 import {
   addOrderToCartaction,
@@ -27,6 +26,8 @@ import {
 import WishlistButton from './WishlistButton'
 import SimilarProductsSection from './SimilarProductsSection'
 import PageSeo from '../../common/PageSeo'
+import { truncateMeta, absoluteUrl } from '../../../utils/seo'
+import { recordRecentlyViewed } from '../../../utils/recentlyViewed'
 import { getCartUnitCount } from '../../../utils/cartCount'
 import {
   displaySizeLabel,
@@ -159,6 +160,11 @@ export default function Product() {
       setSelectedSize(sizes[0])
     }
   }, [id, product?._id, product?.sizeMeasurementType, product?.sizes, product?.colors])
+
+  useEffect(() => {
+    if (!product?._id || String(product._id) !== String(id)) return
+    recordRecentlyViewed(product)
+  }, [id, product])
 
   //get all colors from store for hex lookup
   const allColors = useSelector((state) => state?.colors?.colors?.colors) || []
@@ -358,6 +364,36 @@ export default function Product() {
 
   const stickyTop = 'calc(var(--shopai-navbar-height, 5rem) + 1.25rem)'
 
+  const productJsonLd =
+    product?._id && String(product._id) === String(id)
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.name,
+          description: truncateMeta(product.description, 500),
+          image: (product.images || []).map((img) => absoluteUrl(img)).filter(Boolean),
+          sku: String(product._id),
+          offers: {
+            '@type': 'Offer',
+            price: product.price,
+            priceCurrency: 'INR',
+            availability: inStock
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+            url: absoluteUrl(`/products/${id}`),
+          },
+          ...(visibleReviews.length > 0
+            ? {
+                aggregateRating: {
+                  '@type': 'AggregateRating',
+                  ratingValue: Number(displayRating),
+                  reviewCount: visibleReviews.length,
+                },
+              }
+            : {}),
+        }
+      : null
+
   return (
     <div className="min-h-screen bg-stone-100">
       {product?._id && String(product._id) === String(id) && (
@@ -367,13 +403,25 @@ export default function Product() {
           path={`/products/${id}`}
           image={product.images?.[0]}
           type="product"
+          jsonLd={productJsonLd}
         />
       )}
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
+      <section aria-label="Product details" className="mx-auto max-w-7xl px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:py-8">
         {loading && !product?._id ? (
           <ProductDetailSkeleton />
         ) : error ? (
-          <ErrorMsg message={error?.message || 'Failed to load product'} />
+          <div className="rounded-xl border border-red-200 bg-white p-8 text-center">
+            <h1 className="text-xl font-bold text-stone-900">Product unavailable</h1>
+            <p className="mt-2 text-sm text-stone-600">
+              {error?.message || 'This product could not be loaded. It may have been removed.'}
+            </p>
+            <Link
+              to="/products-filters"
+              className="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Browse products
+            </Link>
+          </div>
         ) : (
           <>
             <nav
@@ -411,6 +459,8 @@ export default function Product() {
                             key={index}
                             type="button"
                             onClick={() => setActiveImage(index)}
+                            aria-label={`Show image ${index + 1} of ${images.length}`}
+                            aria-current={activeImage === index ? 'true' : undefined}
                             className={classNames(
                               'h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-xl border-2 bg-stone-50 transition lg:h-[4.5rem] lg:w-full',
                               activeImage === index
@@ -420,7 +470,7 @@ export default function Product() {
                           >
                             <img
                               src={productImageUrl(image, 'thumb')}
-                              alt=""
+                              alt={`${product?.name || 'Product'} thumbnail ${index + 1}`}
                               width={112}
                               height={112}
                               loading="lazy"
@@ -873,7 +923,7 @@ export default function Product() {
         </section>
           </>
         )}
-      </main>
+      </section>
 
       {/* Review Modal — used for both Create and Edit */}
       {showReviewModal && (

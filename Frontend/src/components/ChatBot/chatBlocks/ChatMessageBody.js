@@ -44,6 +44,19 @@ function renderBlock(block, { onQuickAction, disabled, returnPath }) {
           disabled={disabled}
         />
       )
+    case 'suggested_prompts':
+      return (
+        <ChatQuickActions
+          key="suggested"
+          actions={(block.prompts || []).map((p) => ({
+            label: p.label,
+            message: p.message,
+            variant: 'outline',
+          }))}
+          onSelect={onQuickAction}
+          disabled={disabled}
+        />
+      )
     default:
       return null
   }

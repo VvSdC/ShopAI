@@ -501,6 +501,7 @@ const cartSlice = createSlice({
 
     builder.addCase(validateCartAction.pending, (state) => {
       state.validating = true
+      state.error = null
     })
     builder.addCase(validateCartAction.fulfilled, (state, action) => {
       state.validating = false

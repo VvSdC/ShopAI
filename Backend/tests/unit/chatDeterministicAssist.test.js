@@ -10,6 +10,9 @@ describe('chatDeterministicAssist', () => {
     vi.doMock('../../config/env.js', () => ({
       config: { chat: { deterministicAssist: true } },
     }))
+    vi.doMock('../../services/chatProductDetailAssist.js', () => ({
+      runProductDetailAssist: vi.fn(async () => ({ toolResults: [], reply: null })),
+    }))
     vi.doMock('../../services/chatRetrievalAssist.js', () => ({
       runRetrievalAssist: vi.fn(async (_userId, _text, _history, toolResults) => ({
         toolResults,
@@ -52,6 +55,9 @@ describe('chatDeterministicAssist', () => {
   it('skips assists when disabled via config', async () => {
     vi.doMock('../../config/env.js', () => ({
       config: { chat: { deterministicAssist: false } },
+    }))
+    vi.doMock('../../services/chatProductDetailAssist.js', () => ({
+      runProductDetailAssist: vi.fn(async () => ({ toolResults: [], reply: null })),
     }))
     vi.doMock('../../services/chatRetrievalAssist.js', () => ({
       runRetrievalAssist: vi.fn(async () => ({

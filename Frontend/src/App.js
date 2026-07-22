@@ -32,6 +32,7 @@ import AllOrders from "./components/Admin/Orders/AllOrders";
 import Customers from "./components/Admin/Orders/Customers";
 import BrandsList from "./components/Admin/Categories/BrandsList";
 import AuthTokenRefresh from "./components/AuthRoute/AuthTokenRefresh";
+import SessionExpiredRedirect from "./components/AuthRoute/SessionExpiredRedirect";
 import AuthRoute from "./components/AuthRoute/AuthRoute";
 import AdminRoutes from "./components/AuthRoute/AdminRoutes";
 import ThanksForOrdering from "./components/Users/Products/ThanksForOrdering";
@@ -39,6 +40,7 @@ import ChatUsagePanel from "./components/Admin/Analytics/ChatUsagePanel";
 import ProductUpdate from "./components/Admin/Products/ProductUpdate";
 import UpdateOrders from "./components/Admin/Orders/UpdateOrders";
 import ManageReturns from "./components/Admin/Orders/ManageReturns";
+import ManageReviews from "./components/Admin/Reviews/ManageReviews";
 import ColorsList from "./components/Admin/Categories/ColorsList";
 import ChatWidget from "./components/ChatBot/ChatWidget";
 import AssistantPage from "./components/ChatBot/AssistantPage";
@@ -57,7 +59,9 @@ function AppShell() {
   const isAdmin = location.pathname.startsWith("/admin");
   const hideFloatingChat =
     isAssistant ||
-    location.pathname.startsWith("/admin/developer-analytics");
+    location.pathname.startsWith('/admin/developer-analytics') ||
+    location.pathname === '/shopping-cart' ||
+    location.pathname === '/order-payment';
   // The assistant and the admin console are full-screen, app-like experiences
   // (à la ChatGPT/Claude). They supply their own header + sidebar, so the global
   // chrome is hidden there to avoid the awkward double-navbar / double-hamburger.
@@ -66,6 +70,7 @@ function AppShell() {
   return (
     <div className="flex min-h-screen flex-col">
       <AuthTokenRefresh />
+      <SessionExpiredRedirect />
       {!hideGlobalChrome && (
         <ErrorBoundary
           compact
@@ -113,6 +118,14 @@ function AppShell() {
             element={
               <AdminRoutes>
                 <ManageReturns />
+              </AdminRoutes>
+            }
+          />
+          <Route
+            path="review-moderation"
+            element={
+              <AdminRoutes>
+                <ManageReviews />
               </AdminRoutes>
             }
           />

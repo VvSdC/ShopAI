@@ -109,7 +109,7 @@ axiosInstance.interceptors.response.use(
         resetCsrfTokenCache()
         stopProactiveTokenRefresh()
         if (shouldRedirectToLoginAfterRefreshFailure(originalRequest.url)) {
-          window.location.href = '/login'
+          window.dispatchEvent(new CustomEvent('shopai:session-expired'))
         }
         return Promise.reject(refreshError)
       }

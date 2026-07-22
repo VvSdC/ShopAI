@@ -8,12 +8,14 @@ import {
   isCouponNotStarted,
 } from '../utils/couponDates.js'
 import { findLiveCouponByCode } from '../utils/couponQueries.js'
-import { productIdKey } from './cartService.js'
+import { productIdKey, resolveOptionMatch } from './cartService.js'
+import { resolveSizeForProduct } from './cartVariantMatch.js'
 import { enrichNewOrderItem } from './orderLineItems.js'
 import { CHECKOUT_LINK_TTL_MS } from './orderPaymentPollService.js'
 import { enqueueCheckoutExpiry } from './checkoutQueue.js'
 import config from '../config/env.js'
 import { atomicallyReserveStockForOrderItems, releaseStock } from './stockService.js'
+import { AppError } from '../utils/appError.js'
 
 export async function resolveOrderCoupon(couponCode) {
   if (!couponCode) {
@@ -51,14 +53,46 @@ export async function validateAndPriceOrderItems(orderItems) {
   let recalculatedTotal = 0
 
   for (const item of orderItems) {
+    const label = item?.name || 'Item'
     const product = orderProductMap[productIdKey(item._id)]
-    if (!product) continue
+    if (!product) {
+      throw new AppError(`${label} is no longer available`, 400)
+    }
+
+    const matchedColor = resolveOptionMatch(item.color, product.colors)
+    if (!matchedColor) {
+      throw new AppError(
+        `${product.name}: color "${item.color}" is not available. Choose from: ${(product.colors || []).join(', ') || 'N/A'}`,
+        400
+      )
+    }
+
+    const matchedSize = resolveSizeForProduct(item.size, product)
+    if (!matchedSize) {
+      throw new AppError(
+        `${product.name}: size "${item.size}" is not available. Choose from: ${(product.sizes || []).join(', ') || 'N/A'}`,
+        400
+      )
+    }
+
     const qtyLeft = product.totalQty - product.totalSold
-    if (qtyLeft <= 0) continue
+    if (qtyLeft <= 0) {
+      throw new AppError(`${product.name} is out of stock`, 400)
+    }
+
     const finalQty = Math.min(item.qty, qtyLeft)
+    if (finalQty < item.qty) {
+      throw new AppError(
+        `Only ${qtyLeft} unit(s) of ${product.name} remain in stock`,
+        400
+      )
+    }
+
     const trustedPrice = product.price
     validatedItems.push({
       ...item,
+      color: matchedColor,
+      size: matchedSize,
       price: trustedPrice,
       qty: finalQty,
       totalPrice: trustedPrice * finalQty,
@@ -67,7 +101,11 @@ export async function validateAndPriceOrderItems(orderItems) {
   }
 
   if (validatedItems.length <= 0) {
-    throw new Error('All items in your cart are unavailable or out of stock')
+    throw new AppError('All items in your cart are unavailable or out of stock', 400)
+  }
+
+  if (validatedItems.length !== orderItems.length) {
+    throw new AppError('Some cart items could not be included in checkout', 400)
   }
 
   return { validatedItems, recalculatedTotal }

@@ -206,3 +206,33 @@ export const SUGGESTED_PROMPTS = [
   'What is in my cart?',
   'Any active coupon codes?',
 ]
+
+export const ROUTE_STATUS_LABELS = {
+  retrieval: 'Searching products',
+  product_detail: 'Loading product details',
+  comparison: 'Comparing products',
+  payment: 'Checking payment status',
+  order_summary: 'Looking up your orders',
+  order_update: 'Updating your order',
+  checkout: 'Preparing your order',
+  policies: 'Checking store policies',
+  general: 'Thinking',
+}
+
+export function routeStatusLabel(route) {
+  return ROUTE_STATUS_LABELS[route] || 'Working'
+}
+
+export function chatErrorMessage(err) {
+  const code = err?.code
+  if (code === 'rate_limited') {
+    return "You've hit the chat limit for now. Wait a minute and try again, or keep browsing the shop."
+  }
+  if (code === 'server_error') {
+    return "Our servers hiccupped — tap Retry and I'll try again."
+  }
+  if (code === 'stream_incomplete') {
+    return 'The reply got cut off. Tap Retry to send that again.'
+  }
+  return err?.message || 'Sorry, I had trouble with that. Tap Retry to try again.'
+}

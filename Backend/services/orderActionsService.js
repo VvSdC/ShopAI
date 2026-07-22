@@ -1,4 +1,4 @@
-import { canCancelOrder, STORE_POLICY } from '../config/storePolicy.js'
+import { canCancelOrder, hasActiveStripeCheckout, STORE_POLICY } from '../config/storePolicy.js'
 import { RETURN_REASONS } from '../constants/returnReasons.js'
 import { orderService } from './orderService.js'
 import {
@@ -43,6 +43,15 @@ export function getOrderCancelReturnStatus(order) {
       ...summary,
       availableAction: 'none',
       message: 'This order is already cancelled.',
+    }
+  }
+
+  if (hasActiveStripeCheckout(order)) {
+    return {
+      ...summary,
+      availableAction: 'none',
+      message:
+        'Payment is in progress for this order. Wait for checkout to complete or expire before cancelling.',
     }
   }
 

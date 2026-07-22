@@ -24,13 +24,25 @@ function createRedisStore(prefix) {
   })
 }
 
+export function resolveRateLimitMax(max) {
+  return effectiveMax(max)
+}
+
+function effectiveMax(max) {
+  if (shouldUseRedisStore()) return max
+  const instances = Math.max(1, config.rateLimit.instanceCount || 1)
+  return Math.max(1, Math.floor(max / instances))
+}
+
 function buildLimiter(prefix, options) {
   const store = createRedisStore(prefix)
+  const { max, ...rest } = options
   return rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
-    passOnStoreError: true,
-    ...options,
+    passOnStoreError: !store,
+    ...rest,
+    max: effectiveMax(max),
     ...(store ? { store } : {}),
   })
 }
@@ -79,7 +91,10 @@ export function validateCartRateLimitKey(req) {
 if (shouldUseRedisStore()) {
   logger.log('[rate-limit] Using Redis-backed stores (shared counters across processes)')
 } else {
-  logger.log('[rate-limit] Using in-memory stores (set REDIS_URL for multi-process deployments)')
+  const instances = Math.max(1, config.rateLimit.instanceCount || 1)
+  logger.log(
+    `[rate-limit] Using in-memory stores (set REDIS_URL for multi-process; RATE_LIMIT_INSTANCE_COUNT=${instances})`
+  )
 }
 
 export const apiLimiter = buildLimiter('api', {

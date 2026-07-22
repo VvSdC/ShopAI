@@ -16,6 +16,8 @@ import {
   SUGGESTED_PROMPTS,
   AI_CHATBOT_LABEL,
   buildClientWelcomeMessage,
+  routeStatusLabel,
+  chatErrorMessage,
 } from './chatFormatting'
 import AiDisclosureBanner from './AiDisclosureBanner'
 import ChatMessageBody from './chatBlocks/ChatMessageBody'
@@ -31,6 +33,14 @@ import {
 import { growTextarea, resetTextareaHeight } from './textareaAutoGrow'
 import { keepStripeReturnSearch, ASSISTANT_PATH } from './assistantNavigation'
 import { useResumePendingChat } from './useResumePendingChat'
+import {
+  buildGuestHistory,
+  enrichAssistantMessage,
+  readGuestAssistantMessages,
+  writeGuestAssistantMessages,
+  clearGuestAssistantMessages,
+  welcomeSuggestedPromptsBlock,
+} from './guestChatHistory'
 
 const ASSISTANT_TEXTAREA_MAX_HEIGHT = 120
 const GUEST_ASSISTANT_WELCOME_SUFFIX =
@@ -40,11 +50,16 @@ function buildGuestAssistantWelcome() {
   return buildClientWelcomeMessage('there') + GUEST_ASSISTANT_WELCOME_SUFFIX
 }
 
-function buildGuestHistory(messages) {
-  return (messages || [])
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content && !m.streaming)
-    .slice(-20)
-    .map((m) => ({ role: m.role, content: m.content }))
+function guestWelcomeMessages() {
+  const stored = readGuestAssistantMessages()
+  if (stored.length > 0) return stored
+  return [
+    {
+      role: 'assistant',
+      content: buildGuestAssistantWelcome(),
+      blocks: [welcomeSuggestedPromptsBlock(SUGGESTED_PROMPTS)],
+    },
+  ]
 }
 
 function SendIcon() {
@@ -99,6 +114,10 @@ export default function AssistantPage() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  useEffect(() => {
+    if (isLoggedIn) clearGuestAssistantMessages()
+  }, [isLoggedIn])
 
   useEffect(() => {
     scrollToBottom()
@@ -219,7 +238,7 @@ export default function AssistantPage() {
         if (!isLoggedIn) {
           setSessions([])
           setActiveSessionId('guest')
-          setMessages([{ role: 'assistant', content: buildGuestAssistantWelcome() }])
+          setMessages(guestWelcomeMessages())
           setHasMoreOlder(false)
           if (shouldCleanNav && !cancelled) {
             navigate(cleanPath, { replace: true, state: null })
@@ -293,10 +312,11 @@ export default function AssistantPage() {
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setInput('')
     const streamMessageId = `stream-${Date.now()}`
+    const guestHistoryBase = isLoggedIn ? messages : [...messages, { role: 'user', content: text }]
     setMessages((prev) => [
       ...prev,
       { id: streamMessageId, role: 'assistant', content: '', streaming: true },
-    ])
+    ]))
     setStreamStatus(null)
     setIsLoading(true)
 
@@ -306,9 +326,10 @@ export default function AssistantPage() {
           text,
           sessionId: isLoggedIn ? activeSessionId : undefined,
           isGuest: !isLoggedIn,
-          history: isLoggedIn ? [] : buildGuestHistory(messages),
+          history: isLoggedIn ? [] : buildGuestHistory(guestHistoryBase),
         },
         {
+          onRoute: ({ route }) => setStreamStatus(routeStatusLabel(route)),
           onToolStart: ({ label }) => setStreamStatus(label || 'Working…'),
           onTextDelta: ({ delta }) => {
             setStreamStatus(null)
@@ -329,19 +350,13 @@ export default function AssistantPage() {
         )
       }
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === streamMessageId
-            ? {
-                ...msg,
-                content: data.reply,
-                checkout: data.checkout || null,
-                blocks: data.blocks || null,
-                streaming: false,
-              }
-            : msg
+      setMessages((prev) => {
+        const next = prev.map((msg) =>
+          msg.id === streamMessageId ? enrichAssistantMessage(msg, data) : msg
         )
-      )
+        if (!isLoggedIn) writeGuestAssistantMessages(next)
+        return next
+      })
 
       if (data.sessionTitle) {
         setSessions((prev) =>
@@ -353,12 +368,17 @@ export default function AssistantPage() {
         )
       }
     } catch (err) {
-      const errorMsg =
-        err.message || 'Sorry, I had trouble processing that. Please try again.'
+      const errorMsg = chatErrorMessage(err)
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === streamMessageId
-            ? { ...msg, content: errorMsg, streaming: false }
+            ? {
+                ...msg,
+                content: errorMsg,
+                streaming: false,
+                failed: true,
+                retryText: text,
+              }
             : msg
         )
       )
@@ -706,6 +726,16 @@ export default function AssistantPage() {
                     msg.content
                   )}
                 </div>
+                {msg.role === 'assistant' && msg.failed && msg.retryText && (
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => handleSend(msg.retryText)}
+                    className="text-xs font-semibold text-indigo-600 underline hover:text-indigo-800 disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                )}
                 {checkoutCardVisible(msg.checkout) && (
                   <div className="max-w-[90%] sm:max-w-[80%]">
                     <CheckoutPaymentCard

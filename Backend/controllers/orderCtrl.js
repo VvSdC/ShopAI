@@ -2,13 +2,14 @@ import asyncHandler from 'express-async-handler'
 import User, { USER_CHECKOUT_SELECT } from '../model/User.js'
 import { AppError } from '../utils/appError.js'
 import { createCheckoutSession } from '../services/orderCheckout.js'
+import { withOrderIdempotency } from '../middlewares/orderIdempotency.js'
 import {
   pollOrderPaymentStatus,
   expireOrderCheckoutSession,
 } from '../services/orderPaymentPollService.js'
 import { orderService } from '../services/orderService.js'
 
-export const createOrderCtrl = asyncHandler(async (req, res) => {
+export const createOrderCtrl = withOrderIdempotency(async (req) => {
   const couponCode = req?.query?.coupon
   const { orderItems, shippingAddress } = req.body
 
@@ -27,12 +28,12 @@ export const createOrderCtrl = asyncHandler(async (req, res) => {
     couponCode,
     source: 'cart',
   })
-  res.send({
+  return {
     url: session.url,
     orderId: session.orderId,
     orderNumber: session.orderNumber,
     expiresAt: session.expiresAt,
-  })
+  }
 })
 
 export const pollPaymentStatusCtrl = asyncHandler(async (req, res) => {
@@ -124,7 +125,11 @@ export const getSingleOrderCtrl = asyncHandler(async (req, res) => {
 })
 
 export const updateOrderCtrl = asyncHandler(async (req, res) => {
-  const updatedOrder = await orderService.updateStatus(req.params.id, req.body.status)
+  const { status, trackingCarrier, trackingNumber } = req.body
+  const updatedOrder = await orderService.updateStatus(req.params.id, status, {
+    trackingCarrier,
+    trackingNumber,
+  })
   res.status(200).json({
     success: true,
     message: 'Order updated',

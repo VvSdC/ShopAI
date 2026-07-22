@@ -1,8 +1,9 @@
 /** Deterministic address parsing fallback — orchestrated by chatDeterministicAssist.js after LangGraph. */
 import User from '../model/User.js'
 import { executeTool } from './chatTools.js'
-import { buildAddressMissingPrompt } from './chatMissingFields.js'
+import { buildAddressMissingPrompt, buildAddressInvalidPrompt } from './chatMissingFields.js'
 import { isGuestChatUser } from './guestCartContext.js'
+import { normalizeIndianPhone } from './addressService.js'
 
 export function looksLikeAddressInput(text) {
   const raw = String(text || '').trim()
@@ -77,7 +78,11 @@ export function listMissingAddressFields(draft, userPhone = '') {
   if (!draft.city) missing.push('city')
   if (!draft.province) missing.push('province')
   if (!draft.postal_code || !/^\d{6}$/.test(draft.postal_code)) missing.push('postal_code')
-  if (!draft.phone && !userPhone) missing.push('phone')
+
+  // A profile phone counts only when it looks like a valid Indian mobile.
+  const draftPhoneOk = draft.phone && normalizeIndianPhone(draft.phone)
+  const profilePhoneOk = userPhone && normalizeIndianPhone(userPhone)
+  if (!draftPhoneOk && !profilePhoneOk) missing.push('phone')
   return missing
 }
 
@@ -128,10 +133,25 @@ async function saveAddressDraft(userId, draft, user, toolResults) {
     postal_code: draft.postal_code,
     country: draft.country,
   }
-  if (draft.phone) payload.phone = draft.phone
+  // Only forward a phone if the customer actually gave one — the service will
+  // fall back to the profile phone. Never send `''` or a non-Indian number.
+  const normalizedPhone = draft.phone ? normalizeIndianPhone(draft.phone) : null
+  if (normalizedPhone) payload.phone = normalizedPhone
 
   const result = await executeTool('add_shipping_address', userId, payload)
-  if (result.error) {
+  if (result?.error === 'address_validation_failed') {
+    const missingFields = Array.isArray(result.missing) ? result.missing : []
+    const invalidFields = Array.isArray(result.invalid) ? result.invalid : []
+    const parts = []
+    if (invalidFields.length) parts.push(buildAddressInvalidPrompt(invalidFields))
+    if (missingFields.length) parts.push(buildAddressMissingPrompt(missingFields))
+    return {
+      toolResults,
+      reply: parts.filter(Boolean).join('\n\n') || 'Please share those address details again.',
+    }
+  }
+  if (result?.error) {
+    // Legacy string-error path (kept for defensive parity).
     const errMissing = []
     if (/postal|pin/i.test(result.error)) errMissing.push('postal_code')
     if (/phone/i.test(result.error)) errMissing.push('phone')
@@ -141,7 +161,7 @@ async function saveAddressDraft(userId, draft, user, toolResults) {
     if (errMissing.length) {
       return { toolResults, reply: buildAddressMissingPrompt([...new Set(errMissing)]) }
     }
-    return { toolResults, reply: result.error }
+    return { toolResults, reply: result.message || result.error }
   }
 
   return {

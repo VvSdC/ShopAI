@@ -40,6 +40,7 @@ import {
   listShippingAddresses,
   addShippingAddress,
   updateShippingAddress,
+  AddressValidationError,
 } from './addressService.js'
 import {
   getOrderCancelReturnStatus,
@@ -48,6 +49,11 @@ import {
   resolveOrderForUser,
 } from './orderActionsService.js'
 import { orderService } from './orderService.js'
+import {
+  getWishlist,
+  addWishlistItem,
+  removeWishlistItem,
+} from './wishlistService.js'
 
 export const toolDefinitions = [
   {
@@ -173,6 +179,46 @@ export const toolDefinitions = [
   {
     type: 'function',
     function: {
+      name: 'get_my_wishlist',
+      description:
+        "List products saved in the current user's wishlist. Use when the customer asks about saved items or favorites.",
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_to_wishlist',
+      description: 'Save a product to the signed-in user wishlist by product ID.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product MongoDB ID' },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remove_from_wishlist',
+      description: 'Remove a product from the signed-in user wishlist by product ID.',
+      parameters: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product MongoDB ID' },
+        },
+        required: ['product_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_categories',
       description:
         'List all available product categories. Use when user wants to browse or asks what categories are available.',
@@ -222,18 +268,27 @@ export const toolDefinitions = [
     function: {
       name: 'add_shipping_address',
       description:
-        'Save a new shipping address to the user account. Use when the user provides delivery address details during checkout or asks to add an address. Parse city, state/province, and pincode from free-text when possible. Use profile name if first/last name not given.',
+        'Save a new shipping address to the user account. Use ONLY when the user has explicitly provided each field in the conversation. Never invent, guess, or auto-fill values — especially phone numbers, PIN codes, city, state, or street. If any required field is missing from what the user actually said, ask them for it first with a short prompt naming the missing fields — do NOT call this tool. Parse city, state/province, and pincode from the user\'s free-text when they provided them. Fall back to the user profile only for first/last name and phone.',
       parameters: {
         type: 'object',
         properties: {
-          first_name: { type: 'string', description: 'First name' },
-          last_name: { type: 'string', description: 'Last name' },
-          address: { type: 'string', description: 'Street address line' },
-          city: { type: 'string', description: 'City' },
-          province: { type: 'string', description: 'State or province (e.g. Telangana)' },
-          postal_code: { type: 'string', description: 'Postal / PIN code' },
+          first_name: { type: 'string', description: 'First name from the user or profile — never invent.' },
+          last_name: { type: 'string', description: 'Last name from the user or profile — never invent.' },
+          address: { type: 'string', description: 'Street address line as provided by the user.' },
+          city: { type: 'string', description: 'City as provided by the user.' },
+          province: { type: 'string', description: 'State or province (e.g. Telangana) as provided by the user.' },
+          postal_code: {
+            type: 'string',
+            description: 'Indian PIN code — exactly 6 digits. Ask the user if they did not provide one.',
+            pattern: '^\\d{6}$',
+          },
           country: { type: 'string', description: 'Country code or name (default India/IN)' },
-          phone: { type: 'string', description: 'Contact phone number' },
+          phone: {
+            type: 'string',
+            description:
+              'Contact phone — Indian mobile only: 10 digits starting 6–9, optionally prefixed with +91 or 91. NEVER invent or guess a phone number. If the user did not provide one and no profile phone is available, ask them.',
+            pattern: '^(?:\\+?91[-\\s]?)?[6-9]\\d{9}$',
+          },
         },
         required: ['address', 'city', 'province', 'postal_code'],
       },
@@ -244,7 +299,7 @@ export const toolDefinitions = [
     function: {
       name: 'update_shipping_address',
       description:
-        'Update an existing saved shipping address by index (from get_my_addresses). Use when user wants to change their delivery address.',
+        'Update an existing saved shipping address by index (from get_my_addresses). Use when user wants to change their delivery address. Never invent field values — only pass fields the user explicitly changed.',
       parameters: {
         type: 'object',
         properties: {
@@ -257,9 +312,14 @@ export const toolDefinitions = [
           address: { type: 'string' },
           city: { type: 'string' },
           province: { type: 'string' },
-          postal_code: { type: 'string' },
+          postal_code: { type: 'string', pattern: '^\\d{6}$' },
           country: { type: 'string' },
-          phone: { type: 'string' },
+          phone: {
+            type: 'string',
+            description:
+              'Indian mobile only: 10 digits starting 6–9, optionally prefixed +91. Never invent.',
+            pattern: '^(?:\\+?91[-\\s]?)?[6-9]\\d{9}$',
+          },
         },
         required: ['address_index'],
       },
@@ -529,6 +589,41 @@ const toolExecutors = {
     }
   },
 
+  async get_my_wishlist(userId) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await getWishlist(userId)
+    return {
+      count: wishlist.count || 0,
+      items: wishlist.items || [],
+    }
+  },
+
+  async add_to_wishlist(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await addWishlistItem(userId, args.product_id)
+    return {
+      success: true,
+      message: 'Saved to wishlist',
+      count: wishlist.count || 0,
+    }
+  },
+
+  async remove_from_wishlist(userId, args) {
+    if (isGuestChatUser(userId)) {
+      return buildSignInRequiredToolResult(null, { route: 'wishlist' })
+    }
+    const wishlist = await removeWishlistItem(userId, args.product_id)
+    return {
+      success: true,
+      message: 'Removed from wishlist',
+      count: wishlist.count || 0,
+    }
+  },
+
   async get_categories() {
     const [categories, counts] = await Promise.all([
       Category.find().select('name image').lean(),
@@ -602,14 +697,38 @@ const toolExecutors = {
     if (isGuestChatUser(userId)) {
       return guestCheckoutBlocked()
     }
-    return addShippingAddress(userId, args)
+    try {
+      return await addShippingAddress(userId, args)
+    } catch (err) {
+      if (err instanceof AddressValidationError) {
+        return {
+          error: 'address_validation_failed',
+          missing: err.missing,
+          invalid: err.invalid,
+          message: err.message,
+        }
+      }
+      throw err
+    }
   },
 
   async update_shipping_address(userId, args) {
     if (isGuestChatUser(userId)) {
       return guestCheckoutBlocked()
     }
-    return updateShippingAddress(userId, args)
+    try {
+      return await updateShippingAddress(userId, args)
+    } catch (err) {
+      if (err instanceof AddressValidationError) {
+        return {
+          error: 'address_validation_failed',
+          missing: err.missing,
+          invalid: err.invalid,
+          message: err.message,
+        }
+      }
+      throw err
+    }
   },
 
   async get_cart(userId) {

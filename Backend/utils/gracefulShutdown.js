@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { stopCheckoutExpiryFallback } from '../services/checkoutQueue.js'
 import { stopAllQueueWorkers } from '../services/queueWorkers.js'
 import { shutdownLlmUsageLogger } from '../services/llmUsageLogger.js'
 import { shutdownCache } from '../services/cacheService.js'
@@ -38,6 +39,8 @@ export function registerGracefulShutdown({ server = null, label = 'app' } = {}) 
     }
 
     try {
+      stopCheckoutExpiryFallback()
+
       logger.log(`[${label}] draining BullMQ workers (worker.close — finish active jobs)…`)
       await stopAllQueueWorkers()
 

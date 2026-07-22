@@ -4,6 +4,10 @@ import dbConnect from './config/dbConnect.js'
 import { config, validateConfig } from './config/env.js'
 import { probeRedisHealth, installRedisProcessErrorGuard } from './config/redisClient.js'
 import { scheduleEmbeddingSyncOnStartup } from './services/search/embeddingSyncQueue.js'
+import {
+  isCheckoutQueueEnabled,
+  startCheckoutExpiryFallback,
+} from './services/checkoutQueue.js'
 import { startAllQueueWorkers } from './services/queueWorkers.js'
 import { registerGracefulShutdown } from './utils/gracefulShutdown.js'
 import logger from './utils/logger.js'
@@ -37,6 +41,10 @@ async function startServer() {
     logger.log(
       '[queues] Workers disabled in API — run `npm run start:worker` (or node worker.js) as a separate process'
     )
+  }
+
+  if (!isCheckoutQueueEnabled()) {
+    startCheckoutExpiryFallback()
   }
 
   registerGracefulShutdown({ server, label: 'server' })

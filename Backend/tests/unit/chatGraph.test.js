@@ -116,12 +116,13 @@ describe('chatGraph guard (LLM classifier)', () => {
     expect(chatCompletion).toHaveBeenCalledOnce()
   })
 
-  it('fails open when the classifier is unavailable', async () => {
+  it('fails closed when the classifier is unavailable', async () => {
     const { chatCompletion } = await import('../../services/llmService.js')
     chatCompletion.mockRejectedValue(new Error('All LLM providers failed'))
 
     const result = await evaluateGuard('something with a javascript code pattern theme')
-    expect(result.allowed).toBe(true)
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toBe('off_topic')
   })
 })
 

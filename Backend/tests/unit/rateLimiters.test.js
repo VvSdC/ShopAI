@@ -7,6 +7,23 @@ vi.mock('../../config/redisClient.js', () => ({
   getRateLimitRedisClient: vi.fn(() => ({ call: mockCall })),
 }))
 
+function mockRateLimitConfig(overrides = {}) {
+  return {
+    isTest: false,
+    rateLimit: {
+      api: { windowMs: 900_000, max: 200 },
+      auth: { windowMs: 900_000, max: 15 },
+      chat: { windowMs: 60_000, max: 15 },
+      chatDaily: { windowMs: 86_400_000, max: 150 },
+      otpConsume: { windowMs: 900_000, max: 10 },
+      otpResend: { windowMs: 900_000, max: 5 },
+      validateCart: { windowMs: 900_000, max: 30 },
+      instanceCount: 1,
+      ...overrides,
+    },
+  }
+}
+
 describe('rateLimiters', () => {
   beforeEach(async () => {
     vi.resetModules()
@@ -25,17 +42,7 @@ describe('rateLimiters', () => {
     isRedisOperational.mockReturnValue(true)
 
     vi.doMock('../../config/env.js', () => ({
-      config: {
-        isTest: false,
-        rateLimit: {
-          api: { windowMs: 900_000, max: 200 },
-          auth: { windowMs: 900_000, max: 15 },
-          chat: { windowMs: 60_000, max: 15 },
-          chatDaily: { windowMs: 86_400_000, max: 150 },
-          otpConsume: { windowMs: 900_000, max: 10 },
-          otpResend: { windowMs: 900_000, max: 5 },
-        },
-      },
+      config: mockRateLimitConfig(),
     }))
 
     const { apiLimiter, authLimiter, chatLimiter, chatUserLimiter, chatUserDailyLimiter, otpConsumeLimiter, otpResendLimiter } =
@@ -58,17 +65,7 @@ describe('rateLimiters', () => {
     isRedisOperational.mockReturnValue(false)
 
     vi.doMock('../../config/env.js', () => ({
-      config: {
-        isTest: false,
-        rateLimit: {
-          api: { windowMs: 900_000, max: 200 },
-          auth: { windowMs: 900_000, max: 15 },
-          chat: { windowMs: 60_000, max: 15 },
-          chatDaily: { windowMs: 86_400_000, max: 150 },
-          otpConsume: { windowMs: 900_000, max: 10 },
-          otpResend: { windowMs: 900_000, max: 5 },
-        },
-      },
+      config: mockRateLimitConfig(),
     }))
 
     const { apiLimiter } = await import('../../config/rateLimiters.js')
@@ -82,17 +79,7 @@ describe('rateLimiters', () => {
     isRedisOperational.mockReturnValue(false)
 
     vi.doMock('../../config/env.js', () => ({
-      config: {
-        isTest: false,
-        rateLimit: {
-          api: { windowMs: 900_000, max: 200 },
-          auth: { windowMs: 900_000, max: 15 },
-          chat: { windowMs: 60_000, max: 15 },
-          chatDaily: { windowMs: 86_400_000, max: 150 },
-          otpConsume: { windowMs: 900_000, max: 10 },
-          otpResend: { windowMs: 900_000, max: 5 },
-        },
-      },
+      config: mockRateLimitConfig(),
     }))
 
     const { chatUserRateLimitKey } = await import('../../config/rateLimiters.js')
@@ -106,17 +93,7 @@ describe('rateLimiters', () => {
     isRedisOperational.mockReturnValue(false)
 
     vi.doMock('../../config/env.js', () => ({
-      config: {
-        isTest: false,
-        rateLimit: {
-          api: { windowMs: 900_000, max: 200 },
-          auth: { windowMs: 900_000, max: 15 },
-          chat: { windowMs: 60_000, max: 15 },
-          chatDaily: { windowMs: 86_400_000, max: 150 },
-          otpConsume: { windowMs: 900_000, max: 10 },
-          otpResend: { windowMs: 900_000, max: 5 },
-        },
-      },
+      config: mockRateLimitConfig(),
     }))
 
     const { chatGuestRateLimitKey } = await import('../../config/rateLimiters.js')
@@ -130,17 +107,7 @@ describe('rateLimiters', () => {
     isRedisOperational.mockReturnValue(false)
 
     vi.doMock('../../config/env.js', () => ({
-      config: {
-        isTest: false,
-        rateLimit: {
-          api: { windowMs: 900_000, max: 200 },
-          auth: { windowMs: 900_000, max: 15 },
-          chat: { windowMs: 60_000, max: 15 },
-          chatDaily: { windowMs: 86_400_000, max: 150 },
-          otpConsume: { windowMs: 900_000, max: 10 },
-          otpResend: { windowMs: 900_000, max: 5 },
-        },
-      },
+      config: mockRateLimitConfig(),
     }))
 
     const { otpConsumeRateLimitKey, otpResendRateLimitKey } = await import(
@@ -154,5 +121,18 @@ describe('rateLimiters', () => {
     expect(
       otpResendRateLimitKey({ body: { email: 'Resend@Test.com' }, ip: '8.8.8.8' })
     ).toBe('otp-resend:email:resend@test.com')
+  })
+
+  it('scales down in-memory limits by RATE_LIMIT_INSTANCE_COUNT', async () => {
+    const { isRedisOperational } = await import('../../config/redisClient.js')
+    isRedisOperational.mockReturnValue(false)
+
+    vi.doMock('../../config/env.js', () => ({
+      config: mockRateLimitConfig({ instanceCount: 4 }),
+    }))
+
+    const { resolveRateLimitMax } = await import('../../config/rateLimiters.js')
+    expect(resolveRateLimitMax(200)).toBe(50)
+    expect(resolveRateLimitMax(15)).toBe(3)
   })
 })

@@ -41,9 +41,19 @@ export const placeOrderAction = createAsyncThunk(
           orderItems,
           shippingAddress,
           totalPrice,
+        },
+        {
+          headers: {
+            'Idempotency-Key': payload.idempotencyKey || `checkout-${Date.now()}`,
+          },
         }
       )
-      return { url: data?.url }
+      return {
+        url: data?.url,
+        orderId: data?.orderId,
+        orderNumber: data?.orderNumber,
+        expiresAt: data?.expiresAt,
+      }
     } catch (error) {
       return rejectWithValue(error?.response?.data)
     }
