@@ -149,6 +149,8 @@
 | AUD-080 | done | Repository missing LICENSE for others to fork | root `LICENSE`, `package.json`, `Backend/package.json`, `Frontend/package.json` | MIT license across the monorepo |
 | AUD-081 | done | No architectural rationale doc for forkers | `docs/TECHNICAL_FAQ.md` | 15-question FAQ with mermaid diagrams; linked from root README + docs README |
 | AUD-082 | done | docs/README stale (Analytics path, `/api/v1` prefix, no-streaming note) | `docs/README.md`, `Backend/docs/Chatbot.md` | Fixed prefix, mentioned streaming endpoint, updated Analytics tabs |
+| AUD-083 | done | Audience filter kept irrelevant items when catalog lacked gender tagging (e.g. "women makeup kits" → cricket kits) | `services/search/audienceFilter.js`, `tests/unit/audienceFilter.test.js` | Strict mode by default: only fit=1 (explicit or unisex) kept; empty result beats padding with off-topic items |
+| AUD-084 | done | Product descriptions rendered as plain text in chat product-detail card | `Frontend/src/components/ChatBot/chatBlocks/ProductDetailCard.js` | Reuses `MarkdownContent` (already used on PDP) with compact card styling |
 
 ---
 
@@ -164,6 +166,7 @@
 | AUD-019–055 (excl. coupons) | 2026-07-07 | Partial — see backlog statuses; coupon items skipped | — |
 | AUD-034–075 | 2026-07-07 | Backend + Frontend full suite (see verification run) | — |
 | AUD-076–082 | 2026-07-22 | `npm test` (Backend: 531/531 pass); `npm run build` (Frontend: compiled successfully) | — |
+| AUD-083–084 | 2026-07-22 | `npx vitest run tests/unit` (530/530 pass); `npm run build` (Frontend: compiled successfully) | — |
 
 ---
 

@@ -93,25 +93,33 @@ export function scoreAudienceFit(product, audience) {
   const conflicts = productHasSignal(product, conflictSignals)
   if (conflicts && !productHasUnisexHint(product)) return -1
 
+  // Unisex items are relevant for any audience in strict mode.
+  if (productHasUnisexHint(product)) return 1
+
   return 0
 }
 
 /**
  * Filter a product list to those that match the requested audience.
+ *
  * Behaviour:
  *   - No audience → returns list unchanged.
- *   - Some explicit matches exist → drop conflicts, prefer explicit matches.
- *   - No explicit matches and no conflicts → keep list as-is (unknown ≠ mismatch).
+ *   - `strict = true` (audience came from an explicit user signal — either
+ *     args.audience or a gender keyword in the query):
+ *       • return ONLY products with explicit audience match (fit === 1)
+ *       • if none match, return [] — "no women's products found" beats
+ *         "here are cricket kits for your makeup query"
+ *   - `strict = false` (audience inferred with low confidence):
+ *       • drop explicit conflicts only, keep unknowns
  */
-export function applyAudienceFilter(products, audience) {
+export function applyAudienceFilter(products, audience, { strict = true } = {}) {
   if (!audience || !Array.isArray(products) || products.length === 0) return products
 
   const scored = products.map((p) => ({ product: p, fit: scoreAudienceFit(p, audience) }))
-  const anyExplicitMatch = scored.some((r) => r.fit === 1)
 
-  if (anyExplicitMatch) {
-    return scored.filter((r) => r.fit >= 0).map((r) => r.product)
+  if (strict) {
+    return scored.filter((r) => r.fit === 1).map((r) => r.product)
   }
-  // No product explicitly declares audience — keep list minus explicit conflicts.
+
   return scored.filter((r) => r.fit >= 0).map((r) => r.product)
 }
