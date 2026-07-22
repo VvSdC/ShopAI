@@ -15,6 +15,7 @@ A plain-language tour of the codebase: what each piece does, how a request flows
 | `Backend/.env.example` | All environment variables documented — copy to `Backend/.env` |
 | `Backend/docs/` | Deep-dives (chatbot, search, tagging) |
 | `docs/README.md` | **You are here** — high-level guide |
+| `docs/TECHNICAL_FAQ.md` | **Why did we build it *this* way?** — architectural decisions with diagrams |
 | `docs/AUDIT_BACKLOG.md` | **Audit backlog** — prioritized issues (AUD-001+) for implement → test loops |
 
 **Stack:** Node 20+, Express, MongoDB (Mongoose), React, Stripe, multi-provider LLM APIs, optional Redis + BullMQ.
@@ -78,7 +79,7 @@ Four layers:
 
 ```
 URL /products-filters?q=cricket+bat
-    → GET /api/v1/products?q=cricket+bat
+    → GET /shopai/products?q=cricket+bat
     → productsCtrl.js
     → searchProducts()       (keyword + vector + RRF + rerank + relevance trim)
     → JSON product cards
@@ -217,7 +218,7 @@ Why it matters: when the user says "the second one", we know from the *previous*
 - Sessions stored in `ChatSession` (Mongoose), up to 100 messages per session, 50 sessions per user.
 - History sent to the LLM is trimmed to a token budget (`CHAT_HISTORY_TOKEN_BUDGET`, default ~8k est. tokens).
 - Catalog products from listings are stored as structured `catalogProducts[]` on the assistant message — no need to re-parse markdown to resolve "first/second/etc".
-- **Streaming endpoint** `POST /shopai/chat/message/stream` (SSE) emits `route`, `tool_start`, `tool_end`, `text_delta`, and a final `done` event.
+- **Streaming endpoint** `POST /shopai/chat/message/stream` (SSE) emits `route`, `tool_start`, `tool_end`, `text_delta`, and a final `done` event. The non-streaming endpoint `POST /shopai/chat/message` returns the same payload in one shot.
 
 ### 4f. Key files
 
@@ -370,13 +371,33 @@ Every call is logged to `LlmUsageLog` (batched). The chat planner and per-route 
 
 URL: `/admin/developer-analytics`
 
+This dashboard is our in-DB telemetry — no Prometheus / Datadog dependency.
+Everything is aggregated on demand from `LlmUsageLog` (raw) or
+`LlmUsageSummary` (daily rollups).
+
 | Tab | What it does |
 |-----|--------------|
-| **Inference** | Smoke-test LLM providers with a model picker and a "Hi" prompt |
+| **System health** | Live snapshot: Mongo/Redis ping, LLM providers configured, queue enablement, embedding coverage, memory, uptime, similar-products mode, recent chat errors |
+| **Chat usage** | Token trend, **estimated cost in USD**, avg latency, **error rate + top error types**, per-route / per-provider / per-span / per-tool breakdowns; source filter (production chat, eval, inference test, chat tool, all) |
+| **Chat tools** | Per-tool call count, error rate, avg latency — spot slow or buggy tools |
+| **Inference** | Smoke-test LLM providers with a model picker and a "Hi" prompt (also logged with `source=inference_test`) |
 | **Evaluate Chatbot** | Run golden test cases (`Backend/services/chatEvalCases.js`) through `runChatGraph()` with live progress, deterministic checks, and an LLM judge |
-| **Usage** | Group LLM usage by `route`, `routeReason`, `span` — answers "which route is calling the LLM most?" |
 
-Eval cases run through the **same** `runChatGraph()` as live chat, so what you measure is what you ship.
+Eval cases run through the **same** `runChatGraph()` as live chat, so what
+you measure is what you ship.
+
+Cost estimation lives in `Backend/services/llmPricing.js` — per-provider and
+per-model USD/1K tables. Best-effort estimates for internal telemetry (not
+billing); update as vendors change pricing.
+
+**API endpoints** (all admin-only, mounted under `/shopai/analytics`):
+
+- `GET /system-health`
+- `GET /chat-usage?days=&source=`
+- `GET /errors?days=&limit=&source=`
+- `GET /pricing`
+- `GET /inference/providers` · `POST /inference/test`
+- `GET /chat-eval/cases` · `POST /chat-eval/run` · `GET /chat-eval/status/:jobId`
 
 ---
 
@@ -417,10 +438,12 @@ cd Frontend && npm install && npm start
 | Adjust safety / routing thresholds | `services/chatGraph/guard.js`, `routerHeuristic.js` |
 | Fix retrieval quality | `services/productSearch.js` (lexical trim) + `services/search/searchService.js` |
 | Add a new background job | `services/queueWorkers.js` + a new file in `services/` |
-| Track LLM cost or routes | `services/llmUsageLogger.js` |
+| Track LLM cost or routes | `services/llmUsageLogger.js` + `services/llmPricing.js` |
 | Change order/payment flow | `services/orderService.js` (canonical) |
 | Modify cart calculations | `services/cartService.js` |
-| Add an admin metric | Frontend `components/Admin/DeveloperAnalytics/` + an API in `controllers/analyticsCtrl.js` |
+| Add an admin metric | Frontend `components/Admin/Analytics/` + an API in `controllers/analyticsCtrl.js` |
+| Extend system-health checks | `services/systemHealthService.js` |
+| Change how similar-products are picked | `services/similarProductsService.js` (env `SIMILAR_PRODUCTS_MODE`) |
 
 ---
 
@@ -434,4 +457,5 @@ cd Frontend && npm install && npm start
 | [`Backend/docs/CommentTagging.md`](../Backend/docs/CommentTagging.md) | Review moderation and tags |
 | [`Backend/docs/OpenAPI.md`](../Backend/docs/OpenAPI.md) | OpenAPI generation notes |
 | [`Backend/.env.example`](../Backend/.env.example) | Full environment reference |
+| [`docs/TECHNICAL_FAQ.md`](./TECHNICAL_FAQ.md) | Architectural decisions — why hybrid search, why LangGraph, why in-DB telemetry, etc. |
 | [`docs/AUDIT_BACKLOG.md`](./AUDIT_BACKLOG.md) | Prioritized audit issues — implement/test tracker |

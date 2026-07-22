@@ -6,7 +6,10 @@ import {
   loadSummariesForRange,
   mergeBreakdown,
   mergeDailySummaries,
+  mergeErrorBreakdown,
+  mergeToolBreakdown,
 } from './llmUsageSummaryService.js'
+import { estimateLlmCostUsd } from './llmPricing.js'
 
 function startDateForRange(days) {
   const d = new Date()
@@ -28,6 +31,8 @@ function buildDailySeries(since, rangeDays, dailyMap) {
       promptTokens: row?.promptTokens || 0,
       completionTokens: row?.completionTokens || 0,
       totalTokens: row?.totalTokens || 0,
+      costUsd: Number((row?.costUsd || 0).toFixed(6)),
+      errorCount: row?.errorCount || 0,
       avgLatencyMs: Math.round(row?.avgLatencyMs || 0),
     })
   }
@@ -53,9 +58,17 @@ function buildSummaryBlock(totals, priorTokens) {
       totals.calls > 0
         ? Math.round((totals.successCount / totals.calls) * 100)
         : 100,
+    errorRate:
+      totals.calls > 0
+        ? Math.round(((totals.errorCount || 0) / totals.calls) * 100)
+        : 0,
+    errorCount: totals.errorCount || 0,
+    costUsd: Number((totals.costUsd || 0).toFixed(4)),
     tokenDeltaPct,
     avgTokensPerCall:
       totals.calls > 0 ? Math.round(totals.totalTokens / totals.calls) : 0,
+    avgCostPerCallUsd:
+      totals.calls > 0 ? Number(((totals.costUsd || 0) / totals.calls).toFixed(6)) : 0,
   }
 }
 
@@ -85,6 +98,8 @@ export async function getChatUsageAnalyticsFromSummary({ days = 7, source = 'cha
       acc.totalTokens += row.totalTokens
       acc.latencySum += row.latencySum
       acc.successCount += row.successCount
+      acc.errorCount += row.errorCount || 0
+      acc.costUsd += row.costUsd || 0
       return acc
     },
     {
@@ -94,6 +109,8 @@ export async function getChatUsageAnalyticsFromSummary({ days = 7, source = 'cha
       totalTokens: 0,
       latencySum: 0,
       successCount: 0,
+      errorCount: 0,
+      costUsd: 0,
     }
   )
 
@@ -117,6 +134,12 @@ export async function getChatUsageAnalyticsFromSummary({ days = 7, source = 'cha
     rows.map((row) => row.byProvider),
     'provider'
   )
+  const bySpan = mergeBreakdown(
+    rows.map((row) => row.bySpan),
+    'span'
+  ).slice(0, 15)
+  const byTool = mergeToolBreakdown(rows.map((row) => row.byTool)).slice(0, 15)
+  const byError = mergeErrorBreakdown(rows.map((row) => row.byError)).slice(0, 10)
 
   return {
     rangeDays,
@@ -125,18 +148,11 @@ export async function getChatUsageAnalyticsFromSummary({ days = 7, source = 'cha
     dataSource: 'summary',
     summary: buildSummaryBlock(totals, priorTokens),
     daily: buildDailySeries(since, rangeDays, dailyMap),
-    byRoute: byRoute.map((row) => ({
-      route: row.route,
-      calls: row.calls,
-      totalTokens: row.totalTokens,
-      avgLatencyMs: row.avgLatencyMs,
-    })),
-    byProvider: byProvider.map((row) => ({
-      provider: row.provider,
-      calls: row.calls,
-      totalTokens: row.totalTokens,
-      avgLatencyMs: row.avgLatencyMs,
-    })),
+    byRoute,
+    byProvider,
+    bySpan,
+    byTool,
+    byError,
   }
 }
 
@@ -159,9 +175,9 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
         completionTokens: { $sum: '$completionTokens' },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
-        successCount: {
-          $sum: { $cond: ['$success', 1, 0] },
-        },
+        successCount: { $sum: { $cond: ['$success', 1, 0] } },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+        costUsd: { $sum: '$costUsd' },
       },
     },
   ])
@@ -176,6 +192,8 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
         completionTokens: { $sum: '$completionTokens' },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+        costUsd: { $sum: '$costUsd' },
       },
     },
     { $sort: { _id: 1 } },
@@ -189,6 +207,7 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
         calls: { $sum: 1 },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
       },
     },
     { $sort: { totalTokens: -1 } },
@@ -203,9 +222,47 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
         calls: { $sum: 1 },
         totalTokens: { $sum: '$totalTokens' },
         latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
       },
     },
     { $sort: { totalTokens: -1 } },
+  ])
+
+  const bySpan = await LlmUsageLog.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: '$span',
+        calls: { $sum: 1 },
+        totalTokens: { $sum: '$totalTokens' },
+        latencySum: { $sum: '$latencyMs' },
+        costUsd: { $sum: '$costUsd' },
+      },
+    },
+    { $sort: { calls: -1 } },
+    { $limit: 15 },
+  ])
+
+  const byTool = await LlmUsageLog.aggregate([
+    { $match: { ...match, tool: { $ne: null } } },
+    {
+      $group: {
+        _id: '$tool',
+        calls: { $sum: 1 },
+        latencySum: { $sum: '$latencyMs' },
+        errorCount: { $sum: { $cond: ['$success', 0, 1] } },
+      },
+    },
+    { $sort: { calls: -1 } },
+    { $limit: 15 },
+  ])
+
+  const byError = await LlmUsageLog.aggregate([
+    { $match: { ...match, success: false, errorType: { $ne: null } } },
+    { $group: { _id: '$errorType', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+    { $limit: 10 },
   ])
 
   const dailyMap = new Map(
@@ -217,6 +274,8 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
         completionTokens: row.completionTokens,
         totalTokens: row.totalTokens,
         avgLatencyMs: row.calls > 0 ? row.latencySum / row.calls : 0,
+        errorCount: row.errorCount,
+        costUsd: row.costUsd || 0,
       },
     ])
   )
@@ -228,6 +287,8 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
     totalTokens: 0,
     latencySum: 0,
     successCount: 0,
+    errorCount: 0,
+    costUsd: 0,
   }
 
   const priorSince = new Date(since)
@@ -258,14 +319,32 @@ export async function getChatUsageAnalyticsFromRaw({ days = 7, source = 'chat' }
       route: row._id || 'unknown',
       calls: row.calls,
       totalTokens: row.totalTokens,
+      costUsd: Number((row.costUsd || 0).toFixed(6)),
       avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
     })),
     byProvider: byProvider.map((row) => ({
       provider: row._id || 'unknown',
       calls: row.calls,
       totalTokens: row.totalTokens,
+      costUsd: Number((row.costUsd || 0).toFixed(6)),
+      errorCount: row.errorCount || 0,
       avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
     })),
+    bySpan: bySpan.map((row) => ({
+      span: row._id || 'unknown',
+      calls: row.calls,
+      totalTokens: row.totalTokens,
+      costUsd: Number((row.costUsd || 0).toFixed(6)),
+      avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
+    })),
+    byTool: byTool.map((row) => ({
+      tool: row._id,
+      calls: row.calls,
+      errorCount: row.errorCount || 0,
+      avgLatencyMs: row.calls > 0 ? Math.round(row.latencySum / row.calls) : 0,
+      errorRate: row.calls > 0 ? Math.round(((row.errorCount || 0) / row.calls) * 100) : 0,
+    })),
+    byError: byError.map((row) => ({ errorType: row._id, count: row.count })),
   }
 }
 
@@ -285,6 +364,27 @@ export async function getChatUsageAnalytics({ days = 7, source = 'chat' } = {}) 
 
   const result = await getChatUsageAnalyticsFromRaw({ days, source })
   return { ...result, degraded: true, degradedReason: 'summary_worker_unavailable' }
+}
+
+/** Recent unsuccessful LLM calls — for the Errors panel in Developer Analytics. */
+export async function getRecentLlmErrors({ limit = 25, days = 7, source = 'chat' } = {}) {
+  const rangeDays = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30)
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100)
+  const since = startDateForRange(rangeDays)
+
+  const match = { createdAt: { $gte: since }, success: false }
+  if (source && source !== 'all') match.source = source
+
+  return LlmUsageLog.find(match)
+    .sort({ createdAt: -1 })
+    .limit(safeLimit)
+    .select('createdAt provider model source span route errorType errorMessage latencyMs')
+    .lean()
+}
+
+/** Estimate the USD cost of an ad-hoc call — used by admins previewing model choices. */
+export function estimateCall({ provider, model, promptTokens, completionTokens }) {
+  return estimateLlmCostUsd({ provider, model, promptTokens, completionTokens })
 }
 
 export { listDateKeysBetween, dateKey, startDateForRange }

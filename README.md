@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/Secure%20Checkout-Stripe-635BFF?style=flat-square&logo=stripe&logoColor=white" />
   <img src="https://img.shields.io/badge/Smart%20Discovery-✓-10b981?style=flat-square" />
   <img src="https://img.shields.io/badge/Trusted%20Reviews-AI%20Moderated-0ea5e9?style=flat-square" />
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" />
 </p>
 
 ---
@@ -87,7 +88,8 @@ Run the business from one dashboard:
 - **Orders & customers** — update fulfillment, cancel with automatic refunds where policy allows, view sales
 - **Coupons & promotions** — create time-bound offers; expiry syncs to storefront and assistant automatically
 - **Sales insights** — totals, trends, and order value at a glance
-- **Developer Analytics** — smoke-test AI providers, run chat eval suites, and inspect token usage and routing in production
+- **Live system dashboard** — one-glance view of database, cache, AI providers, and background jobs
+- **AI cost & quality dashboards** — see how much the assistant is costing you, which tools it uses most, and where it slips up — no third-party monitoring required
 
 ---
 
@@ -126,5 +128,9 @@ Pay securely, get email confirmation, and ask the assistant anytime about your o
 </p>
 
 <p align="center">
-  <sub>Developers — see <a href="docs/README.md">docs/README.md</a> for architecture and setup.</sub>
+  <sub>
+    Developers — see <a href="docs/README.md">docs/README.md</a> for architecture and setup, or
+    <a href="docs/TECHNICAL_FAQ.md">docs/TECHNICAL_FAQ.md</a> for why we chose what we chose.<br/>
+    Released under the <a href="LICENSE">MIT license</a> — fork it, tune it, and make it yours.
+  </sub>
 </p>

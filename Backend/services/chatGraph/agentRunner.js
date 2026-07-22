@@ -17,6 +17,8 @@ import {
   buildSignInRequiredToolResult,
   SIGN_IN_REQUIRED_ERROR,
 } from '../guestChatRestrictions.js'
+import { sanitizeToolArgs } from './toolArgSanitizer.js'
+import { recordChatToolUsage } from '../llmUsageLogger.js'
 import logger from '../../utils/logger.js'
 
 const MAX_TOOL_ROUNDS = 7
@@ -170,11 +172,32 @@ export async function runAgentWithTools(state, route) {
         fnArgs = {}
       }
 
+      // Server-side sanitizer: drop hallucinated PII (e.g. phone numbers the
+      // customer never typed) before the tool touches the DB.
+      fnArgs = sanitizeToolArgs(fnName, fnArgs, {
+        userText: state.userText,
+        history: state.history,
+        profilePhone: state.userPhone || null,
+      })
+
+      const toolStartedAt = Date.now()
       const result =
         isGuest && isAuthRequiredTool(fnName)
           ? buildSignInRequiredToolResult(state.userText, { toolName: fnName, route })
           : await executeTool(fnName, state.userId, fnArgs)
       toolResults.push({ ...result, toolName: fnName })
+
+      // Per-tool telemetry (drives the Tools panel in Developer Analytics).
+      recordChatToolUsage({
+        toolName: fnName,
+        latencyMs: Date.now() - toolStartedAt,
+        success: !result?.error,
+        errorType: result?.error ? String(result.error).slice(0, 60) : null,
+        errorMessage: result?.error
+          ? String(result.message || result.error).slice(0, 500)
+          : null,
+        route,
+      })
 
       if (result?.error === SIGN_IN_REQUIRED_ERROR) {
         emitChatStreamEvent({

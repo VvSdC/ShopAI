@@ -15,7 +15,7 @@ module.exports = {
   plugins: ['security', 'node'],
   extends: ['eslint:recommended', 'plugin:node/recommended'],
   rules: {
-    'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'no-console': 'off',
     'no-process-exit': 'off',
     'node/no-unsupported-features/es-syntax': 'off',

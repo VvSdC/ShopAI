@@ -52,6 +52,7 @@ const chatMessageSchema = new mongoose.Schema(
       enum: [
         'product_listing',
         'product_detail',
+        'product_comparison',
         'cart_summary',
         'cart_confirm',
         'address_picker',

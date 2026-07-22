@@ -536,7 +536,7 @@ export class OrderService {
     const receiptEmail =
       session.customer_details?.email || session.customer_email || null
 
-    const { updatedOrder, fulfillment } = await this.applyStripeCheckoutSession(
+    const { fulfillment } = await this.applyStripeCheckoutSession(
       orderId,
       session,
       { receiptEmail }

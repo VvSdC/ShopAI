@@ -75,10 +75,10 @@ export async function guestGetCart(state) {
 }
 
 export async function guestAddToCart(state, args) {
-  const qty = Math.max(1, Number(args.qty) || 1)
+  const requestedQty = Math.max(1, Number(args.qty) || 1)
   const productId = args.product_id
   const product = await Product.findById(productId).select(
-    'name price description images colors sizes sizeMeasurementType'
+    'name price description images colors sizes sizeMeasurementType totalQty totalSold'
   )
   if (!product) {
     return { error: 'Product not found.' }
@@ -92,21 +92,29 @@ export async function guestAddToCart(state, args) {
     }
   }
 
+  const qtyLeft = Math.max(0, (product.totalQty || 0) - (product.totalSold || 0))
+  if (qtyLeft <= 0) {
+    return { error: `${product.name} is out of stock.` }
+  }
+
   const key = `${String(productId)}|${matchedColor}|${matchedSize}`
   const existingIndex = state.items.findIndex((item) => lineKey(item) === key)
   const existing = existingIndex >= 0 ? state.items[existingIndex] : null
 
+  const finalQty = Math.min(requestedQty, qtyLeft)
+  let mergedQty = finalQty
   if (existing) {
-    existing.qty += qty
+    mergedQty = Math.min(existing.qty + finalQty, qtyLeft)
+    existing.qty = mergedQty
     existing.totalPrice = existing.qty * existing.price
   } else {
     state.items.push(
       normalizeGuestItem({
         _id: productId,
         name: product.name,
-        qty,
+        qty: finalQty,
         price: product.price,
-        totalPrice: product.price * qty,
+        totalPrice: product.price * finalQty,
         color: matchedColor,
         size: matchedSize,
         description: product.description || '',
@@ -120,6 +128,14 @@ export async function guestAddToCart(state, args) {
     success: true,
     message: existing ? 'Cart quantity updated for this item' : 'Item added to cart',
     cart,
+    stockAdjustment: {
+      productId: String(product._id),
+      productName: product.name,
+      requestedQty,
+      finalQty: existing ? mergedQty : finalQty,
+      qtyLeft,
+      adjusted: requestedQty > qtyLeft,
+    },
     clientAction: 'sync_local_cart',
   }
 }

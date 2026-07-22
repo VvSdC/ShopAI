@@ -3,6 +3,7 @@ import { Annotation } from '@langchain/langgraph'
 export const ChatGraphState = Annotation.Root({
   userId: Annotation(),
   userName: Annotation(),
+  userPhone: Annotation(),
   userText: Annotation(),
   history: Annotation({ default: () => [] }),
   guardAllowed: Annotation({ default: () => true }),

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import bcrypt from 'bcryptjs'
 import request from 'supertest'
-import mongoose from 'mongoose'
 import app from '../../app/app.js'
 import User from '../../model/User.js'
 import Order from '../../model/Order.js'

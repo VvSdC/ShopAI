@@ -49,6 +49,8 @@ import SiteFooter from "./components/Layout/SiteFooter";
 import DeveloperAnalyticsLayout from "./components/Admin/Analytics/DeveloperAnalyticsLayout";
 import InferencePanel from "./components/Admin/Analytics/InferencePanel";
 import ChatbotEvalPanel from "./components/Admin/Analytics/ChatbotEvalPanel";
+import SystemHealthPanel from "./components/Admin/Analytics/SystemHealthPanel";
+import ToolUsagePanel from "./components/Admin/Analytics/ToolUsagePanel";
 import NotFoundPage from "./components/NotFound/NotFoundPage";
 import RouteErrorBoundary from "./components/common/RouteErrorBoundary";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -239,10 +241,12 @@ function AppShell() {
             </AdminRoutes>
           }
         >
-          <Route index element={<Navigate to="inference" replace />} />
+          <Route index element={<Navigate to="system-health" replace />} />
+          <Route path="system-health" element={<SystemHealthPanel />} />
+          <Route path="chat-usage" element={<ChatUsagePanel />} />
+          <Route path="tool-usage" element={<ToolUsagePanel />} />
           <Route path="inference" element={<InferencePanel />} />
           <Route path="chat-eval" element={<ChatbotEvalPanel />} />
-          <Route path="chat-usage" element={<ChatUsagePanel />} />
         </Route>
         {/* public links */}
         {/* Products */}

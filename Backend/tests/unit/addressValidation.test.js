@@ -53,7 +53,7 @@ describe('validateAddressPayload', () => {
   })
 
   it('marks phone as missing when no phone is provided anywhere', () => {
-    const { phone, ...withoutPhone } = validBase
+    const { phone: _phone, ...withoutPhone } = validBase
     expect(() => validateAddressPayload(withoutPhone)).toThrow(AddressValidationError)
     try {
       validateAddressPayload(withoutPhone)
@@ -77,7 +77,7 @@ describe('validateAddressPayload', () => {
   })
 
   it('falls back to profile phone when user did not provide one', () => {
-    const { phone, ...withoutPhone } = validBase
+    const { phone: _phone, ...withoutPhone } = validBase
     const result = validateAddressPayload(withoutPhone, {
       fullname: 'Sridatta Charan',
       phone: '+91-9998887776',
@@ -86,7 +86,7 @@ describe('validateAddressPayload', () => {
   })
 
   it('does not fall back to a profile phone that is itself invalid', () => {
-    const { phone, ...withoutPhone } = validBase
+    const { phone: _phone, ...withoutPhone } = validBase
     expect(() =>
       validateAddressPayload(withoutPhone, { phone: '040-12345678' })
     ).toThrow(AddressValidationError)

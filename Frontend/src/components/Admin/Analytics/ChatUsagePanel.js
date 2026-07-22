@@ -11,6 +11,14 @@ function formatMs(value) {
   return `${ms}ms`
 }
 
+function formatUsd(value) {
+  const n = Number(value || 0)
+  if (n === 0) return '$0.00'
+  if (n < 0.01) return `$${n.toFixed(4)}`
+  if (n < 1) return `$${n.toFixed(3)}`
+  return `$${n.toFixed(2)}`
+}
+
 function DeltaBadge({ pct }) {
   if (pct == null || pct === 0) {
     return <span className="text-xs text-stone-500">vs prior period: flat</span>
@@ -25,11 +33,17 @@ function DeltaBadge({ pct }) {
   )
 }
 
-function StatCard({ label, value, hint, delta }) {
+function StatCard({ label, value, hint, delta, tone }) {
+  const toneClass =
+    tone === 'error'
+      ? 'text-rose-700'
+      : tone === 'cost'
+        ? 'text-emerald-700'
+        : 'text-stone-900'
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-medium text-stone-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold tracking-tight text-stone-900">{value}</p>
+      <p className={`mt-2 text-3xl font-bold tracking-tight ${toneClass}`}>{value}</p>
       {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
       {delta != null && (
         <div className="mt-2">
@@ -61,7 +75,7 @@ function TokenBarChart({ daily }) {
             <div
               key={day.date}
               className="group flex flex-1 flex-col items-center justify-end"
-              title={`${day.date}: ${formatNumber(day.totalTokens)} tokens`}
+              title={`${day.date}: ${formatNumber(day.totalTokens)} tokens · ${formatUsd(day.costUsd)}`}
             >
               <div
                 className="flex w-full max-w-[2.5rem] flex-col overflow-hidden rounded-t-md bg-stone-100"
@@ -124,7 +138,34 @@ function LatencyChart({ daily }) {
   )
 }
 
-function BreakdownTable({ title, rows, valueKey }) {
+function CostChart({ daily }) {
+  const maxCost = useMemo(
+    () => Math.max(...daily.map((d) => d.costUsd || 0), 0.0001),
+    [daily]
+  )
+
+  return (
+    <div className="flex h-40 items-end gap-2">
+      {daily.map((day) => {
+        const heightPct = Math.max(4, ((day.costUsd || 0) / maxCost) * 100)
+        return (
+          <div key={`cost-${day.date}`} className="flex flex-1 flex-col items-center">
+            <div
+              className="w-full max-w-[2.5rem] rounded-t-md bg-amber-500/80 transition-all"
+              style={{ height: `${heightPct}%` }}
+              title={`${day.date}: ${formatUsd(day.costUsd)}`}
+            />
+            <span className="mt-2 hidden text-[10px] text-stone-400 sm:block">
+              {day.date.slice(5)}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function BreakdownTable({ title, rows, valueKey, columns }) {
   if (!rows?.length) {
     return (
       <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -134,6 +175,13 @@ function BreakdownTable({ title, rows, valueKey }) {
     )
   }
 
+  const cols = columns || [
+    { key: 'calls', label: 'Calls', render: (r) => formatNumber(r.calls) },
+    { key: 'totalTokens', label: 'Tokens', render: (r) => formatNumber(r.totalTokens) },
+    { key: 'costUsd', label: 'Cost', render: (r) => formatUsd(r.costUsd) },
+    { key: 'avgLatencyMs', label: 'Avg latency', render: (r) => formatMs(r.avgLatencyMs) },
+  ]
+
   return (
     <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
@@ -142,27 +190,44 @@ function BreakdownTable({ title, rows, valueKey }) {
           <thead>
             <tr className="border-b text-left text-xs uppercase tracking-wide text-stone-500">
               <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Calls</th>
-              <th className="py-2 pr-4">Tokens</th>
-              <th className="py-2">Avg latency</th>
+              {cols.map((c) => (
+                <th key={c.key} className="py-2 pr-4">
+                  {c.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row[valueKey]} className="border-b border-stone-50">
-                <td className="py-2 pr-4 font-medium capitalize text-stone-800">
-                  {row[valueKey]}
+                <td className="py-2 pr-4 font-medium text-stone-800 break-all">
+                  {row[valueKey] || 'unknown'}
                 </td>
-                <td className="py-2 pr-4 text-stone-600">{formatNumber(row.calls)}</td>
-                <td className="py-2 pr-4 text-stone-600">
-                  {formatNumber(row.totalTokens)}
-                </td>
-                <td className="py-2 text-stone-600">{formatMs(row.avgLatencyMs)}</td>
+                {cols.map((c) => (
+                  <td key={c.key} className="py-2 pr-4 text-stone-600">
+                    {c.render(row)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function DegradedBanner({ data }) {
+  if (!data?.degraded) return null
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <strong>Live mode (no summary worker).</strong> Numbers are aggregated on the fly
+      from raw usage logs. Start the LLM usage summary worker (Redis +{' '}
+      <code>ENABLE_LLM_USAGE_SUMMARY_QUEUE=true</code>) for faster loads on large
+      windows.{' '}
+      {data.degradedReason && (
+        <span className="ml-1 text-amber-700">Reason: {data.degradedReason}</span>
+      )}
     </div>
   )
 }
@@ -202,7 +267,8 @@ export default function ChatUsagePanel() {
         <div>
           <h2 className="text-xl font-bold text-stone-900">Chat usage</h2>
           <p className="mt-1 text-sm text-stone-500">
-            Input/output tokens, completion latency, and daily trends for chatbot LLM calls.
+            Cost, latency, error rate, and per-route / per-tool breakdowns for chatbot
+            LLM calls.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -213,6 +279,8 @@ export default function ChatUsagePanel() {
           >
             <option value="chat">Production chat</option>
             <option value="eval">Eval runs</option>
+            <option value="inference_test">Inference tests</option>
+            <option value="chat_tool">Chat tool calls</option>
             <option value="all">All sources</option>
           </select>
           <select
@@ -240,6 +308,8 @@ export default function ChatUsagePanel() {
         </div>
       )}
 
+      <DegradedBanner data={data} />
+
       {loading && (
         <p className="mt-8 text-sm text-stone-500">Loading usage metrics…</p>
       )}
@@ -248,13 +318,16 @@ export default function ChatUsagePanel() {
         <>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              label="Input tokens"
-              value={formatNumber(summary.promptTokens)}
+              label="Total tokens"
+              value={formatNumber(summary.totalTokens)}
+              hint={`~${formatNumber(summary.avgTokensPerCall)} per call · ${formatNumber(summary.calls)} calls`}
               delta={source === 'chat' ? summary.tokenDeltaPct : null}
             />
             <StatCard
-              label="Output tokens"
-              value={formatNumber(summary.completionTokens)}
+              label="Estimated cost"
+              value={formatUsd(summary.costUsd)}
+              hint={`~${formatUsd(summary.avgCostPerCallUsd)} per call`}
+              tone="cost"
             />
             <StatCard
               label="Avg completion time"
@@ -262,9 +335,10 @@ export default function ChatUsagePanel() {
               hint={`Across ${formatNumber(summary.calls)} LLM calls`}
             />
             <StatCard
-              label="Total tokens"
-              value={formatNumber(summary.totalTokens)}
-              hint={`~${formatNumber(summary.avgTokensPerCall)} per call`}
+              label="Error rate"
+              value={`${summary.errorRate || 0}%`}
+              hint={`${formatNumber(summary.errorCount || 0)} failed calls`}
+              tone={summary.errorRate > 5 ? 'error' : undefined}
             />
           </div>
 
@@ -291,17 +365,68 @@ export default function ChatUsagePanel() {
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-stone-900">Daily estimated cost</h3>
+              <p className="mt-1 text-xs text-stone-500">
+                USD estimate based on published per-provider pricing (best-effort, not
+                billing).
+              </p>
+              <div className="mt-6">
+                <CostChart daily={data.daily || []} />
+              </div>
+            </div>
+
+            <BreakdownTable
+              title="Top pipeline spans"
+              rows={data.bySpan || []}
+              valueKey="span"
+            />
+          </div>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <BreakdownTable
               title="By agent route"
-              rows={data.byRoute}
+              rows={data.byRoute || []}
               valueKey="route"
             />
             <BreakdownTable
               title="By provider"
-              rows={data.byProvider}
+              rows={data.byProvider || []}
               valueKey="provider"
+              columns={[
+                { key: 'calls', label: 'Calls', render: (r) => formatNumber(r.calls) },
+                {
+                  key: 'totalTokens',
+                  label: 'Tokens',
+                  render: (r) => formatNumber(r.totalTokens),
+                },
+                { key: 'costUsd', label: 'Cost', render: (r) => formatUsd(r.costUsd) },
+                {
+                  key: 'errorCount',
+                  label: 'Errors',
+                  render: (r) => formatNumber(r.errorCount || 0),
+                },
+              ]}
             />
           </div>
+
+          {data.byError?.length > 0 && (
+            <div className="mt-8 rounded-xl border border-rose-200 bg-rose-50 p-5">
+              <h3 className="text-sm font-semibold text-rose-900">
+                Top error types in this window
+              </h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {data.byError.map((row) => (
+                  <span
+                    key={row.errorType}
+                    className="rounded-full bg-white px-3 py-1 text-xs font-medium text-rose-800 shadow-sm ring-1 ring-rose-200"
+                  >
+                    {row.errorType} · {formatNumber(row.count)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  AUTH_REQUIRED_TOOLS,
   buildSignInRequiredReply,
   buildSignInRequiredToolResult,
   hasSignInRequiredResult,

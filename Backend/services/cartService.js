@@ -267,7 +267,8 @@ export async function addItem(userId, { productId, color, size, qty = 1 }) {
     throw new AppError('Product is out of stock', 400)
   }
 
-  const finalQty = Math.min(Math.max(1, Number(qty) || 1), qtyLeft)
+  const requestedQty = Math.max(1, Number(qty) || 1)
+  const finalQty = Math.min(requestedQty, qtyLeft)
   const cart = await findOrCreateCart(userId)
   const newLine = {
     _id: product._id,
@@ -283,8 +284,9 @@ export async function addItem(userId, { productId, color, size, qty = 1 }) {
 
   const key = lineKey(newLine)
   const existingIndex = cart.items.findIndex((item) => lineKey(item) === key)
+  let mergedQty = finalQty
   if (existingIndex >= 0) {
-    const mergedQty = Math.min(cart.items[existingIndex].qty + finalQty, qtyLeft)
+    mergedQty = Math.min(cart.items[existingIndex].qty + finalQty, qtyLeft)
     cart.items[existingIndex].qty = mergedQty
     cart.items[existingIndex].price = product.price
     cart.items[existingIndex].totalPrice = product.price * mergedQty
@@ -293,7 +295,16 @@ export async function addItem(userId, { productId, color, size, qty = 1 }) {
   }
 
   await cart.save()
-  return getCart(userId)
+  const cartResult = await getCart(userId)
+  cartResult.stockAdjustment = {
+    productId: String(product._id),
+    productName: product.name,
+    requestedQty,
+    finalQty: existingIndex >= 0 ? mergedQty : finalQty,
+    qtyLeft,
+    adjusted: requestedQty > qtyLeft,
+  }
+  return cartResult
 }
 
 export async function updateItemQty(userId, { productId, color, size, qty }) {
@@ -330,7 +341,16 @@ export async function updateItemQty(userId, { productId, color, size, qty }) {
   cart.items[index].price = product.price
   cart.items[index].totalPrice = product.price * finalQty
   await cart.save()
-  return getCart(userId)
+  const cartResult = await getCart(userId)
+  cartResult.stockAdjustment = {
+    productId: String(product._id),
+    productName: product.name,
+    requestedQty: parsedQty,
+    finalQty,
+    qtyLeft,
+    adjusted: parsedQty > qtyLeft,
+  }
+  return cartResult
 }
 
 export async function removeItem(userId, { productId, color, size }) {

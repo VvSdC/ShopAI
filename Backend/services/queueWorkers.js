@@ -27,6 +27,7 @@ const WORKER_STARTERS = [
   ['moderation', startModerationWorker],
   ['productTagging', startProductTaggingWorker],
   ['llmUsageSummary', startLlmUsageSummaryWorker],
+  ['chatEval', startChatEvalWorker],
   ['email', startEmailWorker],
 ]
 

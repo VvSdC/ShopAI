@@ -103,6 +103,14 @@ export const config = {
     deterministicAssist: envBool('ENABLE_CHAT_DETERMINISTIC_ASSIST', true),
   },
 
+  similarProducts: {
+    /**
+     * simple (default) — category-scoped in-process cosine, cached in Redis.
+     * atlas             — MongoDB $vectorSearch (opt in for large catalogs).
+     */
+    mode: env('SIMILAR_PRODUCTS_MODE', 'simple'),
+  },
+
   cloudinary: {
     cloudName: env('CLOUDINARY_CLOUD_NAME', ''),
     apiKey: env('CLOUDINARY_API_KEY', ''),

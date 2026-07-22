@@ -1,4 +1,5 @@
 import { patchLlmUsageContext } from '../llmUsageContext.js'
+import { emitChatStreamEvent, isChatStreamActive } from '../chatStreamContext.js'
 import { isObviousInjection } from './guardPatterns.js'
 import { classifyIntentHeuristic } from './routerHeuristic.js'
 import { planUserMessage } from '../chatPlanner.js'
@@ -61,7 +62,24 @@ export async function guardNode(state) {
   const looksEnglish =
     // eslint-disable-next-line no-control-regex -- ASCII-only check for English heuristic fast path
     /^[\x00-\x7F]+$/.test(text) && ENGLISH_MARKER_PATTERN.test(text)
-  if (heuristic.confidence === 'high' && looksEnglish) {
+
+  // Routes where language nuance / slot extraction rarely matters. Skipping
+  // the planner LLM here saves ~1 LLM RTT (300–800ms) on the most common
+  // shopping intents.
+  const FAST_PATH_ROUTES = new Set([
+    'general',
+    'order_summary',
+    'order_update',
+    'payment',
+    'policies',
+    'comparison',
+  ])
+
+  const fastPathEligible =
+    heuristic.confidence === 'high' &&
+    (looksEnglish || FAST_PATH_ROUTES.has(heuristic.route))
+
+  if (fastPathEligible) {
     patchLlmUsageContext({ route: heuristic.route, routeReason: heuristic.reason })
     return {
       guardAllowed: true,
@@ -74,6 +92,13 @@ export async function guardNode(state) {
     }
   }
 
+  if (isChatStreamActive()) {
+    emitChatStreamEvent({
+      type: 'tool_start',
+      toolName: 'planner',
+      label: 'Understanding your request…',
+    })
+  }
   const plan = await planUserMessage(state.userText, state.history)
 
   if (!plan.allowed) {

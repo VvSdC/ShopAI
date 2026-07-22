@@ -13,6 +13,9 @@ describe('chatDeterministicAssist', () => {
     vi.doMock('../../services/chatProductDetailAssist.js', () => ({
       runProductDetailAssist: vi.fn(async () => ({ toolResults: [], reply: null })),
     }))
+    vi.doMock('../../services/chatComparisonAssist.js', () => ({
+      runComparisonAssist: vi.fn(async (_u, _t, _h, toolResults) => ({ toolResults, reply: null })),
+    }))
     vi.doMock('../../services/chatRetrievalAssist.js', () => ({
       runRetrievalAssist: vi.fn(async (_userId, _text, _history, toolResults) => ({
         toolResults,
@@ -58,6 +61,9 @@ describe('chatDeterministicAssist', () => {
     }))
     vi.doMock('../../services/chatProductDetailAssist.js', () => ({
       runProductDetailAssist: vi.fn(async () => ({ toolResults: [], reply: null })),
+    }))
+    vi.doMock('../../services/chatComparisonAssist.js', () => ({
+      runComparisonAssist: vi.fn(async (_u, _t, _h, toolResults) => ({ toolResults, reply: null })),
     }))
     vi.doMock('../../services/chatRetrievalAssist.js', () => ({
       runRetrievalAssist: vi.fn(async () => ({

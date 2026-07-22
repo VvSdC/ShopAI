@@ -31,7 +31,7 @@
     "NodeJS"
   ],
   "author": "VVSD Charan",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
     "@langchain/core": "^1.1.48",

@@ -7,7 +7,6 @@ import {
 } from './returnService.js'
 import { normalizeOrderItems } from './orderLineItems.js'
 import { resolveOrderDisplayStatus } from '../utils/orderDisplayStatus.js'
-import { enrichOrderForResponse } from './orderEnrichment.js'
 
 export async function resolveOrderForUser(userId, { order_id, order_number }) {
   return orderService.findByReference(userId, { order_id, order_number })

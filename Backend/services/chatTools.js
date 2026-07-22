@@ -100,37 +100,46 @@ export const toolDefinitions = [
     function: {
       name: 'search_products',
       description:
-        'Search the ShopAI product catalog (database only). ALWAYS use this before naming any product, price, or stock. Use "query" first — searches name, description, category, brand, and tags. Only add category/brand if you know exact values from get_categories/get_brands. You may ONLY describe products returned by this tool — never invent items.',
+        'Search the ShopAI product catalog (database only). ALWAYS use this before naming any product, price, or stock. Pass a concise `query` plus any filters you can infer from the customer message — especially `audience` (men/women/kids), `size`, `color`, and price range. Fewer, correct filters give more relevant results than a long query string. You may ONLY describe products returned by this tool — never invent items. If the tool returns 0 products, tell the customer nothing matched — do NOT suggest random items.',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'Search term — matched against product name AND description. Use this as the primary search parameter.',
+            description: 'Short search term (2–4 words). Prefer product noun ("cricket bat", "shirt"). Do NOT stuff gender/size/color into the query — put them in the dedicated filters below.',
+          },
+          audience: {
+            type: 'string',
+            enum: ['men', 'women', 'kids'],
+            description: 'STRICT audience filter. Set whenever the customer mentions men/mens/male/boys, women/womens/ladies/female/girls, or kids/children. Products matching the opposite audience will be excluded.',
           },
           category: {
             type: 'string',
-            description: 'EXACT category name to filter by (get exact names from get_categories first)',
+            description: 'EXACT category name (get from get_categories first). Do not guess.',
           },
           brand: {
             type: 'string',
-            description: 'EXACT brand name to filter by (get exact names from get_brands first)',
+            description: 'EXACT brand name (get from get_brands first). Do not guess.',
           },
           color: {
             type: 'string',
-            description: 'Filter by color',
+            description: 'Filter by color (e.g. "black", "red").',
+          },
+          size: {
+            type: 'string',
+            description: 'Filter by size (e.g. "M", "42", "One Size"). Only pass when the customer explicitly stated a size.',
           },
           min_price: {
             type: 'number',
-            description: 'Minimum price in INR',
+            description: 'Minimum price in INR — pass when customer said "over ₹X" or "above X".',
           },
           max_price: {
             type: 'number',
-            description: 'Maximum price in INR',
+            description: 'Maximum price in INR — pass when customer said "under ₹X" or "below X".',
           },
           limit: {
             type: 'number',
-            description: 'Max results to return (default 8, max 15)',
+            description: 'Max results to return (default 8, max 15). The catalog trims to relevant matches — do not force a large limit hoping for more results.',
           },
         },
       },
@@ -536,9 +545,11 @@ const toolExecutors = {
     const limit = Math.min(Math.max(args.limit || 8, 1), 15)
     return searchProductsForChat(_userId, {
       query: args.query,
+      audience: args.audience,
       category: args.category,
       brand: args.brand,
       color: args.color,
+      size: args.size,
       min_price: args.min_price,
       max_price: args.max_price,
       limit,
@@ -792,12 +803,17 @@ const toolExecutors = {
       qty,
     })
 
+    const stockAdjustment = cart.stockAdjustment || null
+    const adjustedNote = stockAdjustment?.adjusted
+      ? ` Only ${stockAdjustment.qtyLeft} in stock, so I added ${stockAdjustment.finalQty} instead of ${stockAdjustment.requestedQty}.`
+      : ''
     return {
       success: true,
       message: existing
-        ? 'Cart quantity updated for this item'
-        : 'Item added to cart',
+        ? `Cart quantity updated for this item.${adjustedNote}`
+        : `Item added to cart.${adjustedNote}`,
       cart,
+      stockAdjustment,
       clientAction: 'sync_cart',
     }
   },

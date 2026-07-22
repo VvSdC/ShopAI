@@ -11,10 +11,6 @@ import Product from '../model/Product.js'
 import User from '../model/User.js'
 import logger from '../utils/logger.js'
 
-function isObjectId(value) {
-  return mongoose.Types.ObjectId.isValid(value) && String(value).length === 24
-}
-
 async function ensureBrandForName(name, fallbackUserId) {
   const normalized = String(name || '').trim().toLowerCase()
   if (!normalized) return null

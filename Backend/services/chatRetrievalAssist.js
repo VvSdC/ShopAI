@@ -4,7 +4,11 @@ import { buildCatalogBackedReply, looksLikeHallucinatedProductLinks, replyHasCat
 import { isDiscoveryIntent } from './chatGraph/routerHeuristic.js'
 import { isKitBundleQuery } from './chatGraph/productContext.js'
 
-const SEARCH_ROUTES = new Set(['retrieval', 'comparison'])
+// NOTE: comparison route is intentionally NOT in this set. Comparison replies
+// are structured LLM prose (side-by-side details) and must not be replaced
+// with a plain product listing. The comparisonAssist runs its own guarded
+// forced-search when needed.
+const SEARCH_ROUTES = new Set(['retrieval'])
 
 const BROWSE_ALL_PATTERN =
   /^(?:no[,!\s]+)?(?:i\s+)?(?:want to|just)?\s*(?:check|see|show|view|browse|list)\s+(?:all|everything|all of them|them all|without filters?)\b/i

@@ -107,6 +107,8 @@ async function callProvider(provider, messages, tools, maxTokens) {
       responseData: null,
       latencyMs: Date.now() - startedAt,
       success: false,
+      errorType: result.status === 429 ? 'rate_limit' : 'api_error',
+      errorMessage: String(result.error || '').slice(0, 500) || null,
     })
 
     if (result.status === 429) {
@@ -158,6 +160,8 @@ async function callProvider(provider, messages, tools, maxTokens) {
       responseData: null,
       latencyMs: Date.now() - startedAt,
       success: false,
+      errorType: response.status === 429 ? 'rate_limit' : `http_${response.status}`,
+      errorMessage: String(text).slice(0, 500) || null,
     })
     const hint =
       provider.name === 'HuggingFace' && response.status === 410
@@ -251,6 +255,8 @@ async function* streamOpenAiCompatibleProvider(provider, messages, tools, maxTok
       responseData: null,
       latencyMs: Date.now() - startedAt,
       success: false,
+      errorType: response.status === 429 ? 'rate_limit' : `http_${response.status}`,
+      errorMessage: String(text).slice(0, 500) || null,
     })
     throw new Error(`${provider.name} stream error (${response.status}): ${text}`)
   }
@@ -319,6 +325,8 @@ async function* streamGeminiProvider(messages, tools, maxTokens) {
       responseData: null,
       latencyMs: Date.now() - startedAt,
       success: false,
+      errorType: response.status === 429 ? 'rate_limit' : `http_${response.status}`,
+      errorMessage: String(text).slice(0, 500) || null,
     })
     throw new Error(`Gemini stream error (${response.status}): ${text}`)
   }

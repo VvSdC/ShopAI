@@ -224,7 +224,7 @@ export default function AdminDashboard() {
           <p className="truncate text-sm font-semibold text-stone-800 lg:hidden">ShopAI Admin</p>
           <div className="ml-auto flex items-center gap-2">
             <Link
-              to="/admin/developer-analytics/inference"
+              to="/admin/developer-analytics/system-health"
               className="hidden items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 sm:inline-flex"
             >
               <ChartBarIcon className="h-4 w-4" />
@@ -282,7 +282,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <Link
-                  to="/admin/developer-analytics/inference"
+                  to="/admin/developer-analytics/system-health"
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:hidden"
                 >
                   <ChartBarIcon className="h-4 w-4" />

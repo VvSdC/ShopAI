@@ -10,6 +10,8 @@ export async function setup() {
   process.env.JWT_REFRESH_KEY = 'test-refresh-secret-min-32-chars-long'
   process.env.STRIPE_KEY = 'sk_test_placeholder'
   process.env.FRONTEND_URL = 'http://localhost:3000'
+  // Keep hybrid-search HTTP tests off live embed/rerank providers (hung free tiers).
+  process.env.RERANK_ENABLED = 'false'
 }
 
 export async function teardown() {
